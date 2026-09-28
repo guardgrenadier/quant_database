@@ -1,4 +1,4 @@
-"""Offline checks for the V2 plan and raw durability boundary."""
+"""离线验证 V2 计划固定与 raw 持久化边界。"""
 
 import gzip
 import tempfile
@@ -11,7 +11,11 @@ from quant_ingest.raw import RawStore
 
 
 class FoundationTest(unittest.TestCase):
+    """覆盖首阶段最关键的续跑和文件完整性行为。"""
+
     def test_plan_is_fixed_and_incomplete_until_every_slice_finishes(self):
+        """同计划可续跑，参数漂移被拒绝，未决切片阻止完整判定。"""
+
         with tempfile.TemporaryDirectory() as directory:
             ledger = Ledger(Path(directory) / "state.duckdb")
             day = date(2026, 9, 18)
@@ -41,6 +45,8 @@ class FoundationTest(unittest.TestCase):
             ledger.mark_fetched("stk_mins", day)
 
     def test_raw_keeps_each_page_unchanged_and_recovers_after_crash(self):
+        """raw 保留逐页原文，并允许从写文件后、记账前的坠机恢复。"""
+
         with tempfile.TemporaryDirectory() as directory:
             raw = RawStore(Path(directory))
             ledger = Ledger(Path(directory) / "state.duckdb")
@@ -48,7 +54,7 @@ class FoundationTest(unittest.TestCase):
             ledger.plan("stk_mins", day, {"limit": 500}, {"000001.SZ": {"ts_code": "000001.SZ"}})
             pages = [b'{"code":0, "data":{"items":[[1]]}}', b' {"code":0,"data":{"items":[]}}\n']
             artifact = raw.write("stk_mins", day, "000001.SZ", pages)
-            # Simulate a crash after the atomic file write and before the ledger update.
+            # 模拟文件已原子落盘、账本尚未更新时进程坠机。
             self.assertFalse(ledger.complete("stk_mins", day))
             self.assertEqual(gzip.decompress(artifact.path.read_bytes()), b"[" + b",".join(pages) + b"]")
             recovered = raw.inspect("stk_mins", day, "000001.SZ")

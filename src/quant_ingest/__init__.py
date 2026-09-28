@@ -1,1 +1,1 @@
-"""V2 ingestion; the V1 quant_db package remains frozen."""
+"""V2 数据摄取入口；V1 的 quant_db 包保持冻结。"""

@@ -1,4 +1,4 @@
-"""Durable V2 plan and slice state. One writer updates DuckDB at a time."""
+"""持久化 V2 请求计划与切片状态；DuckDB 由单个写方串行更新。"""
 
 from __future__ import annotations
 
@@ -14,11 +14,17 @@ from .raw import RawArtifact
 
 
 def _json(value: object) -> str:
+    """稳定序列化计划参数，避免键顺序差异造成误判。"""
+
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
 class Ledger:
+    """管理计划、切片、发布和质量发现的长期状态账。"""
+
     def __init__(self, database: Path) -> None:
+        """绑定 DuckDB 文件，并幂等创建 V2 状态表。"""
+
         database.parent.mkdir(parents=True, exist_ok=True)
         self.database = database
         with duckdb.connect(str(database)) as conn:
@@ -59,13 +65,15 @@ class Ledger:
             """)
 
     def plan(self, dataset: str, day: date, parameters: dict, slices: Mapping[str, dict]) -> None:
-        """Insert the whole request plan before fetching; identical plans may resume."""
+        """抓取前一次性固定计划；仅允许相同计划续跑。"""
+
         if not dataset or not slices:
             raise ValueError("dataset and slices are required")
         plan_json = _json(parameters)
         rows = [(dataset, day, key, _json(value), "planned") for key, value in slices.items()]
         if not all(key for key in slices):
             raise ValueError("slice keys must be nonempty")
+        # 计划和全部 planned 切片同事务提交，避免坠机后只留下半份计划。
         with duckdb.connect(str(self.database)) as conn:
             conn.execute("begin transaction")
             try:
@@ -83,6 +91,7 @@ class Ledger:
                         rows,
                     )
                 else:
+                    # 续跑不得随着 universe 或请求参数变化而悄悄扩大、缩小切片集合。
                     saved = conn.execute(
                         "select slice_key, parameters_json from slices where dataset = ? and trade_date = ?",
                         [dataset, day],
@@ -100,7 +109,8 @@ class Ledger:
         self, dataset: str, day: date, slice_key: str, status: str,
         *, artifact: RawArtifact | None = None, row_count: int | None = None,
     ) -> None:
-        """Only a completed slice may refer to raw; completed slices are immutable."""
+        """登记切片状态；完成态必须有可校验的 raw，且不得再次修改。"""
+
         if status not in {"ok", "empty", "pending", "failed", "quarantined"}:
             raise ValueError("invalid slice status")
         completed = status in {"ok", "empty"}
@@ -109,6 +119,7 @@ class Ledger:
         if row_count is not None and (row_count < 0 or (status == "empty" and row_count != 0) or (status == "ok" and row_count == 0)):
             raise ValueError("row count does not match slice status")
         if artifact is not None:
+            # 先核对文件再更新账本，防止账本指向缺失或损坏的 raw。
             if not artifact.path.is_file():
                 raise FileNotFoundError(artifact.path)
             if hashlib.sha256(artifact.path.read_bytes()).hexdigest() != artifact.sha256:
@@ -130,6 +141,8 @@ class Ledger:
             )
 
     def unresolved(self, dataset: str, day: date) -> list[str]:
+        """返回仍需处理的切片键，供后续 run 续抓。"""
+
         with duckdb.connect(str(self.database)) as conn:
             return [row[0] for row in conn.execute(
                 """select slice_key from slices where dataset = ? and trade_date = ?
@@ -137,7 +150,8 @@ class Ledger:
             ).fetchall()]
 
     def complete(self, dataset: str, day: date) -> bool:
-        """The fixed plan is complete only when every slice is ok or empty."""
+        """仅当计划存在且所有切片为 ok/empty 时判定完整。"""
+
         with duckdb.connect(str(self.database)) as conn:
             row = conn.execute(
                 """select exists (select 1 from plans where dataset = ? and trade_date = ?),
@@ -148,6 +162,8 @@ class Ledger:
             return bool(row[0] and row[1] == 0)
 
     def mark_fetched(self, dataset: str, day: date) -> None:
+        """完整性门禁通过后，将计划推进到 fetched 阶段。"""
+
         if not self.complete(dataset, day):
             raise ValueError("cannot mark an incomplete plan fetched")
         with duckdb.connect(str(self.database)) as conn:
