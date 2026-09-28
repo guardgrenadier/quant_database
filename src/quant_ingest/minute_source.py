@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
+from decimal import Decimal
 from typing import Any, Callable, Literal
 
 import requests
@@ -16,6 +17,12 @@ from .tushare_transport import BASE_URL, RequestLimiter, TushareTransport
 FIELDS = "ts_code,trade_time,freq,open,high,low,close,vol,amount"
 LIMIT = 500
 MAX_PAGES = 20
+
+
+def row_signature(row: dict[str, Any]) -> tuple:
+    """逐字段比较源值及类型，避免把不同 JSON 数字表示误判为相同。"""
+
+    return tuple((type(row[name]).__name__, str(row[name])) for name in FIELDS.split(","))
 
 
 @dataclass(frozen=True)
@@ -133,8 +140,7 @@ class TushareMinuteSource:
         previous: set[tuple[str, str]] | None = None
         rows: list[dict] = []
         for index, payload in enumerate(pages):
-            body = json.dumps(payload).encode()
-            page_rows = self._decode(body)
+            page_rows = self._decode_payload(payload, json.dumps(payload, default=str).encode())
             if index < len(pages) - 1 and len(page_rows) != LIMIT:
                 raise ValueError("raw pagination ended before last page")
             previous = self._check_page(code, day, page_rows, seen, previous)
@@ -170,9 +176,14 @@ class TushareMinuteSource:
         """验证 Tushare 成功信封和固定字段，保留源字段名。"""
 
         try:
-            payload = json.loads(body)
+            payload = json.loads(body, parse_float=Decimal)
         except ValueError as exc:
             raise SourceContractError("invalid minute JSON response", body) from exc
+        return self._decode_payload(payload, body)
+
+    def _decode_payload(self, payload: Any, body: bytes) -> list[dict[str, Any]]:
+        """共用实时响应与 raw 重放的字段信封检查。"""
+
         if not isinstance(payload, dict) or str(payload.get("code")) != "0":
             raise SourceContractError("minute supplier code is not zero", body)
         data = payload.get("data")
@@ -207,7 +218,7 @@ class TushareMinuteSource:
                 raise ValueError("minute row is outside requested window")
             key = (code, stamp)
             if key in seen:
-                if seen[key] != row:
+                if row_signature(seen[key]) != row_signature(row):
                     raise ValueError("minute key has conflicting values")
             else:
                 seen[key] = row

@@ -173,6 +173,18 @@ class Ledger:
                 raise KeyError((dataset, day, slice_key))
             return row
 
+    def completed_slices(self, dataset: str, day: date) -> list[tuple[str, str, str, int, datetime]]:
+        """一次读取已完成切片的 raw 证据，供日级转换顺序扫描。"""
+
+        if not self.complete(dataset, day):
+            raise ValueError("cannot transform an incomplete plan")
+        with duckdb.connect(str(self.database)) as conn:
+            return conn.execute(
+                """select slice_key, raw_path, raw_sha256, row_count, extracted_at
+                   from slices where dataset = ? and trade_date = ? order by slice_key""",
+                [dataset, day],
+            ).fetchall()
+
     def unresolved(self, dataset: str, day: date) -> list[str]:
         """返回仍需处理的切片键，供后续 run 续抓。"""
 

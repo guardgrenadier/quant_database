@@ -8,6 +8,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
 from datetime import date, datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -138,5 +139,5 @@ class MinutePipeline:
     def _raw_rows(self, code: str, day: date, path: Path) -> list[dict]:
         """让适配器重放原文并复核分页、窗口与重复主键。"""
 
-        pages = json.loads(gzip.decompress(path.read_bytes()))
+        pages = json.loads(gzip.decompress(path.read_bytes()), parse_float=Decimal)
         return self.source.rows_from_raw(code, day, pages)

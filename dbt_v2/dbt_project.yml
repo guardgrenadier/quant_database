@@ -11,3 +11,4 @@ vars:
   candidate_path: ''
   as_of_date: '1900-01-01'
   expected_rows: 0
+  plan_path: ''
