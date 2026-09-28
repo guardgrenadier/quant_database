@@ -38,7 +38,6 @@ def plan_day(
         return list(saved[1])
 
     calendar, calendar_sha = _published_file(ledger, warehouse, "trade_cal", day)
-    universe, universe_sha = _published_file(ledger, warehouse, "stock_basic", day)
     with duckdb.connect() as conn:
         opening = conn.execute(
             "select is_open from read_parquet(?) where exchange = 'SSE' and cal_date = ?",
@@ -48,6 +47,8 @@ def plan_day(
             raise ValueError("trade_cal does not contain target date")
         if opening[0] != 1:
             return []  # 闭市日不生成分钟请求计划。
+    universe, universe_sha = _published_file(ledger, warehouse, "stock_basic", day)
+    with duckdb.connect() as conn:
         codes = [row[0] for row in conn.execute(
             """select ts_code from read_parquet(?)
                where list_date <= ? and (delist_date is null or ? < delist_date)

@@ -64,6 +64,10 @@ Wrapper 不自动分页，完整性由对应 ingestion 检查。网关手册使�
 
 导出 `TUSHARE_API_KEY` 后运行 `uv run python scripts/ingest_basic_v2.py --date 2026-09-18`，默认依次处理 `stock_basic`、`trade_cal`、`suspend_d`；`--dataset` 可只跑其中一个。V2 使用独立的 `data/warehouse/v2/state.duckdb`、`data/raw/v2/` 和 `data/warehouse/v2/canonical/`。`trade_cal` 拉目标年份的 SSE 日历快照；`stock_basic` 使用已实测的五状态单页参数；`suspend_d` 抓目标日的 `S` 停牌记录。离线验证运行 `uv run python -m unittest discover -s tests_v2`。
 
+## V2 分钟 L1
+
+同日基础数据集发布后运行 `uv run python scripts/ingest_minute_v2.py --date 2026-09-18 --request-budget 100`。分钟请求按已发布日历和证券快照固定计划，最多 8 个线程、进程内滚动 60 秒最多 180 次 HTTP 尝试。HTTP 202 的切片留给下一次同命令续抓；完整性摘要中的 `complete=true` 只表示 raw 抓取完成，分钟 canonical 转换与发布在下一阶段实现。当前增量链路使用目标日的同日快照；历史回补的快照选择在历史阶段处理。
+
 ## 股票分钟 ingestion
 
 > 本节描述冻结保留的 V1 实现的用法；新实现按 `docs/architecture/ingestion-design-v2.md` 另起。

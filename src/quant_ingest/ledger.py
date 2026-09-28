@@ -182,6 +182,16 @@ class Ledger:
                    and status not in ('ok', 'empty') order by slice_key""", [dataset, day]
             ).fetchall()]
 
+    def status_counts(self, dataset: str, day: date) -> dict[str, int]:
+        """按状态汇总固定计划中的切片数，供运行摘要使用。"""
+
+        with duckdb.connect(str(self.database)) as conn:
+            rows = conn.execute(
+                """select status, count(*) from slices where dataset = ? and trade_date = ?
+                   group by status""", [dataset, day]
+            ).fetchall()
+            return {status: count for status, count in rows}
+
     def complete(self, dataset: str, day: date) -> bool:
         """仅当计划存在且所有切片为 ok/empty 时判定完整。"""
 

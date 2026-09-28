@@ -8,6 +8,7 @@ import json
 import os
 import re
 import tempfile
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -85,3 +86,22 @@ class RawStore:
         if not isinstance(pages, list) or not pages or not all(isinstance(page, dict) for page in pages):
             raise ValueError("raw artifact does not contain response pages")
         return RawArtifact(path, hashlib.sha256(content).hexdigest(), len(pages))
+
+    def log(self, run_id: str, dataset: str, day: date, event: str, **details: object) -> None:
+        """把无密钥过程事件追加到随 raw 清理的 run 级 JSONL。"""
+
+        directory = self.root / dataset / f"trade_date={day:%Y%m%d}" / "runs"
+        directory.mkdir(parents=True, exist_ok=True)
+        record = {"at": datetime.now(timezone.utc).isoformat(), "event": event, **details}
+        with (directory / f"{run_id}.jsonl").open("a", encoding="utf-8") as stream:
+            stream.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
+
+    def quarantine(self, run_id: str, dataset: str, day: date, body: bytes) -> Path:
+        """将违约响应原文留在 raw 清理范围之外，等待人工检查。"""
+
+        directory = self.root.parent / "quarantine" / dataset / f"trade_date={day:%Y%m%d}"
+        directory.mkdir(parents=True, exist_ok=True)
+        path = directory / f"{run_id}.response"
+        with path.open("xb") as stream:
+            stream.write(body)
+        return path

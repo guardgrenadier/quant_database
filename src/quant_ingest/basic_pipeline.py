@@ -53,7 +53,7 @@ class BasicPipeline:
         run_id = uuid.uuid4().hex
         params = self.source.parameters(dataset, day)
         self.ledger.plan(dataset, day, params, {SLICE_KEY: params})
-        self._log(run_id, dataset, day, "planned", parameters=params)
+        self.raw.log(run_id, dataset, day, "planned", parameters=params)
         target = self.canonical_path(dataset, day)
         publication = self.ledger.publication(dataset, day)
         if publication is not None:
@@ -63,7 +63,7 @@ class BasicPipeline:
             if target.is_file() and hashlib.sha256(target.read_bytes()).hexdigest() == checksum:
                 if stage == "prepared":
                     self.ledger.finish_publish(dataset, day)
-                self._log(run_id, dataset, day, "published_existing", path=str(target))
+                self.raw.log(run_id, dataset, day, "published_existing", path=str(target))
                 return target
             if stage == "published":
                 raise ValueError("published canonical file is missing or changed")
@@ -75,22 +75,22 @@ class BasicPipeline:
                 artifact = self.raw.inspect(dataset, day, SLICE_KEY)
                 rows = self._raw_rows(dataset, day, raw_path)
                 extracted_at = datetime.fromtimestamp(raw_path.stat().st_mtime, timezone.utc)
-                self._log(run_id, dataset, day, "raw_recovered", sha256=artifact.sha256)
+                self.raw.log(run_id, dataset, day, "raw_recovered", sha256=artifact.sha256)
             else:
                 try:
                     fetched = self.source.fetch(dataset, day)
                 except Exception as exc:
                     if isinstance(exc, SourceContractError):
-                        evidence = self._quarantine(run_id, dataset, day, exc.body)
+                        evidence = self.raw.quarantine(run_id, dataset, day, exc.body)
                         self.ledger.record(dataset, day, SLICE_KEY, "quarantined")
-                        self._log(run_id, dataset, day, "contract_violation", evidence=str(evidence), error=str(exc))
+                        self.raw.log(run_id, dataset, day, "contract_violation", evidence=str(evidence), error=str(exc))
                     else:
                         self.ledger.record(dataset, day, SLICE_KEY, "failed")
-                    self._log(run_id, dataset, day, "fetch_failed", error=str(exc))
+                    self.raw.log(run_id, dataset, day, "fetch_failed", error=str(exc))
                     raise
                 rows = fetched.rows
                 for index, page in enumerate(fetched.pages):
-                    self._log(
+                    self.raw.log(
                         run_id, dataset, day, "http_page", page=index,
                         http_status=200, request_id=page.request_id, row_count=len(page.rows),
                     )
@@ -100,7 +100,7 @@ class BasicPipeline:
                 dataset, day, SLICE_KEY, "ok" if rows else "empty",
                 artifact=artifact, row_count=len(rows), extracted_at=extracted_at,
             )
-            self._log(run_id, dataset, day, "raw_complete", row_count=len(rows), sha256=artifact.sha256)
+            self.raw.log(run_id, dataset, day, "raw_complete", row_count=len(rows), sha256=artifact.sha256)
 
         if not self.ledger.complete(dataset, day):
             raise ValueError("basic dataset is not complete")
@@ -121,7 +121,7 @@ class BasicPipeline:
         self._write_temp(dataset, rows, extracted_at, temp)
         self._dbt(dataset, day, temp, candidate, expected_rows)
         self._validate_candidate(dataset, day, candidate, expected_rows)
-        self._log(run_id, dataset, day, "candidate_checked", row_count=expected_rows)
+        self.raw.log(run_id, dataset, day, "candidate_checked", row_count=expected_rows)
 
         # 先登记候选哈希，再替换文件；下一轮可依据实际文件补登记或重建。
         checksum = hashlib.sha256(candidate.read_bytes()).hexdigest()
@@ -129,28 +129,9 @@ class BasicPipeline:
         target.parent.mkdir(parents=True, exist_ok=True)
         os.replace(candidate, target)
         self.ledger.finish_publish(dataset, day)
-        self._log(run_id, dataset, day, "published", path=str(target), sha256=checksum)
+        self.raw.log(run_id, dataset, day, "published", path=str(target), sha256=checksum)
         shutil.rmtree(work)
         return target
-
-    def _log(self, run_id: str, dataset: str, day: date, event: str, **details: object) -> None:
-        """把无密钥的过程事件追加到随 raw 一起清理的 JSONL。"""
-
-        directory = self.raw.root / dataset / f"trade_date={day:%Y%m%d}" / "runs"
-        directory.mkdir(parents=True, exist_ok=True)
-        record = {"at": datetime.now(timezone.utc).isoformat(), "event": event, **details}
-        with (directory / f"{run_id}.jsonl").open("a", encoding="utf-8") as stream:
-            stream.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
-
-    def _quarantine(self, run_id: str, dataset: str, day: date, body: bytes) -> Path:
-        """把违约响应原文留在 raw 清理范围之外，等待人工检查。"""
-
-        directory = self.raw.root.parent / "quarantine" / dataset / f"trade_date={day:%Y%m%d}"
-        directory.mkdir(parents=True, exist_ok=True)
-        path = directory / f"{run_id}.response"
-        with path.open("xb") as stream:
-            stream.write(body)
-        return path
 
     def is_open(self, day: date) -> bool:
         """仅依据已发布的同日 trade_cal 产物判定目标日是否开市。"""

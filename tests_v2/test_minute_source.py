@@ -90,6 +90,7 @@ class MinuteSourceTest(unittest.TestCase):
         with self.assertRaisesRegex(SourceContractError, "conflicting") as caught:
             source.fetch_slice(CODE, DAY)
         self.assertEqual(caught.exception.body, bad.pages[0].content)
+        self.assertEqual(caught.exception.requests[0]["http_status"], 200)
 
     def test_rolling_limit_counts_every_http_attempt(self):
         """窗口满时等待到第一个请求离开 60 秒窗口。"""
@@ -118,9 +119,10 @@ class MinuteSourceTest(unittest.TestCase):
         response.content = b'{"error":"data_source_unavailable"}'
         session = Session({0: response})
         source = TushareMinuteSource(api_key="offline", session_factory=lambda: session)
-        with self.assertRaisesRegex(RuntimeError, "unavailable"):
+        with self.assertRaisesRegex(RuntimeError, "unavailable") as caught:
             source.fetch_slice(CODE, DAY)
         self.assertEqual(session.offsets, [0])
+        self.assertEqual(caught.exception.requests[0]["http_status"], 503)
 
 
 if __name__ == "__main__":

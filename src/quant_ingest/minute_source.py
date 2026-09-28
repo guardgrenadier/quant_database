@@ -13,7 +13,7 @@ from typing import Any, Callable, Literal
 
 import requests
 
-from .errors import SourceContractError
+from .errors import SourceContractError, SourceRequestError
 
 
 BASE_URL = "https://pcd.mobcvb.cn/tushare/pro"
@@ -117,6 +117,18 @@ class TushareMinuteSource:
             "limit": LIMIT, "offset": 0,
         }
 
+    @property
+    def request_count(self) -> int:
+        """暴露本进程实际 HTTP 尝试数，供运行摘要使用。"""
+
+        return self.limiter.count
+
+    @property
+    def remaining_budget(self) -> int | None:
+        """返回尚可触发的请求次数；未设置预算时返回 None。"""
+
+        return None if self.limiter.budget is None else max(0, self.limiter.budget - self.limiter.count)
+
     def fetch_slice(self, code: str, day: date) -> MinuteFetch:
         """逐页取完单代码切片；遇 pending 立即返回，留给后续 run。"""
 
@@ -127,7 +139,11 @@ class TushareMinuteSource:
         previous: set[tuple[str, str]] | None = None
         for index in range(MAX_PAGES):
             params["offset"] = index * LIMIT
-            page, pending, retry_after, attempts = self._query(params)
+            try:
+                page, pending, retry_after, attempts = self._query(params)
+            except (SourceContractError, SourceRequestError) as exc:
+                exc.requests = records + exc.requests
+                raise
             records.extend(attempts)
             if pending:
                 return MinuteFetch("pending", requests=records, retry_after=retry_after)
@@ -135,14 +151,14 @@ class TushareMinuteSource:
             try:
                 previous = self._check_page(code, day, page.rows, seen, previous)
             except ValueError as exc:
-                raise SourceContractError(str(exc), page.body) from exc
+                raise SourceContractError(str(exc), page.body, records) from exc
             pages.append(page)
             if len(page.rows) < LIMIT:
                 return MinuteFetch(
                     "ok" if any(item.rows for item in pages) else "empty",
                     pages, records, datetime.now(timezone.utc),
                 )
-        raise SourceContractError(f"pagination exceeded {MAX_PAGES} pages", pages[-1].body)
+        raise SourceContractError(f"pagination exceeded {MAX_PAGES} pages", pages[-1].body, records)
 
     def rows_from_raw(self, code: str, day: date, pages: list[dict]) -> list[dict]:
         """重放 raw 时重新验证分页、范围和主键，不信任孤儿文件。"""
@@ -186,7 +202,7 @@ class TushareMinuteSource:
                 attempts.append({"at": requested_at, "offset": params["offset"], "http_status": None,
                                  "error": type(exc).__name__})
                 if attempt == self.retries:
-                    raise RuntimeError("stk_mins transport retry exhausted") from exc
+                    raise SourceRequestError("stk_mins transport retry exhausted", attempts) from exc
                 time.sleep(self.retry_delay * 2**attempt)
                 continue
             attempts.append({"at": requested_at, "offset": params["offset"],
@@ -197,21 +213,21 @@ class TushareMinuteSource:
                 try:
                     payload = json.loads(body)
                 except ValueError as exc:
-                    raise SourceContractError("invalid pending response", body) from exc
+                    raise SourceContractError("invalid pending response", body, attempts) from exc
                 if isinstance(payload, dict) and payload.get("error") == "minute_data_pending":
                     try:
                         retry_after = float(response.headers.get("Retry-After", 0))
                     except ValueError:
                         retry_after = None
                     return None, True, retry_after, attempts
-                raise SourceContractError("unexpected HTTP 202 response", body)
+                raise SourceContractError("unexpected HTTP 202 response", body, attempts)
             if response.status_code == 503:
                 try:
                     unavailable = json.loads(body).get("error") == "data_source_unavailable"
                 except (ValueError, AttributeError):
                     unavailable = False
                 if unavailable:
-                    raise RuntimeError("stk_mins data source is unavailable")
+                    raise SourceRequestError("stk_mins data source is unavailable", attempts)
             if response.status_code in {429, 503} and attempt < self.retries:
                 delay = self.retry_delay * 2**attempt
                 if response.status_code == 429:
@@ -222,8 +238,13 @@ class TushareMinuteSource:
                 time.sleep(delay)
                 continue
             if response.status_code != 200:
-                raise RuntimeError(f"stk_mins HTTP {response.status_code}")
-            return MinutePage(body, self._decode(body)), False, None, attempts
+                raise SourceRequestError(f"stk_mins HTTP {response.status_code}", attempts)
+            try:
+                rows = self._decode(body)
+            except SourceContractError as exc:
+                exc.requests = attempts
+                raise
+            return MinutePage(body, rows), False, None, attempts
         raise AssertionError("retry loop exhausted")
 
     def _decode(self, body: bytes) -> list[dict[str, Any]]:
@@ -249,6 +270,8 @@ class TushareMinuteSource:
     ) -> set[tuple[str, str]]:
         """检查请求边界和冲突重复行；相同重复行保留到 temp 再去重。"""
 
+        if len(rows) > LIMIT:
+            raise ValueError("minute page exceeds requested limit")
         start = f"{day} 09:30:00"
         end = f"{day} 15:00:00"
         keys: set[tuple[str, str]] = set()

@@ -68,9 +68,7 @@ class MinutePlanTest(unittest.TestCase):
             _publish_fixture(ledger, root, "trade_cal", [
                 {"exchange": "SSE", "cal_date": DAY, "is_open": 0},
             ])
-            _publish_fixture(ledger, root, "stock_basic", [
-                {"ts_code": "000001.SZ", "list_date": DAY, "delist_date": None, "list_status": "L"},
-            ])
+            # 闭市日只依赖日历，不要求当天已经发布证券快照。
             self.assertEqual(plan_day(ledger, root, DAY, lambda code, day: {}), [])
             self.assertIsNone(ledger.saved_plan("stk_mins", DAY))
 
