@@ -71,6 +71,7 @@ class BasicPipelineTest(unittest.TestCase):
                 logs = list((root / "raw" / dataset / "trade_date=20260918" / "runs").glob("*.jsonl"))
                 self.assertTrue(any('"event": "published"' in log.read_text() for log in logs))
                 self.assertTrue(any('"event": "http_attempt"' in log.read_text() for log in logs))
+                self.assertTrue(any(log.read_text().count('"event": "dbt_command"') == 2 for log in logs))
                 with duckdb.connect() as conn:
                     count = conn.execute("select count(*) from read_parquet(?)", [str(path)]).fetchone()[0]
                 self.assertEqual(count, len(ROWS[dataset]))

@@ -8,7 +8,6 @@ import json
 import os
 import shutil
 import subprocess
-import tempfile
 import uuid
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -18,6 +17,7 @@ import duckdb
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+from .dbt_runner import run_dbt
 from .errors import SourceContractError
 from .ledger import Ledger
 from .raw import RawStore
@@ -123,7 +123,7 @@ class BasicPipeline:
         temp = work / "temp.parquet"
         candidate = work / "candidate.parquet"
         self._write_temp(dataset, rows, extracted_at, temp)
-        self._dbt(dataset, day, temp, candidate, expected_rows)
+        self._dbt(dataset, day, temp, candidate, expected_rows, run_id)
         self._validate_candidate(dataset, day, candidate, expected_rows)
         self.raw.log(run_id, dataset, day, "candidate_checked", row_count=expected_rows)
 
@@ -174,32 +174,24 @@ class BasicPipeline:
         ]
         pq.write_table(pa.Table.from_pylist(values, schema=schema), path, compression="zstd")
 
-    def _dbt(self, dataset: str, day: date, temp: Path, candidate: Path, expected_rows: int) -> None:
+    def _dbt(self, dataset: str, day: date, temp: Path, candidate: Path, expected_rows: int, run_id: str) -> None:
         """调用独立 V2 dbt 项目完成列转换与阻断级契约检查。"""
 
-        vars_json = json.dumps({
+        variables = {
             "dataset": dataset, "temp_path": str(temp), "candidate_path": str(candidate),
             "as_of_date": day.isoformat(), "expected_rows": expected_rows,
-        })
-        with tempfile.TemporaryDirectory() as profile_dir:
-            profile = Path(profile_dir) / "profiles.yml"
-            profile.write_text((self.dbt_project / "profiles.yml.example").read_text())
-            env = {**os.environ, "QUANT_V2_DB_PATH": str(self.ledger.database)}
-            for command, selector in (("run", dataset), ("test", "basic_contract")):
-                cmd = [
-                    "dbt", command, "--select", selector, "--project-dir", str(self.dbt_project),
-                    "--profiles-dir", profile_dir, "--vars", vars_json,
-                ]
-                result = subprocess.run(cmd, cwd=ROOT, env=env, text=True, capture_output=True)
-                if result.returncode:
-                    raise RuntimeError(f"dbt {command} failed:\n{(result.stdout + result.stderr)[-5000:]}")
-                if command == "run" and expected_rows == 0:
-                    # dbt-duckdb external 对零行模型可能生成空值哨兵，改写为类型明确的零行文件。
-                    schema = pa.schema([
-                        ("ts_code", pa.string()), ("trade_date", pa.date32()),
-                        ("suspend_type", pa.string()), ("extracted_at", pa.timestamp("us", tz="UTC")),
-                    ])
-                    pq.write_table(pa.Table.from_pylist([], schema=schema), candidate, compression="zstd")
+        }
+        run_dbt("run", dataset, variables, project=self.dbt_project, database=self.ledger.database,
+                raw=self.raw, dataset=dataset, day=day, run_id=run_id)
+        if expected_rows == 0:
+            # dbt-duckdb external 对零行模型可能生成空值哨兵，改写为类型明确的零行文件。
+            schema = pa.schema([
+                ("ts_code", pa.string()), ("trade_date", pa.date32()),
+                ("suspend_type", pa.string()), ("extracted_at", pa.timestamp("us", tz="UTC")),
+            ])
+            pq.write_table(pa.Table.from_pylist([], schema=schema), candidate, compression="zstd")
+        run_dbt("test", "basic_contract", variables, project=self.dbt_project, database=self.ledger.database,
+                raw=self.raw, dataset=dataset, day=day, run_id=run_id)
 
     def _validate_candidate(self, dataset: str, day: date, path: Path, expected_rows: int) -> None:
         """发布前复读候选文件，并检查行数与日期边界。"""
