@@ -52,10 +52,14 @@ class Ledger:
                     stage varchar not null, source varchar, canonical_path varchar,
                     canonical_sha256 varchar,
                     row_count bigint, transform_version varchar,
+                    prepared_at timestamptz, published_at timestamptz,
                     updated_at timestamptz default current_timestamp,
                     primary key (dataset, trade_date)
                 )
             """)
+            # 已存在的 V2 账本补上阶段时间戳，不要求用户手动重建数据库。
+            conn.execute("alter table publications add column if not exists prepared_at timestamptz")
+            conn.execute("alter table publications add column if not exists published_at timestamptz")
             conn.execute("""
                 create table if not exists quality_findings (
                     run_id varchar not null, dataset varchar not null, trade_date date not null,
@@ -237,7 +241,8 @@ class Ledger:
             ).fetchone()
 
     def prepare_publish(
-        self, dataset: str, day: date, target: Path, sha256: str, rows: int, version: str
+        self, dataset: str, day: date, target: Path, sha256: str, rows: int, version: str,
+        *, replace: bool = False,
     ) -> None:
         """替换正式文件前登记候选哈希，供替换后、登记前的坠机恢复。"""
 
@@ -247,20 +252,22 @@ class Ledger:
             prior = conn.execute(
                 "select stage from publications where dataset = ? and trade_date = ?", [dataset, day]
             ).fetchone()
-            if prior and prior[0] == "published":
+            if prior and prior[0] == "published" and not replace:
                 raise ValueError("published dataset cannot be replaced in this stage")
             if prior:
                 conn.execute(
-                    """update publications set canonical_path = ?, canonical_sha256 = ?, row_count = ?,
-                       transform_version = ?, updated_at = current_timestamp
+                    """update publications set stage = 'prepared', canonical_path = ?,
+                       canonical_sha256 = ?, row_count = ?, transform_version = ?,
+                       prepared_at = current_timestamp, published_at = null,
+                       updated_at = current_timestamp
                        where dataset = ? and trade_date = ?""",
                     [str(target), sha256, rows, version, dataset, day],
                 )
             else:
                 conn.execute(
                     """insert into publications (dataset, trade_date, stage, source, canonical_path,
-                       canonical_sha256, row_count, transform_version)
-                       values (?, ?, 'prepared', 'tushare', ?, ?, ?, ?)""",
+                       canonical_sha256, row_count, transform_version, prepared_at)
+                       values (?, ?, 'prepared', 'tushare', ?, ?, ?, ?, current_timestamp)""",
                     [dataset, day, str(target), sha256, rows, version],
                 )
 
@@ -275,6 +282,23 @@ class Ledger:
             raise ValueError("canonical file does not match prepared publication")
         with duckdb.connect(str(self.database)) as conn:
             conn.execute(
-                """update publications set stage = 'published', updated_at = current_timestamp
+                """update publications set stage = 'published', published_at = current_timestamp,
+                   updated_at = current_timestamp
                    where dataset = ? and trade_date = ?""", [dataset, day]
+            )
+
+    def record_finding(
+        self, run_id: str, dataset: str, day: date, check_name: str,
+        severity: str, count: int, samples: list[dict],
+    ) -> None:
+        """按 run 与检查名幂等保留告警摘要，不覆盖历史轮次。"""
+
+        if count < 0 or severity not in {"warn", "info"}:
+            raise ValueError("invalid quality finding")
+        with duckdb.connect(str(self.database)) as conn:
+            conn.execute(
+                """insert into quality_findings
+                   (run_id, dataset, trade_date, check_name, severity, finding_count, samples_json)
+                   values (?, ?, ?, ?, ?, ?, ?) on conflict do nothing""",
+                [run_id, dataset, day, check_name, severity, count, _json(samples)],
             )

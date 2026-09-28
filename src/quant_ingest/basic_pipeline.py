@@ -7,7 +7,6 @@ import hashlib
 import json
 import os
 import shutil
-import subprocess
 import uuid
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -17,7 +16,7 @@ import duckdb
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from .dbt_runner import run_dbt
+from .dbt_runner import run_dbt, transform_version
 from .errors import SourceContractError
 from .ledger import Ledger
 from .raw import RawStore
@@ -129,7 +128,7 @@ class BasicPipeline:
 
         # 先登记候选哈希，再替换文件；下一轮可依据实际文件补登记或重建。
         checksum = hashlib.sha256(candidate.read_bytes()).hexdigest()
-        self.ledger.prepare_publish(dataset, day, target, checksum, expected_rows, self._version())
+        self.ledger.prepare_publish(dataset, day, target, checksum, expected_rows, transform_version())
         target.parent.mkdir(parents=True, exist_ok=True)
         os.replace(candidate, target)
         self.ledger.finish_publish(dataset, day)
@@ -206,12 +205,3 @@ class BasicPipeline:
             ).fetchone()
         if count != expected_rows or wrong_date:
             raise ValueError("candidate rows or dates differ from the fixed plan")
-
-    def _version(self) -> str:
-        """返回代码提交及脏工作树标记，不把未提交代码冒充干净版本。"""
-
-        commit = subprocess.run(["git", "rev-parse", "--verify", "HEAD"], cwd=ROOT, text=True, capture_output=True)
-        if commit.returncode:
-            return "uncommitted"
-        dirty = subprocess.run(["git", "status", "--porcelain"], cwd=ROOT, text=True, capture_output=True)
-        return commit.stdout.strip() + ("-dirty" if dirty.stdout else "")

@@ -6,6 +6,8 @@ import unittest
 from datetime import date
 from pathlib import Path
 
+import duckdb
+
 from quant_ingest.ledger import Ledger
 from quant_ingest.raw import RawStore
 
@@ -66,6 +68,22 @@ class FoundationTest(unittest.TestCase):
                 raw.write("stk_mins", day, "000001.SZ", [pages[0]])
             self.assertEqual(raw.inspect("stk_mins", day, "000001.SZ"), artifact)
             self.assertFalse(list(artifact.path.parent.glob(".raw-*")))
+
+    def test_existing_v2_publication_table_gets_stage_timestamps(self):
+        """阶段四能打开已由早期 V2 版本创建的发布账。"""
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "state.duckdb"
+            with duckdb.connect(str(path)) as conn:
+                conn.execute("""create table publications (
+                    dataset varchar, trade_date date, stage varchar, source varchar,
+                    canonical_path varchar, canonical_sha256 varchar,
+                    row_count bigint, transform_version varchar, updated_at timestamptz,
+                    primary key (dataset, trade_date))""")
+            Ledger(path)
+            with duckdb.connect(str(path)) as conn:
+                names = {row[0] for row in conn.execute("describe publications").fetchall()}
+            self.assertTrue({"prepared_at", "published_at"}.issubset(names))
 
 
 if __name__ == "__main__":

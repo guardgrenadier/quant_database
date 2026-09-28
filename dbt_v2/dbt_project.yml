@@ -12,3 +12,6 @@ vars:
   as_of_date: '1900-01-01'
   expected_rows: 0
   plan_path: ''
+  quality_path: ''
+  suspend_path: ''
+  minute_canonical_glob: ''

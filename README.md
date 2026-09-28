@@ -66,7 +66,11 @@ Wrapper 不自动分页，完整性由对应 ingestion 检查。网关手册使�
 
 ## V2 分钟 L1
 
-同日基础数据集发布后运行 `uv run python scripts/ingest_minute_v2.py --date 2026-09-18 --request-budget 100`。分钟请求按已发布日历和证券快照固定计划，最多 8 个线程、进程内滚动 60 秒最多 180 次 HTTP 尝试。HTTP 202 的切片留给下一次同命令续抓；完整性摘要中的 `complete=true` 只表示 raw 抓取完成，分钟 canonical 转换与发布在下一阶段实现。当前增量链路使用目标日的同日快照；历史回补的快照选择在历史阶段处理。
+同日基础数据集发布后运行 `uv run python scripts/ingest_minute_v2.py --date 2026-09-18 --request-budget 100`。分钟请求按已发布日历和证券快照固定计划，最多 8 个线程、进程内滚动 60 秒最多 180 次 HTTP 尝试。HTTP 202 的切片留给下一次同命令续抓；完整性摘要中的 `complete=true` 只表示 raw 抓取完成。当前增量链路使用目标日的同日快照；历史回补的快照选择在历史阶段处理。
+
+## V2 分钟发布
+
+raw 完整后运行 `uv run python scripts/publish_minute_v2.py --date 2026-09-18`。dbt 将原始元金额按十进制值转为整数分，结构错误阻断发布；行情语义异常记入 `quality_findings`，canonical 仍保留窗内全部 bar。默认 `minute_bars` view 只显示约定的交易时段。转换逻辑变更且 raw 尚在时可加 `--rebuild` 从 raw 整日替换并留下修订 diff；T+1 重新请求供应商属于后续刷新阶段。每条 dbt 命令的返回码及输出写入 run 级 JSONL。
 
 ## 股票分钟 ingestion
 

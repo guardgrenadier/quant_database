@@ -50,3 +50,15 @@ def run_dbt(
     )
     if result.returncode:
         raise RuntimeError(f"dbt {command} failed:\n{(stdout + stderr)[-5000:]}")
+
+
+def transform_version() -> str:
+    """标记 git 提交与工作树状态，避免将未提交转换代码记成干净版本。"""
+
+    commit = subprocess.run(["git", "rev-parse", "--verify", "HEAD"], cwd=ROOT,
+                            text=True, capture_output=True)
+    if commit.returncode:
+        return "uncommitted"
+    dirty = subprocess.run(["git", "status", "--porcelain"], cwd=ROOT,
+                           text=True, capture_output=True)
+    return commit.stdout.strip() + ("-dirty" if dirty.stdout else "")
