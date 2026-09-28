@@ -107,6 +107,21 @@ class Ledger:
                 conn.execute("rollback")
                 raise
 
+    def saved_plan(self, dataset: str, day: date) -> tuple[dict, dict[str, dict]] | None:
+        """读取已固定的计划；续跑使用原切片集合，不重算当前 universe。"""
+
+        with duckdb.connect(str(self.database)) as conn:
+            plan = conn.execute(
+                "select parameters_json from plans where dataset = ? and trade_date = ?", [dataset, day]
+            ).fetchone()
+            if plan is None:
+                return None
+            slices = conn.execute(
+                """select slice_key, parameters_json from slices
+                   where dataset = ? and trade_date = ? order by slice_key""", [dataset, day]
+            ).fetchall()
+            return json.loads(plan[0]), {key: json.loads(params) for key, params in slices}
+
     def record(
         self, dataset: str, day: date, slice_key: str, status: str,
         *, artifact: RawArtifact | None = None, row_count: int | None = None,
