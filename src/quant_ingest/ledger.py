@@ -1,0 +1,157 @@
+"""Durable V2 plan and slice state. One writer updates DuckDB at a time."""
+
+from __future__ import annotations
+
+import json
+import hashlib
+from datetime import date
+from pathlib import Path
+from typing import Mapping
+
+import duckdb
+
+from .raw import RawArtifact
+
+
+def _json(value: object) -> str:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+class Ledger:
+    def __init__(self, database: Path) -> None:
+        database.parent.mkdir(parents=True, exist_ok=True)
+        self.database = database
+        with duckdb.connect(str(database)) as conn:
+            conn.execute("""
+                create table if not exists plans (
+                    dataset varchar not null, trade_date date not null,
+                    parameters_json varchar not null, status varchar not null,
+                    created_at timestamptz default current_timestamp,
+                    primary key (dataset, trade_date)
+                )
+            """)
+            conn.execute("""
+                create table if not exists slices (
+                    dataset varchar not null, trade_date date not null, slice_key varchar not null,
+                    parameters_json varchar not null, status varchar not null,
+                    raw_path varchar, raw_sha256 varchar, row_count bigint,
+                    updated_at timestamptz default current_timestamp,
+                    primary key (dataset, trade_date, slice_key)
+                )
+            """)
+            conn.execute("""
+                create table if not exists publications (
+                    dataset varchar not null, trade_date date not null,
+                    stage varchar not null, source varchar, canonical_path varchar,
+                    row_count bigint, transform_version varchar,
+                    updated_at timestamptz default current_timestamp,
+                    primary key (dataset, trade_date)
+                )
+            """)
+            conn.execute("""
+                create table if not exists quality_findings (
+                    run_id varchar not null, dataset varchar not null, trade_date date not null,
+                    check_name varchar not null, severity varchar not null,
+                    finding_count bigint not null, samples_json varchar,
+                    created_at timestamptz default current_timestamp,
+                    primary key (run_id, check_name)
+                )
+            """)
+
+    def plan(self, dataset: str, day: date, parameters: dict, slices: Mapping[str, dict]) -> None:
+        """Insert the whole request plan before fetching; identical plans may resume."""
+        if not dataset or not slices:
+            raise ValueError("dataset and slices are required")
+        plan_json = _json(parameters)
+        rows = [(dataset, day, key, _json(value), "planned") for key, value in slices.items()]
+        if not all(key for key in slices):
+            raise ValueError("slice keys must be nonempty")
+        with duckdb.connect(str(self.database)) as conn:
+            conn.execute("begin transaction")
+            try:
+                prior = conn.execute(
+                    "select parameters_json from plans where dataset = ? and trade_date = ?",
+                    [dataset, day],
+                ).fetchone()
+                if prior is None:
+                    conn.execute(
+                        "insert into plans (dataset, trade_date, parameters_json, status) values (?, ?, ?, 'planned')",
+                        [dataset, day, plan_json],
+                    )
+                    conn.executemany(
+                        "insert into slices (dataset, trade_date, slice_key, parameters_json, status) values (?, ?, ?, ?, ?)",
+                        rows,
+                    )
+                else:
+                    saved = conn.execute(
+                        "select slice_key, parameters_json from slices where dataset = ? and trade_date = ?",
+                        [dataset, day],
+                    ).fetchall()
+                    if prior[0] != plan_json or {key: value for key, value in saved} != {
+                        key: _json(value) for key, value in slices.items()
+                    }:
+                        raise ValueError("request plan changed; refusing to resume")
+                conn.execute("commit")
+            except Exception:
+                conn.execute("rollback")
+                raise
+
+    def record(
+        self, dataset: str, day: date, slice_key: str, status: str,
+        *, artifact: RawArtifact | None = None, row_count: int | None = None,
+    ) -> None:
+        """Only a completed slice may refer to raw; completed slices are immutable."""
+        if status not in {"ok", "empty", "pending", "failed", "quarantined"}:
+            raise ValueError("invalid slice status")
+        completed = status in {"ok", "empty"}
+        if completed != (artifact is not None) or completed != (row_count is not None):
+            raise ValueError("completed slices require raw artifact and row count")
+        if row_count is not None and (row_count < 0 or (status == "empty" and row_count != 0) or (status == "ok" and row_count == 0)):
+            raise ValueError("row count does not match slice status")
+        if artifact is not None:
+            if not artifact.path.is_file():
+                raise FileNotFoundError(artifact.path)
+            if hashlib.sha256(artifact.path.read_bytes()).hexdigest() != artifact.sha256:
+                raise ValueError("raw artifact checksum mismatch")
+        with duckdb.connect(str(self.database)) as conn:
+            prior = conn.execute(
+                "select status from slices where dataset = ? and trade_date = ? and slice_key = ?",
+                [dataset, day, slice_key],
+            ).fetchone()
+            if prior is None:
+                raise KeyError((dataset, day, slice_key))
+            if prior[0] in {"ok", "empty"}:
+                raise ValueError("completed slice is immutable")
+            conn.execute(
+                """update slices set status = ?, raw_path = ?, raw_sha256 = ?, row_count = ?,
+                   updated_at = current_timestamp where dataset = ? and trade_date = ? and slice_key = ?""",
+                [status, str(artifact.path) if artifact else None, artifact.sha256 if artifact else None,
+                 row_count, dataset, day, slice_key],
+            )
+
+    def unresolved(self, dataset: str, day: date) -> list[str]:
+        with duckdb.connect(str(self.database)) as conn:
+            return [row[0] for row in conn.execute(
+                """select slice_key from slices where dataset = ? and trade_date = ?
+                   and status not in ('ok', 'empty') order by slice_key""", [dataset, day]
+            ).fetchall()]
+
+    def complete(self, dataset: str, day: date) -> bool:
+        """The fixed plan is complete only when every slice is ok or empty."""
+        with duckdb.connect(str(self.database)) as conn:
+            row = conn.execute(
+                """select exists (select 1 from plans where dataset = ? and trade_date = ?),
+                   (select count(*) from slices where dataset = ? and trade_date = ?
+                    and status not in ('ok', 'empty'))""",
+                [dataset, day, dataset, day],
+            ).fetchone()
+            return bool(row[0] and row[1] == 0)
+
+    def mark_fetched(self, dataset: str, day: date) -> None:
+        if not self.complete(dataset, day):
+            raise ValueError("cannot mark an incomplete plan fetched")
+        with duckdb.connect(str(self.database)) as conn:
+            conn.execute(
+                "update plans set status = 'fetched' where dataset = ? and trade_date = ?",
+                [dataset, day],
+            )

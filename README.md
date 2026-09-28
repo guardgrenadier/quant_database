@@ -2,6 +2,8 @@
 
 单机个人量化研究数据库骨架。Tushare 兼容网关是首个数据源；raw 以 JSON 原文短期保存（30 天），canonical 明细为 Parquet，DuckDB 保存状态账，dbt 负责 canonical 建模。现行设计决策见 [docs/architecture/ingestion-design-v2.md](docs/architecture/ingestion-design-v2.md)（2026-09-25 起；旧架构文档冻结保留）。
 
+V2 重构按 [落地顺序](docs/architecture/ingestion-implementation-plan.md) 分阶段 review；新代码在 `src/quant_ingest/`，阶段 1 的离线检查运行 `uv run python -m unittest discover -s tests_v2`。
+
 分钟链路的逐模块源码导读和 review 清单见 [docs/walkthrough/minute-ingestion-src-walkthrough.md](docs/walkthrough/minute-ingestion-src-walkthrough.md)（对应冻结的 V1 实现）。
 
 ## 初始化
