@@ -1,0 +1,13 @@
+name: quant_db
+version: '0.1.0'
+config-version: 2
+profile: quant_db
+model-paths: [models]
+test-paths: [tests]
+
+vars:
+  minute_raw_glob: ''
+  minute_trade_date: '1900-01-01'
+  minute_expected_rows: 0
+  minute_codes: []
+  minute_canonical_glob: ''

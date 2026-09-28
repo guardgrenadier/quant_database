@@ -1,0 +1,7 @@
+quant_db:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "{{ env_var('QUANT_DB_PATH') }}"
+      threads: 1

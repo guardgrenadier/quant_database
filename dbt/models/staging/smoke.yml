@@ -1,0 +1,8 @@
+version: 2
+
+models:
+  - name: smoke
+    columns:
+      - name: id
+        data_tests:
+          - not_null

@@ -1,0 +1,26 @@
+version: 2
+
+models:
+  - name: stg_minute__tushare
+    description: Candidate canonical stock-minute rows transformed from one raw trading day.
+    config:
+      tags: [minute_ingestion]
+    columns:
+      - name: secu_code
+        data_tests: [not_null]
+      - name: trade_time
+        data_tests: [not_null]
+      - name: trade_date
+        data_tests: [not_null]
+      - name: open
+        data_tests: [not_null]
+      - name: high
+        data_tests: [not_null]
+      - name: low
+        data_tests: [not_null]
+      - name: close
+        data_tests: [not_null]
+      - name: volume
+        data_tests: [not_null]
+      - name: amount
+        data_tests: [not_null]

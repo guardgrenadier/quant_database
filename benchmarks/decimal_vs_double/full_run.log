@@ -1,0 +1,98 @@
+  double build 120/727, 43s
+  double build 240/727, 86s
+  double build 360/727, 127s
+  double build 480/727, 167s
+  double build 600/727, 202s
+  double build 720/727, 243s
+build double: {'ts': '2026-09-21T14:46:01', 'task': 'build', 'version': 'double', 'range': '3y', 'seconds': 244.88, 'peak_rss_mb': 1798.7, 'rss_delta_mb': 1744.7, 'final_size_mb': 14997.0}
+  decimal build 120/727, 49s
+  decimal build 240/727, 97s
+  decimal build 360/727, 145s
+  decimal build 480/727, 193s
+  decimal build 600/727, 237s
+  decimal build 720/727, 286s
+build decimal: {'ts': '2026-09-21T14:51:08', 'task': 'build', 'version': 'decimal', 'range': '3y', 'seconds': 288.59, 'peak_rss_mb': 1794.7, 'rss_delta_mb': 1740.7, 'final_size_mb': 14881.3}
+scan double 1m rep0: 0.22s (0.0, 1523.0999755859375, 452241977.83168036, 0.0, 1524.489990234375, 452675897.31341916, 0.0, 1514.
+scan decimal 1m rep0: 0.08s (Decimal('0.000000'), Decimal('1523.099976'), Decimal('452241977.819634'), Decimal('0.000000'), Deci
+scan decimal 1m rep1: 0.08s (Decimal('0.000000'), Decimal('1523.099976'), Decimal('452241977.819634'), Decimal('0.000000'), Deci
+scan double 1m rep1: 0.20s (0.0, 1523.0999755859375, 452241977.83168036, 0.0, 1524.489990234375, 452675897.31341916, 0.0, 1514.
+scan double 1m rep2: 0.19s (0.0, 1523.0999755859375, 452241977.83168036, 0.0, 1524.489990234375, 452675897.31341916, 0.0, 1514.
+scan decimal 1m rep2: 0.07s (Decimal('0.000000'), Decimal('1523.099976'), Decimal('452241977.819634'), Decimal('0.000000'), Deci
+scan decimal 1m rep3: 0.08s (Decimal('0.000000'), Decimal('1523.099976'), Decimal('452241977.819634'), Decimal('0.000000'), Deci
+scan double 1m rep3: 0.20s (0.0, 1523.0999755859375, 452241977.83168036, 0.0, 1524.489990234375, 452675897.31341916, 0.0, 1514.
+scan double 1y rep0: 3.09s (0.0, 1657.0, 7345082030.734571, 0.0, 1657.989990234375, 7351593742.90971, 0.0, 1653.989990234375, 7
+scan decimal 1y rep0: 0.94s (Decimal('0.000000'), Decimal('1657.000000'), Decimal('7345082030.751506'), Decimal('0.000000'), Dec
+scan decimal 1y rep1: 0.98s (Decimal('0.000000'), Decimal('1657.000000'), Decimal('7345082030.751506'), Decimal('0.000000'), Dec
+scan double 1y rep1: 2.52s (0.0, 1657.0, 7345082030.734579, 0.0, 1657.989990234375, 7351593742.909718, 0.0, 1653.989990234375, 
+scan double 1y rep2: 2.48s (0.0, 1657.0, 7345082030.73457, 0.0, 1657.989990234375, 7351593742.90971, 0.0, 1653.989990234375, 73
+scan decimal 1y rep2: 0.89s (Decimal('0.000000'), Decimal('1657.000000'), Decimal('7345082030.751506'), Decimal('0.000000'), Dec
+scan decimal 1y rep3: 0.90s (Decimal('0.000000'), Decimal('1657.000000'), Decimal('7345082030.751506'), Decimal('0.000000'), Dec
+scan double 1y rep3: 2.50s (0.0, 1657.0, 7345082030.734578, 0.0, 1657.989990234375, 7351593742.909714, 0.0, 1653.989990234375, 
+scan double 3y rep0: 8.42s (0.0, 1934.8800048828125, 19504614269.61209, 0.0, 1935.0, 19521675711.942493, 0.0, 1933.650024414062
+scan decimal 3y rep0: 3.78s (Decimal('0.000000'), Decimal('1934.880005'), Decimal('19504614269.502588'), Decimal('0.000000'), De
+scan decimal 3y rep1: 2.75s (Decimal('0.000000'), Decimal('1934.880005'), Decimal('19504614269.502588'), Decimal('0.000000'), De
+scan double 3y rep1: 8.74s (0.0, 1934.8800048828125, 19504614269.612087, 0.0, 1935.0, 19521675711.942566, 0.0, 1933.65002441406
+scan double 3y rep2: 7.89s (0.0, 1934.8800048828125, 19504614269.611958, 0.0, 1935.0, 19521675711.942345, 0.0, 1933.65002441406
+scan decimal 3y rep2: 3.37s (Decimal('0.000000'), Decimal('1934.880005'), Decimal('19504614269.502588'), Decimal('0.000000'), De
+scan decimal 3y rep3: 4.71s (Decimal('0.000000'), Decimal('1934.880005'), Decimal('19504614269.502588'), Decimal('0.000000'), De
+scan double 3y rep3: 8.55s (0.0, 1934.8800048828125, 19504614269.612003, 0.0, 1935.0, 19521675711.94246, 0.0, 1933.650024414062
+features double 1m rep0: 0.24s (96984, 193.2070165035988, 0.8704891630604548)
+features decimal 1m rep0: 0.29s (96984, 193.20701920869647, 0.870489114498015)
+features decimal 1m rep1: 0.22s (96984, 193.20701920869686, 0.8704891144980154)
+features double 1m rep1: 0.17s (96984, 193.20701650359865, 0.8704891630604544)
+features double 1m rep2: 0.18s (96984, 193.20701650359865, 0.8704891630604549)
+features decimal 1m rep2: 0.23s (96984, 193.2070192086967, 0.870489114498015)
+features decimal 1m rep3: 0.22s (96984, 193.20701920869666, 0.8704891144980151)
+features double 1m rep3: 0.17s (96984, 193.20701650359868, 0.8704891630604554)
+features double 1y rep0: 1.95s (1313022, 2324.960667941152, 25.676961636768407)
+features decimal 1y rep0: 2.55s (1313022, 2324.9607324502467, 25.676959296292424)
+features decimal 1y rep1: 2.34s (1313022, 2324.9607324502463, 25.676959296292456)
+features double 1y rep1: 1.75s (1313022, 2324.9606679411563, 25.676961636768432)
+features double 1y rep2: 1.77s (1313022, 2324.9606679411427, 25.67696163676842)
+features decimal 1y rep2: 2.35s (1313022, 2324.960732450249, 25.676959296292416)
+features decimal 1y rep3: 2.38s (1313022, 2324.960732450244, 25.676959296292456)
+features double 1y rep3: 1.77s (1313022, 2324.9606679411513, 25.676961636768475)
+features double 3y rep0: 5.74s (3852167, 6962.732706806047, 67.50139280487906)
+features decimal 3y rep0: 8.37s (3852167, 6962.7328740270905, 67.50138991954283)
+features decimal 3y rep1: 6.90s (3852167, 6962.732874027082, 67.50138991954292)
+features double 3y rep1: 6.88s (3852167, 6962.732706806066, 67.50139280487913)
+features double 3y rep2: 5.52s (3852167, 6962.732706806035, 67.5013928048789)
+features decimal 3y rep2: 8.73s (3852167, 6962.732874027097, 67.5013899195429)
+features decimal 3y rep3: 7.61s (3852167, 6962.732874027103, 67.5013899195429)
+features double 3y rep3: 6.99s (3852167, 6962.7327068060895, 67.50139280487895)
+/home/xindingtian/code/quant_data/benchmarks/decimal_vs_double/bench.py:168: DeprecationWarning: fetch_record_batch() is deprecated, use to_arrow_reader() instead.
+  reader = con.execute(sql).fetch_record_batch(rows_per_batch=1_000_000)
+export double 1m rep0: 1.32s (23418210, 24)
+/home/xindingtian/code/quant_data/benchmarks/decimal_vs_double/bench.py:168: DeprecationWarning: fetch_record_batch() is deprecated, use to_arrow_reader() instead.
+  reader = con.execute(sql).fetch_record_batch(rows_per_batch=1_000_000)
+export decimal 1m rep0: 1.64s (23418210, 24)
+export decimal 1m rep1: 1.63s (23418210, 24)
+export double 1m rep1: 0.91s (23418210, 24)
+export double 1m rep2: 0.92s (23418210, 24)
+export decimal 1m rep2: 1.62s (23418210, 24)
+export decimal 1m rep3: 1.60s (23418210, 24)
+export double 1m rep3: 0.92s (23418210, 24)
+export double 1y rep0: 12.30s (316389428, 317)
+export decimal 1y rep0: 21.76s (316389428, 317)
+export decimal 1y rep1: 21.82s (316389428, 317)
+export double 1y rep1: 12.70s (316389428, 317)
+export double 1y rep2: 12.36s (316389428, 317)
+export decimal 1y rep2: 22.09s (316389428, 317)
+export decimal 1y rep3: 21.54s (316389428, 317)
+export double 1y rep3: 12.87s (316389428, 317)
+export double 3y rep0: 37.01s (928149581, 929)
+export decimal 3y rep0: 73.32s (928149581, 929)
+export decimal 3y rep1: 62.87s (928149581, 929)
+export double 3y rep1: 51.90s (928149581, 929)
+export double 3y rep2: 35.98s (928149581, 929)
+export decimal 3y rep2: 68.52s (928149581, 929)
+export decimal 3y rep3: 62.17s (928149581, 929)
+export double 3y rep3: 36.51s (928149581, 929)
+double high=close rows: 550651
+decimal high=close rows: 550651
+verdict-diff rows: 0
+max |(c-o)_dbl - (c-o)_dec|: 9.863281250077627e-07
+max |sum(c-o) diff| over symbol-days (1m): 2.128881835938845e-05
+max feature diff (1m): (6.978468603414251e-08, 1.22599526613653e-08)
+open=0 rows (1m): 270
+pandas dtype of DECIMAL cols without cast: {'open': 'float64', 'close': 'float64'}

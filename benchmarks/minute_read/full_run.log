@@ -1,0 +1,161 @@
+  B build 60/727 days, 20s
+  B build 120/727 days, 39s
+  B build 180/727 days, 59s
+  B build 240/727 days, 78s
+  B build 300/727 days, 98s
+  B build 360/727 days, 116s
+  B build 420/727 days, 133s
+  B build 480/727 days, 150s
+  B build 540/727 days, 162s
+  B build 600/727 days, 179s
+  B build 660/727 days, 197s
+  B build 720/727 days, 214s
+B build: {'ts': '2026-09-21T00:56:23', 'task': 'build', 'version': 'B', 'range': '3y', 'seconds': 216.45, 'peak_rss_mb': 1239.8, 'rss_delta_mb': 1186.3, 'final_size_mb': 12778.1, 'disk_free_gb_before': 934.75, 'params': 'per-day files mirroring raw layout; SNAPPY; default row_group_size=122880; no ORDER BY (natural order)'}
+C build (1y): {'ts': '2026-09-21T00:56:51', 'task': 'build', 'version': 'C', 'range': '1y', 'seconds': 26.43, 'peak_rss_mb': 6571.5, 'rss_delta_mb': 6518.0, 'final_size_mb': 6967.5, 'disk_free_gb_before': 927.78, 'params': "single DuckDB table 'bars', CTAS in natural file order, no ORDER BY"}
+C build (2y): {'ts': '2026-09-21T00:57:41', 'task': 'build', 'version': 'C', 'range': '2y', 'seconds': 49.41, 'peak_rss_mb': 6709.7, 'rss_delta_mb': 138.2, 'final_size_mb': 13507.5, 'disk_free_gb_before': 914.27, 'params': "single DuckDB table 'bars', CTAS in natural file order, no ORDER BY"}
+C build (3y): {'ts': '2026-09-21T00:58:51', 'task': 'build', 'version': 'C', 'range': '3y', 'seconds': 68.75, 'peak_rss_mb': 6722.2, 'rss_delta_mb': 12.6, 'final_size_mb': 19870.5, 'disk_free_gb_before': 894.4, 'params': "single DuckDB table 'bars', CTAS in natural file order, no ORDER BY"}
+scan A 1m rep0: 0.49s (23418210, datetime.date(2025, 1, 2), datetime.date(2025, 1, 27), datetime.datetime(2025, 1, 2, 9, 31), datetime.datetim
+scan B 1m rep0: 0.18s (23418210, datetime.date(2025, 1, 2), datetime.date(2025, 1, 27), datetime.datetime(2025, 1, 2, 9, 31), datetime.datetim
+scan C 1m rep0: 0.20s (23418210, datetime.date(2025, 1, 2), datetime.date(2025, 1, 27), datetime.datetime(2025, 1, 2, 9, 31), datetime.datetim
+scan B 1m rep1: 0.11s (23418210, datetime.date(2025, 1, 2), datetime.date(2025, 1, 27), datetime.datetime(2025, 1, 2, 9, 31), datetime.datetim
+scan C 1m rep1: 0.10s (23418210, datetime.date(2025, 1, 2), datetime.date(2025, 1, 27), datetime.datetime(2025, 1, 2, 9, 31), datetime.datetim
+scan A 1m rep1: 0.40s (23418210, datetime.date(2025, 1, 2), datetime.date(2025, 1, 27), datetime.datetime(2025, 1, 2, 9, 31), datetime.datetim
+scan C 1m rep2: 0.10s (23418210, datetime.date(2025, 1, 2), datetime.date(2025, 1, 27), datetime.datetime(2025, 1, 2, 9, 31), datetime.datetim
+scan A 1m rep2: 0.38s (23418210, datetime.date(2025, 1, 2), datetime.date(2025, 1, 27), datetime.datetime(2025, 1, 2, 9, 31), datetime.datetim
+scan B 1m rep2: 0.10s (23418210, datetime.date(2025, 1, 2), datetime.date(2025, 1, 27), datetime.datetime(2025, 1, 2, 9, 31), datetime.datetim
+scan A 1m rep3: 0.35s (23418210, datetime.date(2025, 1, 2), datetime.date(2025, 1, 27), datetime.datetime(2025, 1, 2, 9, 31), datetime.datetim
+scan B 1m rep3: 0.11s (23418210, datetime.date(2025, 1, 2), datetime.date(2025, 1, 27), datetime.datetime(2025, 1, 2, 9, 31), datetime.datetim
+scan C 1m rep3: 0.10s (23418210, datetime.date(2025, 1, 2), datetime.date(2025, 1, 27), datetime.datetime(2025, 1, 2, 9, 31), datetime.datetim
+scan A 1y rep0: 3.81s (316389428, datetime.date(2025, 1, 2), datetime.date(2025, 12, 31), datetime.datetime(2025, 1, 2, 9, 31), datetime.datet
+scan B 1y rep0: 2.17s (316389428, datetime.date(2025, 1, 2), datetime.date(2025, 12, 31), datetime.datetime(2025, 1, 2, 9, 31), datetime.datet
+scan C 1y rep0: 2.92s (316389428, datetime.date(2025, 1, 2), datetime.date(2025, 12, 31), datetime.datetime(2025, 1, 2, 9, 31), datetime.datet
+scan B 1y rep1: 2.09s (316389428, datetime.date(2025, 1, 2), datetime.date(2025, 12, 31), datetime.datetime(2025, 1, 2, 9, 31), datetime.datet
+scan C 1y rep1: 3.52s (316389428, datetime.date(2025, 1, 2), datetime.date(2025, 12, 31), datetime.datetime(2025, 1, 2, 9, 31), datetime.datet
+scan A 1y rep1: 4.16s (316389428, datetime.date(2025, 1, 2), datetime.date(2025, 12, 31), datetime.datetime(2025, 1, 2, 9, 31), datetime.datet
+scan C 1y rep2: 1.53s (316389428, datetime.date(2025, 1, 2), datetime.date(2025, 12, 31), datetime.datetime(2025, 1, 2, 9, 31), datetime.datet
+scan A 1y rep2: 4.02s (316389428, datetime.date(2025, 1, 2), datetime.date(2025, 12, 31), datetime.datetime(2025, 1, 2, 9, 31), datetime.datet
+scan B 1y rep2: 2.59s (316389428, datetime.date(2025, 1, 2), datetime.date(2025, 12, 31), datetime.datetime(2025, 1, 2, 9, 31), datetime.datet
+scan A 1y rep3: 3.70s (316389428, datetime.date(2025, 1, 2), datetime.date(2025, 12, 31), datetime.datetime(2025, 1, 2, 9, 31), datetime.datet
+scan B 1y rep3: 1.63s (316389428, datetime.date(2025, 1, 2), datetime.date(2025, 12, 31), datetime.datetime(2025, 1, 2, 9, 31), datetime.datet
+scan C 1y rep3: 3.05s (316389428, datetime.date(2025, 1, 2), datetime.date(2025, 12, 31), datetime.datetime(2025, 1, 2, 9, 31), datetime.datet
+scan A 2y rep0: 8.16s (627664304, datetime.date(2024, 1, 2), datetime.date(2025, 12, 31), datetime.datetime(2024, 1, 2, 9, 31), datetime.datet
+scan B 2y rep0: 4.06s (627664304, datetime.date(2024, 1, 2), datetime.date(2025, 12, 31), datetime.datetime(2024, 1, 2, 9, 31), datetime.datet
+scan C 2y rep0: 5.46s (627664304, datetime.date(2024, 1, 2), datetime.date(2025, 12, 31), datetime.datetime(2024, 1, 2, 9, 31), datetime.datet
+scan B 2y rep1: 4.27s (627664304, datetime.date(2024, 1, 2), datetime.date(2025, 12, 31), datetime.datetime(2024, 1, 2, 9, 31), datetime.datet
+scan C 2y rep1: 5.46s (627664304, datetime.date(2024, 1, 2), datetime.date(2025, 12, 31), datetime.datetime(2024, 1, 2, 9, 31), datetime.datet
+scan A 2y rep1: 8.28s (627664304, datetime.date(2024, 1, 2), datetime.date(2025, 12, 31), datetime.datetime(2024, 1, 2, 9, 31), datetime.datet
+scan C 2y rep2: 5.32s (627664304, datetime.date(2024, 1, 2), datetime.date(2025, 12, 31), datetime.datetime(2024, 1, 2, 9, 31), datetime.datet
+scan A 2y rep2: 8.23s (627664304, datetime.date(2024, 1, 2), datetime.date(2025, 12, 31), datetime.datetime(2024, 1, 2, 9, 31), datetime.datet
+scan B 2y rep2: 4.17s (627664304, datetime.date(2024, 1, 2), datetime.date(2025, 12, 31), datetime.datetime(2024, 1, 2, 9, 31), datetime.datet
+scan A 2y rep3: 7.77s (627664304, datetime.date(2024, 1, 2), datetime.date(2025, 12, 31), datetime.datetime(2024, 1, 2, 9, 31), datetime.datet
+scan B 2y rep3: 3.99s (627664304, datetime.date(2024, 1, 2), datetime.date(2025, 12, 31), datetime.datetime(2024, 1, 2, 9, 31), datetime.datet
+scan C 2y rep3: 4.94s (627664304, datetime.date(2024, 1, 2), datetime.date(2025, 12, 31), datetime.datetime(2024, 1, 2, 9, 31), datetime.datet
+scan A 3y rep0: 12.37s (928149581, datetime.date(2023, 1, 3), datetime.date(2025, 12, 31), datetime.datetime(2023, 1, 3, 9, 31), datetime.datet
+scan B 3y rep0: 6.11s (928149581, datetime.date(2023, 1, 3), datetime.date(2025, 12, 31), datetime.datetime(2023, 1, 3, 9, 31), datetime.datet
+scan C 3y rep0: 7.71s (928149581, datetime.date(2023, 1, 3), datetime.date(2025, 12, 31), datetime.datetime(2023, 1, 3, 9, 31), datetime.datet
+scan B 3y rep1: 6.49s (928149581, datetime.date(2023, 1, 3), datetime.date(2025, 12, 31), datetime.datetime(2023, 1, 3, 9, 31), datetime.datet
+scan C 3y rep1: 8.27s (928149581, datetime.date(2023, 1, 3), datetime.date(2025, 12, 31), datetime.datetime(2023, 1, 3, 9, 31), datetime.datet
+scan A 3y rep1: 11.90s (928149581, datetime.date(2023, 1, 3), datetime.date(2025, 12, 31), datetime.datetime(2023, 1, 3, 9, 31), datetime.datet
+scan C 3y rep2: 7.66s (928149581, datetime.date(2023, 1, 3), datetime.date(2025, 12, 31), datetime.datetime(2023, 1, 3, 9, 31), datetime.datet
+scan A 3y rep2: 11.88s (928149581, datetime.date(2023, 1, 3), datetime.date(2025, 12, 31), datetime.datetime(2023, 1, 3, 9, 31), datetime.datet
+scan B 3y rep2: 6.29s (928149581, datetime.date(2023, 1, 3), datetime.date(2025, 12, 31), datetime.datetime(2023, 1, 3, 9, 31), datetime.datet
+scan A 3y rep3: 11.36s (928149581, datetime.date(2023, 1, 3), datetime.date(2025, 12, 31), datetime.datetime(2023, 1, 3, 9, 31), datetime.datet
+scan B 3y rep3: 6.05s (928149581, datetime.date(2023, 1, 3), datetime.date(2025, 12, 31), datetime.datetime(2023, 1, 3, 9, 31), datetime.datet
+scan C 3y rep3: 7.44s (928149581, datetime.date(2023, 1, 3), datetime.date(2025, 12, 31), datetime.datetime(2023, 1, 3, 9, 31), datetime.datet
+/home/xindingtian/code/quant_data/benchmarks/minute_read/bench.py:145: DeprecationWarning: fetch_record_batch() is deprecated, use to_arrow_reader() instead.
+  reader = con.execute(sql).fetch_record_batch(rows_per_batch=1_000_000)
+arrow A 1m rep0: 4.61s (23418210, 24)
+/home/xindingtian/code/quant_data/benchmarks/minute_read/bench.py:145: DeprecationWarning: fetch_record_batch() is deprecated, use to_arrow_reader() instead.
+  reader = con.execute(sql).fetch_record_batch(rows_per_batch=1_000_000)
+arrow B 1m rep0: 2.30s (23418210, 24)
+arrow C 1m rep0: 2.81s (23418210, 24)
+arrow B 1m rep1: 1.93s (23418210, 24)
+arrow C 1m rep1: 1.76s (23418210, 24)
+arrow A 1m rep1: 3.84s (23418210, 24)
+arrow C 1m rep2: 1.79s (23418210, 24)
+arrow A 1m rep2: 3.76s (23418210, 24)
+arrow B 1m rep2: 1.93s (23418210, 24)
+arrow A 1m rep3: 3.88s (23418210, 24)
+arrow B 1m rep3: 1.91s (23418210, 24)
+arrow C 1m rep3: 1.73s (23418210, 24)
+arrow A 1y rep0: 60.33s (316389428, 317)
+arrow B 1y rep0: 32.94s (316389428, 317)
+arrow C 1y rep0: 42.10s (316389428, 317)
+arrow B 1y rep1: 30.54s (316389428, 317)
+arrow C 1y rep1: 37.47s (316389428, 317)
+arrow A 1y rep1: 57.59s (316389428, 317)
+arrow C 1y rep2: 25.18s (316389428, 317)
+arrow A 1y rep2: 53.31s (316389428, 317)
+arrow B 1y rep2: 31.94s (316389428, 317)
+arrow A 1y rep3: 51.60s (316389428, 317)
+arrow B 1y rep3: 24.56s (316389428, 317)
+arrow C 1y rep3: 36.97s (316389428, 317)
+arrow A 2y rep0: 114.20s (627664304, 628)
+arrow B 2y rep0: 63.59s (627664304, 628)
+/home/xindingtian/code/quant_data/benchmarks/minute_read/bench.py:145: DeprecationWarning: fetch_record_batch() is deprecated, use to_arrow_reader() instead.
+  reader = con.execute(sql).fetch_record_batch(rows_per_batch=1_000_000)
+arrow A 2y rep0: 120.88s (627664304, 628)
+/home/xindingtian/code/quant_data/benchmarks/minute_read/bench.py:145: DeprecationWarning: fetch_record_batch() is deprecated, use to_arrow_reader() instead.
+  reader = con.execute(sql).fetch_record_batch(rows_per_batch=1_000_000)
+arrow B 2y rep0: 68.58s (627664304, 628)
+arrow C 2y rep0: 77.35s (627664304, 628)
+arrow B 2y rep1: 60.77s (627664304, 628)
+arrow C 2y rep1: 73.47s (627664304, 628)
+arrow A 2y rep1: 114.12s (627664304, 628)
+arrow C 2y rep2: 71.50s (627664304, 628)
+arrow A 2y rep2: 110.63s (627664304, 628)
+arrow B 2y rep2: 59.91s (627664304, 628)
+arrow A 2y rep3: 109.57s (627664304, 628)
+arrow B 2y rep3: 60.06s (627664304, 628)
+arrow C 2y rep3: 72.30s (627664304, 628)
+arrow A 3y rep0: 166.69s (928149581, 929)
+arrow B 3y rep0: 91.90s (928149581, 929)
+arrow C 3y rep0: 106.92s (928149581, 929)
+arrow B 3y rep1: 95.50s (928149581, 929)
+arrow C 3y rep1: 106.23s (928149581, 929)
+arrow A 3y rep1: 170.58s (928149581, 929)
+arrow C 3y rep2: 106.67s (928149581, 929)
+arrow A 3y rep2: 165.29s (928149581, 929)
+arrow B 3y rep2: 89.74s (928149581, 929)
+arrow A 3y rep3: 164.93s (928149581, 929)
+arrow B 3y rep3: 89.93s (928149581, 929)
+arrow C 3y rep3: 104.27s (928149581, 929)
+pandas A 1m rep0: 8.93s (23418210, 1334838102)
+pandas B 1m rep0: 6.96s (23418210, 1334838102)
+pandas C 1m rep0: 7.55s (23418210, 1334838102)
+pandas B 1m rep1: 6.71s (23418210, 1334838102)
+pandas C 1m rep1: 8.07s (23418210, 1334838102)
+pandas A 1m rep1: 9.28s (23418210, 1334838102)
+pandas C 1m rep2: 7.43s (23418210, 1334838102)
+pandas A 1m rep2: 9.32s (23418210, 1334838102)
+pandas B 1m rep2: 7.88s (23418210, 1334838102)
+pandas A 1m rep3: 9.46s (23418210, 1334838102)
+pandas B 1m rep3: 6.91s (23418210, 1334838102)
+pandas C 1m rep3: 8.27s (23418210, 1334838102)
+breakdown 1_read rep0: 0.18s
+breakdown 1_read rep1: 0.12s
+breakdown 1_read rep2: 0.11s
+breakdown 1_read rep3: 0.12s
+breakdown 2_rename rep0: 0.11s
+breakdown 2_rename rep1: 0.12s
+breakdown 2_rename rep2: 0.11s
+breakdown 2_rename rep3: 0.11s
+breakdown 3_cast_ts rep0: 0.29s
+breakdown 3_cast_ts rep1: 0.29s
+breakdown 3_cast_ts rep2: 0.30s
+breakdown 3_cast_ts rep3: 0.30s
+breakdown 4_gen_date rep0: 0.37s
+breakdown 4_gen_date rep1: 0.32s
+breakdown 4_gen_date rep2: 0.31s
+breakdown 4_gen_date rep3: 0.33s
+breakdown 5_filter0930 rep0: 0.40s
+breakdown 5_filter0930 rep1: 0.35s
+breakdown 5_filter0930 rep2: 0.40s
+breakdown 5_filter0930 rep3: 0.37s
+A (928149581, datetime.date(2023, 1, 3), datetime.date(2025, 12, 31), datetime.datetime(2023, 1, 3, 9, 31), datetime.datetime(2025, 12, 31, 15, 0), 19504614269.61195, 19521675711.942394, 19487925940.053963, 19504854598.64983, 69812413220759.0, 877579581906621.0, 5596)
+B (928149581, datetime.date(2023, 1, 3), datetime.date(2025, 12, 31), datetime.datetime(2023, 1, 3, 9, 31), datetime.datetime(2025, 12, 31, 15, 0), 19504614269.61186, 19521675711.942234, 19487925940.054047, 19504854598.6497, 69812413220759.0, 877579581906621.1, 5596)
+C (928149581, datetime.date(2023, 1, 3), datetime.date(2025, 12, 31), datetime.datetime(2023, 1, 3, 9, 31), datetime.datetime(2025, 12, 31, 15, 0), 19504614269.61192, 19521675711.942398, 19487925940.053864, 19504854598.649727, 69812413220759.0, 877579581906619.5, 5596)
+aggregates consistent (float tol 1e-6): True
+diff A vs B on 2023-01-03: (0, 0)
+diff B vs C on 2023-01-03: (0, 0)
+diff A vs C on 2023-01-03: (0, 0)
