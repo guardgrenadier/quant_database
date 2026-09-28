@@ -3,10 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
-import threading
-import time
-from collections import deque
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from typing import Any, Callable, Literal
@@ -14,50 +10,12 @@ from typing import Any, Callable, Literal
 import requests
 
 from .errors import SourceContractError, SourceRequestError
+from .tushare_transport import BASE_URL, RequestLimiter, TushareTransport
 
 
-BASE_URL = "https://pcd.mobcvb.cn/tushare/pro"
 FIELDS = "ts_code,trade_time,freq,open,high,low,close,vol,amount"
 LIMIT = 500
 MAX_PAGES = 20
-
-
-class RequestLimiter:
-    """跨工作线程共享的滚动分钟限流器与进程请求预算。"""
-
-    def __init__(
-        self, max_per_minute: int = 180, budget: int | None = None,
-        *, clock: Callable[[], float] = time.monotonic,
-        sleep: Callable[[float], None] = time.sleep,
-    ) -> None:
-        """设置滚动 60 秒窗口；每次真实 HTTP 尝试都需先 acquire。"""
-
-        if max_per_minute <= 0 or (budget is not None and budget <= 0):
-            raise ValueError("invalid request limits")
-        self.max_per_minute = max_per_minute
-        self.budget = budget
-        self.clock = clock
-        self.sleep = sleep
-        self._lock = threading.Lock()
-        self._recent: deque[float] = deque()
-        self.count = 0
-
-    def acquire(self) -> None:
-        """等待限流窗口腾出位置；预算耗尽时直接拒绝新请求。"""
-
-        while True:
-            with self._lock:
-                now = self.clock()
-                while self._recent and now - self._recent[0] >= 60:
-                    self._recent.popleft()
-                if self.budget is not None and self.count >= self.budget:
-                    raise RuntimeError("HTTP request budget exhausted")
-                if len(self._recent) < self.max_per_minute:
-                    self._recent.append(now)
-                    self.count += 1
-                    return
-                delay = max(0.001, 60 - (now - self._recent[0]))
-            self.sleep(delay)
 
 
 @dataclass(frozen=True)
@@ -95,17 +53,23 @@ class TushareMinuteSource:
     ) -> None:
         """每线程独立 Session，共享进程级限流器。"""
 
-        self.api_key = api_key or os.getenv("TUSHARE_API_KEY")
-        if not self.api_key:
-            raise ValueError("TUSHARE_API_KEY is required")
-        if not base_url.startswith("https://") or retries < 0 or retry_delay < 0:
-            raise ValueError("invalid minute source configuration")
-        self.limiter = limiter or RequestLimiter()
-        self.session_factory = session_factory
-        self.local = threading.local()
-        self.base_url = base_url.rstrip("/")
-        self.retries = retries
-        self.retry_delay = retry_delay
+        self.transport = TushareTransport(
+            api_key=api_key, limiter=limiter or RequestLimiter(), session_factory=session_factory,
+            base_url=base_url, retries=retries, retry_delay=retry_delay,
+        )
+
+    @property
+    def limiter(self) -> RequestLimiter:
+        """保留现有调用方使用的限流器访问方式。"""
+
+        assert self.transport.limiter is not None
+        return self.transport.limiter
+
+    @limiter.setter
+    def limiter(self, value: RequestLimiter) -> None:
+        """允许测试或运行入口替换进程级请求预算。"""
+
+        self.transport.limiter = value
 
     def parameters(self, code: str, day: date) -> dict[str, Any]:
         """返回计划中固定的代码、窗口和分页参数。"""
@@ -179,73 +143,28 @@ class TushareMinuteSource:
             raise ValueError("raw pagination lacks a short final page")
         return rows
 
-    def _session(self) -> requests.Session:
-        """懒加载当前线程独享的 HTTP Session。"""
-
-        if not hasattr(self.local, "session"):
-            self.local.session = self.session_factory()
-        return self.local.session
-
     def _query(self, params: dict[str, Any]) -> tuple[MinutePage | None, bool, float | None, list[dict]]:
-        """执行单页请求，记录每次 HTTP 尝试；202 不在本轮等待。"""
+        """解释 HTTP 202 与成功页；连接、重试和逐次记录交给传输层。"""
 
-        attempts: list[dict] = []
-        for attempt in range(self.retries + 1):
-            self.limiter.acquire()
-            requested_at = datetime.now(timezone.utc).isoformat()
+        response = self.transport.get("stk_mins", params)
+        if response.status_code == 202:
             try:
-                response = self._session().get(
-                    f"{self.base_url}/stk_mins", params=params,
-                    headers={"X-API-Key": self.api_key}, timeout=30, verify=True,
-                )
-            except (requests.Timeout, requests.ConnectionError) as exc:
-                attempts.append({"at": requested_at, "offset": params["offset"], "http_status": None,
-                                 "error": type(exc).__name__})
-                if attempt == self.retries:
-                    raise SourceRequestError("stk_mins transport retry exhausted", attempts) from exc
-                time.sleep(self.retry_delay * 2**attempt)
-                continue
-            attempts.append({"at": requested_at, "offset": params["offset"],
-                             "http_status": response.status_code,
-                             "request_id": response.headers.get("X-Request-ID")})
-            body = response.content
-            if response.status_code == 202:
+                payload = json.loads(response.body)
+            except ValueError as exc:
+                raise SourceContractError("invalid pending response", response.body, response.attempts) from exc
+            if isinstance(payload, dict) and payload.get("error") == "minute_data_pending":
                 try:
-                    payload = json.loads(body)
-                except ValueError as exc:
-                    raise SourceContractError("invalid pending response", body, attempts) from exc
-                if isinstance(payload, dict) and payload.get("error") == "minute_data_pending":
-                    try:
-                        retry_after = float(response.headers.get("Retry-After", 0))
-                    except ValueError:
-                        retry_after = None
-                    return None, True, retry_after, attempts
-                raise SourceContractError("unexpected HTTP 202 response", body, attempts)
-            if response.status_code == 503:
-                try:
-                    unavailable = json.loads(body).get("error") == "data_source_unavailable"
-                except (ValueError, AttributeError):
-                    unavailable = False
-                if unavailable:
-                    raise SourceRequestError("stk_mins data source is unavailable", attempts)
-            if response.status_code in {429, 503} and attempt < self.retries:
-                delay = self.retry_delay * 2**attempt
-                if response.status_code == 429:
-                    try:
-                        delay = max(delay, float(response.headers.get("Retry-After", 0)))
-                    except ValueError:
-                        pass
-                time.sleep(delay)
-                continue
-            if response.status_code != 200:
-                raise SourceRequestError(f"stk_mins HTTP {response.status_code}", attempts)
-            try:
-                rows = self._decode(body)
-            except SourceContractError as exc:
-                exc.requests = attempts
-                raise
-            return MinutePage(body, rows), False, None, attempts
-        raise AssertionError("retry loop exhausted")
+                    retry_after = float(response.headers.get("retry-after", 0))
+                except ValueError:
+                    retry_after = None
+                return None, True, retry_after, response.attempts
+            raise SourceContractError("unexpected HTTP 202 response", response.body, response.attempts)
+        try:
+            rows = self._decode(response.body)
+        except SourceContractError as exc:
+            exc.requests = response.attempts
+            raise
+        return MinutePage(response.body, rows), False, None, response.attempts
 
     def _decode(self, body: bytes) -> list[dict[str, Any]]:
         """验证 Tushare 成功信封和固定字段，保留源字段名。"""

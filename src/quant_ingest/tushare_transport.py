@@ -98,7 +98,10 @@ class TushareTransport:
         attempts: list[dict[str, Any]] = []
         for attempt in range(self.retries + 1):
             if self.limiter is not None:
-                self.limiter.acquire()
+                try:
+                    self.limiter.acquire()
+                except RuntimeError as exc:
+                    raise SourceRequestError(f"{endpoint}: {exc}", attempts) from exc
             requested_at = datetime.now(timezone.utc).isoformat()
             record = {"at": requested_at, "endpoint": endpoint, "offset": params.get("offset")}
             try:
@@ -117,16 +120,17 @@ class TushareTransport:
                 raise SourceRequestError(f"{endpoint}: request failed", attempts) from exc
 
             body = response.content
-            headers = dict(response.headers)
+            # HTTP 头大小写不固定；统一小写后交给适配器读取。
+            headers = {str(name).lower(): str(value) for name, value in response.headers.items()}
             attempts.append({**record, "http_status": response.status_code,
-                             "request_id": response.headers.get("X-Request-ID")})
+                             "request_id": headers.get("x-request-id")})
             if response.status_code == 503 and self._unavailable(body):
                 raise SourceRequestError(f"{endpoint}: data source is unavailable", attempts)
             if response.status_code in {429, 503} and attempt < self.retries:
                 delay = self.retry_delay * 2**attempt
                 if response.status_code == 429:
                     try:
-                        delay = max(delay, float(response.headers.get("Retry-After", 0)))
+                        delay = max(delay, float(headers.get("retry-after", 0)))
                     except ValueError:
                         pass
                 self.sleep(delay)

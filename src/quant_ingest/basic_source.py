@@ -3,18 +3,16 @@
 from __future__ import annotations
 
 import json
-import os
-import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from typing import Any
 
 import requests
 
-from .errors import SourceContractError
+from .errors import SourceContractError, SourceRequestError
+from .tushare_transport import BASE_URL, TushareTransport
 
 
-BASE_URL = "https://pcd.mobcvb.cn/tushare/pro"
 FIELDS = {
     "stock_basic": "ts_code,symbol,name,exchange,market,list_status,list_date,delist_date",
     "trade_cal": "exchange,cal_date,is_open,pretrade_date",
@@ -83,6 +81,7 @@ class Page:
     body: bytes
     rows: list[dict[str, Any]]
     request_id: str | None
+    attempts: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -108,15 +107,10 @@ class TushareBasicsSource:
     ) -> None:
         """绑定网关会话；密钥仅从参数或环境变量读取。"""
 
-        self.api_key = api_key or os.getenv("TUSHARE_API_KEY")
-        if not self.api_key:
-            raise ValueError("TUSHARE_API_KEY is required")
-        if not base_url.startswith("https://") or retries < 0 or retry_delay < 0:
-            raise ValueError("invalid source configuration")
-        self.session = session or requests.Session()
-        self.base_url = base_url.rstrip("/")
-        self.retries = retries
-        self.retry_delay = retry_delay
+        self.transport = TushareTransport(
+            api_key=api_key, session_factory=(lambda: session) if session is not None else requests.Session,
+            base_url=base_url, retries=retries, retry_delay=retry_delay,
+        )
 
     def parameters(self, dataset: str, day: date) -> dict[str, Any]:
         """返回固定请求参数，供抓取前落账与续跑比对。"""
@@ -160,54 +154,39 @@ class TushareBasicsSource:
         params = self.parameters(dataset, day)
         limit = LIMIT[dataset]
         pages: list[Page] = []
+        attempts: list[dict] = []
         seen: set[tuple] = set()
         for index in range(20):
             params["offset"] = index * limit
-            page = self._query(dataset, params)
+            try:
+                page = self._query(dataset, params)
+            except (SourceContractError, SourceRequestError) as exc:
+                exc.requests = attempts + exc.requests
+                raise
+            attempts.extend(page.attempts)
             try:
                 check_page(dataset, day, page.rows, seen)
             except ValueError as exc:
-                raise SourceContractError(str(exc), page.body) from exc
+                raise SourceContractError(str(exc), page.body, attempts) from exc
             pages.append(page)
             if len(page.rows) < limit:
                 try:
                     check_complete(dataset, day, [len(p.rows) for p in pages], [item for p in pages for item in p.rows])
                 except ValueError as exc:
-                    raise SourceContractError(str(exc), page.body) from exc
+                    raise SourceContractError(str(exc), page.body, attempts) from exc
                 return FetchResult(pages, datetime.now(timezone.utc))
             if dataset == "stock_basic":
-                raise SourceContractError("stock_basic reached its single-page limit; split strategy needs verification", page.body)
-        raise SourceContractError(f"{dataset} exceeded 20 pages", pages[-1].body)
+                raise SourceContractError("stock_basic reached its single-page limit; split strategy needs verification", page.body, attempts)
+        raise SourceContractError(f"{dataset} exceeded 20 pages", pages[-1].body, attempts)
 
     def _query(self, dataset: str, params: dict[str, Any]) -> Page:
-        """执行单页请求，有限重试瞬时 HTTP 错误并保留成功响应原文。"""
+        """只解释基础数据集的成功响应；HTTP 重试由共用传输层负责。"""
 
-        for attempt in range(self.retries + 1):
-            try:
-                response = self.session.get(
-                    f"{self.base_url}/{dataset}", params=params,
-                    headers={"X-API-Key": self.api_key}, timeout=30, verify=True,
-                )
-            except (requests.Timeout, requests.ConnectionError):
-                if attempt == self.retries:
-                    raise RuntimeError(f"{dataset}: transport retry exhausted") from None
-                time.sleep(self.retry_delay * 2**attempt)
-                continue
-            if response.status_code in {429, 503} and attempt < self.retries:
-                delay = self.retry_delay * 2**attempt
-                if response.status_code == 429:
-                    try:
-                        delay = max(delay, float(response.headers.get("Retry-After", 0)))
-                    except ValueError:
-                        pass
-                time.sleep(delay)
-                continue
-            if response.status_code != 200:
-                raise RuntimeError(f"{dataset}: HTTP {response.status_code}")
-            body = response.content
-            try:
-                rows = decode_page(dataset, body)
-            except ValueError as exc:
-                raise SourceContractError(str(exc), body) from exc
-            return Page(body, rows, response.headers.get("X-Request-ID"))
-        raise AssertionError("retry loop exhausted")
+        response = self.transport.get(dataset, params)
+        if response.status_code != 200:
+            raise SourceRequestError(f"{dataset}: HTTP {response.status_code}", response.attempts)
+        try:
+            rows = decode_page(dataset, response.body)
+        except ValueError as exc:
+            raise SourceContractError(str(exc), response.body, response.attempts) from exc
+        return Page(response.body, rows, response.headers.get("x-request-id"), response.attempts)

@@ -13,7 +13,7 @@ import duckdb
 
 from quant_ingest.basic_pipeline import BasicPipeline
 from quant_ingest.basic_source import FIELDS, FetchResult, Page, TushareBasicsSource
-from quant_ingest.errors import SourceContractError
+from quant_ingest.errors import SourceContractError, SourceRequestError
 from quant_ingest.ledger import Ledger
 from quant_ingest.raw import RawStore
 
@@ -49,7 +49,9 @@ class FakeSource(TushareBasicsSource):
             "code": 0, "data": {"fields": FIELDS[dataset].split(","), "items": ROWS[dataset]},
         }, ensure_ascii=False).encode()
         rows = [dict(zip(FIELDS[dataset].split(","), values)) for values in ROWS[dataset]]
-        return FetchResult([Page(body, rows, "offline-request")], datetime.now(timezone.utc))
+        attempt = {"at": "2026-09-18T09:00:00+00:00", "endpoint": dataset, "offset": 0,
+                   "http_status": 200, "request_id": "offline-request"}
+        return FetchResult([Page(body, rows, "offline-request", [attempt])], datetime.now(timezone.utc))
 
 
 class BasicPipelineTest(unittest.TestCase):
@@ -68,6 +70,7 @@ class BasicPipelineTest(unittest.TestCase):
                 self.assertEqual(ledger.publication(dataset, DAY)[0], "published")
                 logs = list((root / "raw" / dataset / "trade_date=20260918" / "runs").glob("*.jsonl"))
                 self.assertTrue(any('"event": "published"' in log.read_text() for log in logs))
+                self.assertTrue(any('"event": "http_attempt"' in log.read_text() for log in logs))
                 with duckdb.connect() as conn:
                     count = conn.execute("select count(*) from read_parquet(?)", [str(path)]).fetchone()[0]
                 self.assertEqual(count, len(ROWS[dataset]))
@@ -111,6 +114,27 @@ class BasicPipelineTest(unittest.TestCase):
             self.assertEqual(len(evidence), 1)
             self.assertEqual(evidence[0].read_bytes(), b'{"code":0,"data":"bad"}')
 
+    def test_failed_transport_attempt_is_logged(self):
+        """请求失败时仍保存脱敏的逐次 HTTP 尝试记录。"""
+
+        class FailedSource(FakeSource):
+            def fetch(self, dataset: str, day: date) -> FetchResult:
+                raise SourceRequestError("stock_basic: HTTP 503", [
+                    {"at": "2026-09-18T09:00:00+00:00", "endpoint": dataset,
+                     "offset": 0, "http_status": 503, "request_id": "offline"},
+                ])
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            ledger = Ledger(root / "warehouse" / "state.duckdb")
+            pipeline = BasicPipeline(FailedSource(), ledger, RawStore(root / "raw"), root / "warehouse")
+            with self.assertRaisesRegex(SourceRequestError, "503"):
+                pipeline.run("stock_basic", DAY)
+            logs = list((root / "raw" / "stock_basic" / "trade_date=20260918" / "runs").glob("*.jsonl"))
+            self.assertEqual(len(logs), 1)
+            self.assertIn('"http_status": 503', logs[0].read_text())
+            self.assertIsNone(ledger.publication("stock_basic", DAY))
+
 
 class BasicSourceTest(unittest.TestCase):
     """确认供应商适配器固定全状态快照的请求形态。"""
@@ -150,9 +174,28 @@ class BasicSourceTest(unittest.TestCase):
         result = source.fetch("stock_basic", DAY)
         self.assertEqual(len(result.rows), 2)
         self.assertEqual(result.pages[0].body, Response("stock_basic", ROWS["stock_basic"]).content)
+        self.assertEqual(result.pages[0].attempts[0]["http_status"], 200)
         self.assertEqual(session.calls[0][1]["list_status"], "L,D,P,G,UN")
         with self.assertRaisesRegex(ValueError, "target date"):
             source.fetch("trade_cal", DAY)
+
+    def test_contract_error_keeps_transport_attempt(self):
+        """供应商信封违约时保留 HTTP 尝试供 pipeline 写入日志。"""
+
+        class Response:
+            status_code = 200
+            headers = {"X-Request-ID": "invalid"}
+            content = b'{"code":1,"msg":"invalid"}'
+
+        class Session:
+            def get(self, url, *, params, headers, timeout, verify):
+                return Response()
+
+        source = TushareBasicsSource(api_key="offline", session=Session())
+        with self.assertRaises(SourceContractError) as caught:
+            source.fetch("stock_basic", DAY)
+        self.assertEqual(caught.exception.requests[0]["http_status"], 200)
+        self.assertEqual(caught.exception.requests[0]["request_id"], "invalid")
 
 
 if __name__ == "__main__":

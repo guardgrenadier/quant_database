@@ -80,6 +80,8 @@ class BasicPipeline:
                 try:
                     fetched = self.source.fetch(dataset, day)
                 except Exception as exc:
+                    for attempt in getattr(exc, "requests", []):
+                        self.raw.log(run_id, dataset, day, "http_attempt", **attempt)
                     if isinstance(exc, SourceContractError):
                         evidence = self.raw.quarantine(run_id, dataset, day, exc.body)
                         self.ledger.record(dataset, day, SLICE_KEY, "quarantined")
@@ -90,6 +92,8 @@ class BasicPipeline:
                     raise
                 rows = fetched.rows
                 for index, page in enumerate(fetched.pages):
+                    for attempt in page.attempts:
+                        self.raw.log(run_id, dataset, day, "http_attempt", page=index, **attempt)
                     self.raw.log(
                         run_id, dataset, day, "http_page", page=index,
                         http_status=200, request_id=page.request_id, row_count=len(page.rows),

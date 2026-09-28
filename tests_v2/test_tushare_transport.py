@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 
 from quant_ingest.errors import SourceRequestError
 from quant_ingest.tushare_transport import RequestLimiter, TushareTransport
@@ -63,7 +65,7 @@ class TransportTest(unittest.TestCase):
         """429 遵守 Retry-After，随后 202 原样交给适配器。"""
 
         pending = b'{"error":"minute_data_pending"}'
-        session = Session([Response(429, headers={"Retry-After": "30"}), Response(202, pending)])
+        session = Session([Response(429, headers={"retry-after": "30"}), Response(202, pending)])
         sleeps: list[float] = []
         transport = TushareTransport(api_key="key", session_factory=lambda: session,
                                      retry_delay=1, sleep=sleeps.append)
@@ -82,6 +84,40 @@ class TransportTest(unittest.TestCase):
             transport.get("stock_basic", {"offset": 0})
         self.assertEqual(len(session.calls), 1)
         self.assertEqual(caught.exception.requests[0]["http_status"], 503)
+
+    def test_budget_exhaustion_does_not_send_an_extra_request(self):
+        """预算耗尽后拒绝下一次调用，已发请求数保持不变。"""
+
+        session = Session([Response(200)])
+        transport = TushareTransport(
+            api_key="key", session_factory=lambda: session, limiter=RequestLimiter(budget=1),
+        )
+        transport.get("stk_mins", {"offset": 0})
+        with self.assertRaisesRegex(SourceRequestError, "budget exhausted"):
+            transport.get("stk_mins", {"offset": 500})
+        self.assertEqual(len(session.calls), 1)
+
+    def test_concurrent_calls_get_separate_sessions(self):
+        """两个并发工作线程各自创建 Session，不共享连接对象。"""
+
+        barrier = Barrier(2)
+        sessions: list[Session] = []
+
+        def create_session():
+            session = Session([Response(200)])
+            sessions.append(session)
+            return session
+
+        transport = TushareTransport(api_key="key", session_factory=create_session)
+
+        def call():
+            barrier.wait()
+            return transport.get("stk_mins", {"offset": 0}).status_code
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            self.assertEqual(list(pool.map(lambda _: call(), range(2))), [200, 200])
+        self.assertEqual(len(sessions), 2)
+        self.assertIsNot(sessions[0], sessions[1])
 
 
 if __name__ == "__main__":
