@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import hashlib
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Mapping
 
@@ -41,6 +41,7 @@ class Ledger:
                     dataset varchar not null, trade_date date not null, slice_key varchar not null,
                     parameters_json varchar not null, status varchar not null,
                     raw_path varchar, raw_sha256 varchar, row_count bigint,
+                    extracted_at timestamptz,
                     updated_at timestamptz default current_timestamp,
                     primary key (dataset, trade_date, slice_key)
                 )
@@ -49,6 +50,7 @@ class Ledger:
                 create table if not exists publications (
                     dataset varchar not null, trade_date date not null,
                     stage varchar not null, source varchar, canonical_path varchar,
+                    canonical_sha256 varchar,
                     row_count bigint, transform_version varchar,
                     updated_at timestamptz default current_timestamp,
                     primary key (dataset, trade_date)
@@ -108,6 +110,7 @@ class Ledger:
     def record(
         self, dataset: str, day: date, slice_key: str, status: str,
         *, artifact: RawArtifact | None = None, row_count: int | None = None,
+        extracted_at: datetime | None = None,
     ) -> None:
         """登记切片状态；完成态必须有可校验的 raw，且不得再次修改。"""
 
@@ -135,10 +138,25 @@ class Ledger:
                 raise ValueError("completed slice is immutable")
             conn.execute(
                 """update slices set status = ?, raw_path = ?, raw_sha256 = ?, row_count = ?,
-                   updated_at = current_timestamp where dataset = ? and trade_date = ? and slice_key = ?""",
+                   extracted_at = ?, updated_at = current_timestamp
+                   where dataset = ? and trade_date = ? and slice_key = ?""",
                 [status, str(artifact.path) if artifact else None, artifact.sha256 if artifact else None,
-                 row_count, dataset, day, slice_key],
+                 row_count, extracted_at or (datetime.now(timezone.utc) if completed else None),
+                 dataset, day, slice_key],
             )
+
+    def slice_details(self, dataset: str, day: date, slice_key: str) -> tuple[str, str | None, str | None, int | None, datetime | None]:
+        """读取切片状态和 raw 证据，供转换与续跑使用。"""
+
+        with duckdb.connect(str(self.database)) as conn:
+            row = conn.execute(
+                """select status, raw_path, raw_sha256, row_count, extracted_at from slices
+                   where dataset = ? and trade_date = ? and slice_key = ?""",
+                [dataset, day, slice_key],
+            ).fetchone()
+            if row is None:
+                raise KeyError((dataset, day, slice_key))
+            return row
 
     def unresolved(self, dataset: str, day: date) -> list[str]:
         """返回仍需处理的切片键，供后续 run 续抓。"""
@@ -170,4 +188,56 @@ class Ledger:
             conn.execute(
                 "update plans set status = 'fetched' where dataset = ? and trade_date = ?",
                 [dataset, day],
+            )
+
+    def publication(self, dataset: str, day: date) -> tuple[str, str, str] | None:
+        """返回发布阶段、正式路径和文件校验值，供崩溃恢复核对。"""
+
+        with duckdb.connect(str(self.database)) as conn:
+            return conn.execute(
+                """select stage, canonical_path, canonical_sha256 from publications
+                   where dataset = ? and trade_date = ?""", [dataset, day]
+            ).fetchone()
+
+    def prepare_publish(
+        self, dataset: str, day: date, target: Path, sha256: str, rows: int, version: str
+    ) -> None:
+        """替换正式文件前登记候选哈希，供替换后、登记前的坠机恢复。"""
+
+        if not self.complete(dataset, day):
+            raise ValueError("cannot publish an incomplete plan")
+        with duckdb.connect(str(self.database)) as conn:
+            prior = conn.execute(
+                "select stage from publications where dataset = ? and trade_date = ?", [dataset, day]
+            ).fetchone()
+            if prior and prior[0] == "published":
+                raise ValueError("published dataset cannot be replaced in this stage")
+            if prior:
+                conn.execute(
+                    """update publications set canonical_path = ?, canonical_sha256 = ?, row_count = ?,
+                       transform_version = ?, updated_at = current_timestamp
+                       where dataset = ? and trade_date = ?""",
+                    [str(target), sha256, rows, version, dataset, day],
+                )
+            else:
+                conn.execute(
+                    """insert into publications (dataset, trade_date, stage, source, canonical_path,
+                       canonical_sha256, row_count, transform_version)
+                       values (?, ?, 'prepared', 'tushare', ?, ?, ?, ?)""",
+                    [dataset, day, str(target), sha256, rows, version],
+                )
+
+    def finish_publish(self, dataset: str, day: date) -> None:
+        """以正式文件实际哈希为准，将 prepared 发布推进到 published。"""
+
+        prior = self.publication(dataset, day)
+        if prior is None or prior[0] != "prepared":
+            raise ValueError("publication is not prepared")
+        target = Path(prior[1])
+        if not target.is_file() or hashlib.sha256(target.read_bytes()).hexdigest() != prior[2]:
+            raise ValueError("canonical file does not match prepared publication")
+        with duckdb.connect(str(self.database)) as conn:
+            conn.execute(
+                """update publications set stage = 'published', updated_at = current_timestamp
+                   where dataset = ? and trade_date = ?""", [dataset, day]
             )

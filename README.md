@@ -60,6 +60,10 @@ rows = result.rows
 
 Wrapper 不自动分页，完整性由对应 ingestion 检查。网关手册使用 `TUSHARE_RELAY_KEY` 作为环境变量示例；本项目沿用 `TUSHARE_API_KEY`，两者最终都用于同一个 `X-API-Key` Header。默认验证 TLS 证书。运行 `uv run python -m unittest discover -s tests` 可离线测试 wrapper。
 
+## V2 基础数据集
+
+导出 `TUSHARE_API_KEY` 后运行 `uv run python scripts/ingest_basic_v2.py --date 2026-09-18`，默认依次处理 `stock_basic`、`trade_cal`、`suspend_d`；`--dataset` 可只跑其中一个。V2 使用独立的 `data/warehouse/v2/state.duckdb`、`data/raw/v2/` 和 `data/warehouse/v2/canonical/`。`trade_cal` 拉目标年份的 SSE 日历快照；`stock_basic` 使用已实测的五状态单页参数；`suspend_d` 抓目标日的 `S` 停牌记录。离线验证运行 `uv run python -m unittest discover -s tests_v2`。
+
 ## 股票分钟 ingestion
 
 > 本节描述冻结保留的 V1 实现的用法；新实现按 `docs/architecture/ingestion-design-v2.md` 另起。
