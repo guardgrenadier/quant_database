@@ -11,6 +11,7 @@ from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
+from quant_ingest import config
 from quant_ingest.dbt_runner import ROOT, run_dbt
 from quant_ingest.raw import RawStore
 
@@ -25,7 +26,7 @@ class DbtRunnerTest(unittest.TestCase):
             raw = RawStore(Path(directory) / "raw")
             day = date(2026, 9, 18)
             project = ROOT / "dbt_v2"
-            kwargs = dict(project=project, database=Path(directory) / "state.duckdb",
+            kwargs = dict(project=project, ledger_database=Path(directory) / "state.duckdb",
                           raw=raw, dataset="stock_basic", day=day, run_id="offline")
             with patch.dict(os.environ, {"TUSHARE_API_KEY": "private-key"}):
                 with patch("quant_ingest.dbt_runner.subprocess.run", return_value=subprocess.CompletedProcess(
@@ -33,6 +34,8 @@ class DbtRunnerTest(unittest.TestCase):
                 )) as command:
                     run_dbt("run", "stock_basic", {}, **kwargs)
                     self.assertNotIn("TUSHARE_API_KEY", command.call_args.kwargs["env"])
+                    self.assertEqual(command.call_args.kwargs["env"]["QUANT_V2_DBT_PATH"],
+                                     str(config.dbt_db_for(kwargs["ledger_database"])))
                 with patch("quant_ingest.dbt_runner.subprocess.run", return_value=subprocess.CompletedProcess(
                     [], 1, stdout="partial", stderr="failed private-key",
                 )):

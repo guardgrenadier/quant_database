@@ -66,9 +66,32 @@ class HistoryImportTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             report = root / "report.json"
-            report.write_text(json.dumps({"source_root": str(root), "coverage_checked": True}))
-            with self.assertRaisesRegex(ValueError, "lacks API overlap"):
+            report.write_text(json.dumps({"source_root": str(root), "coverage_checked": True,
+                                          "trust_level": "sampled_match"}))
+            with self.assertRaisesRegex(ValueError, "API overlap"):
                 verify_trust_report(report, root)
+
+    def test_low_trust_requires_one_day_pilot(self):
+        """低信任报告阻断批量，保留人工抽查的单日试点入口。"""
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            snapshot = root / "universe.parquet"
+            snapshot.write_bytes(b"unchanged")
+            report_path = root / "report.json"
+            report = {
+                "source_root": str(root), "coverage_checked": True,
+                "api_overlap_checked": False, "trust_level": "low_or_pending",
+                "coverage": {"universe_path": str(snapshot),
+                             "universe_sha256": hashlib.sha256(snapshot.read_bytes()).hexdigest()},
+            }
+            report_path.write_text(json.dumps(report))
+            with self.assertRaisesRegex(ValueError, "wait for pending API data"):
+                verify_trust_report(report_path, root)
+            with self.assertRaisesRegex(ValueError, "--limit-days 1"):
+                verify_trust_report(report_path, root, pilot_days=2)
+            self.assertEqual(verify_trust_report(report_path, root, pilot_days=1)["trust_level"],
+                             "low_or_pending")
 
     def test_historical_day_uses_same_dbt_and_records_netdisk_source(self):
         """网盘文件跳过 API raw，但经过相同 dbt 候选与发布机制。"""

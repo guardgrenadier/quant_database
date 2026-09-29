@@ -7,12 +7,10 @@ import argparse
 from datetime import date
 from pathlib import Path
 
+from quant_ingest import config
 from quant_ingest.history_import import import_history_day, verify_trust_report
 from quant_ingest.ledger import Ledger
 from quant_ingest.raw import RawStore
-
-
-ROOT = Path(__file__).resolve().parents[1]
 
 
 def main() -> None:
@@ -27,21 +25,23 @@ def main() -> None:
     args = parser.parse_args()
     if args.start > args.end or (args.limit_days is not None and args.limit_days <= 0):
         parser.error("invalid date range or --limit-days")
-    source_root = ROOT / "data" / "raw" / "stock_1min"
+    source_root = config.HISTORY_ROOT
     files = sorted(source_root.glob("year=*/*.parquet"))
     days = [date.fromisoformat(path.stem) for path in files
             if args.start <= date.fromisoformat(path.stem) <= args.end]
     if args.limit_days is not None:
         days = days[:args.limit_days]
-    warehouse = ROOT / "data" / "warehouse" / "v2"
-    ledger = Ledger(warehouse / "state.duckdb")
+    warehouse = config.WAREHOUSE_ROOT
+    ledger = Ledger(config.LEDGER_DB)
     report = None
     if args.apply:
         if args.trust_report is None:
             parser.error("--apply requires --trust-report")
-        report = verify_trust_report(args.trust_report, source_root)
+        report = verify_trust_report(args.trust_report, source_root, pilot_days=args.limit_days)
+        if report["trust_level"] == "low_or_pending":
+            print("low-trust single-day pilot: manually inspect this publication before another import")
     universe = Path(report["coverage"]["universe_path"]) if report else None
-    raw = RawStore(ROOT / "data" / "raw" / "v2")
+    raw = RawStore(config.RAW_ROOT)
     for day in days:
         publication = ledger.publication("stk_mins", day)
         if publication is not None and publication[0] == "published":

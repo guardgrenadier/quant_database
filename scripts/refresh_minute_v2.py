@@ -5,16 +5,13 @@ from __future__ import annotations
 
 import argparse
 from datetime import date
-from pathlib import Path
 
+from quant_ingest import config
 from quant_ingest.ledger import Ledger
 from quant_ingest.minute_pipeline import MinutePipeline
 from quant_ingest.minute_publish import MinutePublisher
 from quant_ingest.minute_source import RequestLimiter, TushareMinuteSource
 from quant_ingest.raw import RawStore
-
-
-ROOT = Path(__file__).resolve().parents[1]
 
 
 def main() -> int:
@@ -25,12 +22,12 @@ def main() -> int:
     parser.add_argument("--workers", type=int, default=8)
     parser.add_argument("--request-budget", type=int)
     args = parser.parse_args()
-    warehouse = ROOT / "data" / "warehouse" / "v2"
-    ledger = Ledger(warehouse / "state.duckdb")
+    warehouse = config.WAREHOUSE_ROOT
+    ledger = Ledger(config.LEDGER_DB)
     if ledger.plan_status("stk_mins", args.date) == "refreshed":
         print(f"{args.date}: refresh already published")
         return 0
-    raw = RawStore(ROOT / "data" / "raw" / "v2")
+    raw = RawStore(config.RAW_ROOT)
     source = TushareMinuteSource(limiter=RequestLimiter(180, budget=args.request_budget))
     summary = MinutePipeline(source, ledger, raw, warehouse, workers=args.workers).run(
         args.date, refresh=True

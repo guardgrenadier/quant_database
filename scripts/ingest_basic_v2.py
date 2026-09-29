@@ -5,15 +5,12 @@ from __future__ import annotations
 
 import argparse
 from datetime import date
-from pathlib import Path
 
+from quant_ingest import config
 from quant_ingest.basic_pipeline import BasicPipeline
 from quant_ingest.basic_source import TushareBasicsSource
 from quant_ingest.ledger import Ledger
 from quant_ingest.raw import RawStore
-
-
-ROOT = Path(__file__).resolve().parents[1]
 
 
 def main() -> None:
@@ -25,10 +22,10 @@ def main() -> None:
         "--dataset", choices=["stock_basic", "trade_cal", "suspend_d", "all"], default="all",
     )
     args = parser.parse_args()
-    warehouse = ROOT / "data" / "warehouse" / "v2"
+    warehouse = config.WAREHOUSE_ROOT
     pipeline = BasicPipeline(
-        TushareBasicsSource(), Ledger(warehouse / "state.duckdb"),
-        RawStore(ROOT / "data" / "raw" / "v2"), warehouse,
+        TushareBasicsSource(), Ledger(config.LEDGER_DB),
+        RawStore(config.RAW_ROOT), warehouse,
     )
     datasets = ["stock_basic", "trade_cal", "suspend_d"] if args.dataset == "all" else [args.dataset]
     for dataset in datasets:

@@ -3,5 +3,5 @@ quant_ingest_v2:
   outputs:
     dev:
       type: duckdb
-      path: "{{ env_var('QUANT_V2_DB_PATH') }}"
+      path: "{{ env_var('QUANT_V2_DBT_PATH') }}"
       threads: 1

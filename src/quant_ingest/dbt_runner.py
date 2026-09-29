@@ -9,15 +9,16 @@ import tempfile
 from datetime import date
 from pathlib import Path
 
+from . import config
 from .raw import RawStore
 
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = config.PROJECT_ROOT
 
 
 def run_dbt(
     command: str, selector: str, variables: dict, *,
-    project: Path, database: Path, raw: RawStore, dataset: str, day: date, run_id: str,
+    project: Path, ledger_database: Path, raw: RawStore, dataset: str, day: date, run_id: str,
 ) -> None:
     """执行一条 dbt 命令；先记录输出和返回码，再决定是否阻断发布。"""
 
@@ -25,8 +26,9 @@ def run_dbt(
         profile = Path(profile_dir) / "profiles.yml"
         profile.write_text((project / "profiles.yml.example").read_text())
         # dbt 不需要供应商密钥；从子进程环境移除，日志再做兜底脱敏。
-        env = {key: value for key, value in os.environ.items() if key != "TUSHARE_API_KEY"}
-        env["QUANT_V2_DB_PATH"] = str(database)
+        env = {key: value for key, value in os.environ.items()
+               if key not in {"TUSHARE_API_KEY", "QUANT_V2_DB_PATH"}}
+        env["QUANT_V2_DBT_PATH"] = str(config.dbt_db_for(ledger_database))
         cmd = [
             "dbt", command, "--select", selector, "--project-dir", str(project),
             "--profiles-dir", profile_dir, "--vars", json.dumps(variables),

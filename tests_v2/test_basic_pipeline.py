@@ -12,6 +12,7 @@ from pathlib import Path
 import duckdb
 
 from quant_ingest.basic_pipeline import BasicPipeline
+from quant_ingest import config
 from quant_ingest.basic_source import FIELDS, FetchResult, Page, TushareBasicsSource
 from quant_ingest.errors import SourceContractError, SourceRequestError
 from quant_ingest.ledger import Ledger
@@ -78,6 +79,13 @@ class BasicPipelineTest(unittest.TestCase):
                 self.assertEqual(pipeline.run(dataset, DAY), path)
             self.assertEqual(source.calls, list(ROWS))
             self.assertTrue(pipeline.is_open(DAY))
+            with duckdb.connect(str(ledger.database), read_only=True) as conn:
+                names = {row[0] for row in conn.execute("show tables").fetchall()}
+            self.assertEqual(names, {"plans", "slices", "publications", "quality_findings"})
+            with duckdb.connect(str(config.dbt_db_for(ledger.database)), read_only=True) as conn:
+                work_names = {row[0] for row in conn.execute("show tables").fetchall()}
+            self.assertIn("suspend_d", work_names)
+            self.assertNotIn("plans", work_names)
 
     def test_publish_recovers_after_file_replace_before_ledger_update(self):
         """正式文件已替换时，续跑核对哈希后补登记，不重复抓取。"""

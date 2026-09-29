@@ -8,12 +8,10 @@ import json
 from datetime import date
 from pathlib import Path
 
+from quant_ingest import config
 from quant_ingest.history_trust import build_trust_report
 from quant_ingest.ledger import Ledger
 from quant_ingest.minute_source import RequestLimiter, TushareMinuteSource
-
-
-ROOT = Path(__file__).resolve().parents[1]
 
 
 def main() -> None:
@@ -23,11 +21,11 @@ def main() -> None:
     parser.add_argument("--day", type=date.fromisoformat, default=date(2026, 4, 17))
     parser.add_argument("--codes", nargs="+", required=True)
     parser.add_argument("--request-budget", type=int, default=20)
-    parser.add_argument("--output", type=Path, default=ROOT / "data" / "warehouse" / "v2" / "history_trust.json")
+    parser.add_argument("--output", type=Path, default=config.WAREHOUSE_ROOT / "history_trust.json")
     args = parser.parse_args()
-    ledger = Ledger(ROOT / "data" / "warehouse" / "v2" / "state.duckdb")
+    ledger = Ledger(config.LEDGER_DB)
     report = build_trust_report(
-        ledger, ROOT / "data" / "raw" / "stock_1min", args.day, args.codes,
+        ledger, config.HISTORY_ROOT, args.day, args.codes,
         TushareMinuteSource(limiter=RequestLimiter(180, budget=args.request_budget)),
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)

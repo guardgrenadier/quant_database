@@ -71,6 +71,15 @@ class Ledger:
                     primary key (run_id, check_name)
                 )
             """)
+            # 早期 V2 把 dbt 派生关系建在账本库；含中断时留下的 dbt 临时关系。
+            model_names = {"minute_bars", "stock_basic", "trade_cal", "suspend_d", "stk_mins", "minute_quality"}
+            relations = conn.execute(
+                "select table_name, table_type from information_schema.tables where table_schema = 'main'"
+            ).fetchall()
+            for name, kind in sorted(relations, key=lambda item: item[1] != "VIEW"):
+                if name in model_names or any(name.startswith(f"{model}__dbt_") for model in model_names):
+                    quoted = name.replace('"', '""')
+                    conn.execute(f'drop {"view" if kind == "VIEW" else "table"} if exists "{quoted}"')
 
     def plan(self, dataset: str, day: date, parameters: dict, slices: Mapping[str, dict]) -> None:
         """抓取前一次性固定计划；仅允许相同计划续跑。"""

@@ -5,17 +5,14 @@ from __future__ import annotations
 
 import argparse
 from datetime import date
-from pathlib import Path
 
+from quant_ingest import config
 from quant_ingest.gap_backfill import latest_snapshot_day, next_gap_segment, open_gap_days
 from quant_ingest.ledger import Ledger
 from quant_ingest.minute_pipeline import MinutePipeline
 from quant_ingest.minute_publish import MinutePublisher
 from quant_ingest.minute_source import RequestLimiter, TushareMinuteSource
 from quant_ingest.raw import RawStore
-
-
-ROOT = Path(__file__).resolve().parents[1]
 
 
 def main() -> int:
@@ -38,8 +35,8 @@ def main() -> int:
         result = probe.fetch_slice(args.probe_code, args.start)
         print(f"probe {args.probe_code} {args.start}: status={result.status}, rows={len(result.rows)}")
         return 0 if result.status in {"ok", "empty"} else 2
-    warehouse = ROOT / "data" / "warehouse" / "v2"
-    ledger = Ledger(warehouse / "state.duckdb")
+    warehouse = config.WAREHOUSE_ROOT
+    ledger = Ledger(config.LEDGER_DB)
     snapshot_day = args.snapshot_date or latest_snapshot_day(ledger)
     days = next_gap_segment(
         ledger, open_gap_days(ledger, warehouse, snapshot_day, args.start, args.end), args.max_days
@@ -49,7 +46,7 @@ def main() -> int:
             print(f"{day}: would fetch using snapshot {snapshot_day}")
         print(f"planned trading days: {len(days)}")
         return 0
-    raw = RawStore(ROOT / "data" / "raw" / "v2")
+    raw = RawStore(config.RAW_ROOT)
     source = TushareMinuteSource(limiter=RequestLimiter(180, budget=args.request_budget))
     pipeline = MinutePipeline(source, ledger, raw, warehouse, workers=args.workers)
     publisher = MinutePublisher(ledger, raw, warehouse)

@@ -17,12 +17,13 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from .dbt_runner import run_dbt, transform_version
+from . import config
 from .errors import SourceContractError
 from .ledger import Ledger
 from .raw import RawStore
+from .quarantine_findings import record_quarantine_self_healed
 
 
-ROOT = Path(__file__).resolve().parents[2]
 SLICE_KEY = "day"
 
 
@@ -31,7 +32,7 @@ class BasicPipeline:
 
     def __init__(
         self, source: Any, ledger: Ledger, raw: RawStore,
-        warehouse: Path, dbt_project: Path = ROOT / "dbt_v2",
+        warehouse: Path, dbt_project: Path = config.DBT_PROJECT,
     ) -> None:
         """注入来源和存储路径，便于离线测试完整链路。"""
 
@@ -82,7 +83,9 @@ class BasicPipeline:
                     for attempt in getattr(exc, "requests", []):
                         self.raw.log(run_id, dataset, day, "http_attempt", **attempt)
                     if isinstance(exc, SourceContractError):
-                        evidence = self.raw.quarantine(run_id, dataset, day, exc.body)
+                        evidence = self.raw.quarantine(
+                            run_id, dataset, day, exc.body, slice_key=SLICE_KEY, reason=str(exc)
+                        )
                         self.ledger.record(dataset, day, SLICE_KEY, "quarantined")
                         self.raw.log(run_id, dataset, day, "contract_violation", evidence=str(evidence), error=str(exc))
                     else:
@@ -124,6 +127,7 @@ class BasicPipeline:
         self._write_temp(dataset, rows, extracted_at, temp)
         self._dbt(dataset, day, temp, candidate, expected_rows, run_id)
         self._validate_candidate(dataset, day, candidate, expected_rows)
+        record_quarantine_self_healed(self.ledger, self.raw, dataset, day)
         self.raw.log(run_id, dataset, day, "candidate_checked", row_count=expected_rows)
 
         # 先登记候选哈希，再替换文件；下一轮可依据实际文件补登记或重建。
@@ -180,7 +184,7 @@ class BasicPipeline:
             "dataset": dataset, "temp_path": str(temp), "candidate_path": str(candidate),
             "as_of_date": day.isoformat(), "expected_rows": expected_rows,
         }
-        run_dbt("run", dataset, variables, project=self.dbt_project, database=self.ledger.database,
+        run_dbt("run", dataset, variables, project=self.dbt_project, ledger_database=self.ledger.database,
                 raw=self.raw, dataset=dataset, day=day, run_id=run_id)
         if expected_rows == 0:
             # dbt-duckdb external 对零行模型可能生成空值哨兵，改写为类型明确的零行文件。
@@ -189,7 +193,7 @@ class BasicPipeline:
                 ("suspend_type", pa.string()), ("extracted_at", pa.timestamp("us", tz="UTC")),
             ])
             pq.write_table(pa.Table.from_pylist([], schema=schema), candidate, compression="zstd")
-        run_dbt("test", "basic_contract", variables, project=self.dbt_project, database=self.ledger.database,
+        run_dbt("test", "basic_contract", variables, project=self.dbt_project, ledger_database=self.ledger.database,
                 raw=self.raw, dataset=dataset, day=day, run_id=run_id)
 
     def _validate_candidate(self, dataset: str, day: date, path: Path, expected_rows: int) -> None:

@@ -95,13 +95,25 @@ def prepare_history_temp(source: Path, day: date, work: Path) -> tuple[MinuteTem
     return MinuteTemp(temp, plan, total, selected), HistoryInspection(total, selected, total - selected)
 
 
-def verify_trust_report(path: Path, source_root: Path) -> dict:
-    """批量发布前要求有 API 重叠抽样与 D6 覆盖对照的报告。"""
+def verify_trust_report(path: Path, source_root: Path, *, pilot_days: int | None = None) -> dict:
+    """批量只接受匹配抽样；低信任报告仅允许一日试点。"""
 
     report = json.loads(path.read_text())
     if (Path(report.get("source_root", "")).resolve() != source_root.resolve()
-            or not report.get("api_overlap_checked") or not report.get("coverage_checked")):
-        raise ValueError("historical trust report lacks API overlap or D6 coverage check")
+            or not report.get("coverage_checked")):
+        raise ValueError("historical trust report lacks matching source root or D6 coverage check")
+    trust = report.get("trust_level")
+    if trust == "sampled_match":
+        if not report.get("api_overlap_checked"):
+            raise ValueError("sampled_match report lacks completed API overlap check; regenerate it")
+    elif trust == "low_or_pending":
+        if pilot_days != 1:
+            raise ValueError(
+                "trust_level=low_or_pending blocks batch --apply; wait for pending API data, "
+                "regenerate the trust report, or use --limit-days 1 for a manually reviewed pilot"
+            )
+    else:
+        raise ValueError("historical trust report has unknown trust_level; regenerate it")
     universe = Path(report.get("coverage", {}).get("universe_path", ""))
     if (not universe.is_file() or hashlib.sha256(universe.read_bytes()).hexdigest()
             != report.get("coverage", {}).get("universe_sha256")):

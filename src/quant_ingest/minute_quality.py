@@ -10,10 +10,12 @@ import duckdb
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from .dbt_runner import ROOT, run_dbt
+from . import config
+from .dbt_runner import run_dbt
 from .ledger import Ledger
 from .minute_candidate import MinuteCandidate
 from .raw import RawStore
+from .quarantine_findings import record_quarantine_self_healed
 
 
 QUALITY_SCHEMA = pa.schema([
@@ -36,7 +38,7 @@ def _suspend_path(ledger: Ledger, warehouse: Path, day: date) -> str:
 
 def record_minute_quality(
     ledger: Ledger, raw: RawStore, warehouse: Path, day: date,
-    run_id: str, candidate: MinuteCandidate, *, project: Path = ROOT / "dbt_v2",
+    run_id: str, candidate: MinuteCandidate, *, project: Path = config.DBT_PROJECT,
 ) -> Path:
     """生成当前日告警行，让 dbt 发 warn，再由 publisher 持久化摘要。"""
 
@@ -48,13 +50,13 @@ def record_minute_quality(
         "suspend_path": _suspend_path(ledger, warehouse, day),
         "as_of_date": day.isoformat(),
     }
-    run_dbt("run", "minute_quality", variables, project=project, database=ledger.database,
+    run_dbt("run", "minute_quality", variables, project=project, ledger_database=ledger.database,
             raw=raw, dataset="stk_mins", day=day, run_id=run_id)
     table = pq.read_table(quality)
     if table.num_rows == 1 and all(table.column(name).null_count == 1 for name in table.column_names):
         # dbt-duckdb external 的零行哨兵不是实际告警。
         pq.write_table(pa.Table.from_pylist([], schema=QUALITY_SCHEMA), quality, compression="zstd")
-    run_dbt("test", "minute_quality_warning", variables, project=project, database=ledger.database,
+    run_dbt("test", "minute_quality_warning", variables, project=project, ledger_database=ledger.database,
             raw=raw, dataset="stk_mins", day=day, run_id=run_id)
 
     with duckdb.connect() as conn:
@@ -78,4 +80,5 @@ def record_minute_quality(
             run_id, "stk_mins", day, "empty_slice_outlier", "warn", counts["empty"],
             [{"empty": counts["empty"], "planned": total, "threshold": threshold}],
         )
+    record_quarantine_self_healed(ledger, raw, "stk_mins", day)
     return quality

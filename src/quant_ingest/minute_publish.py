@@ -11,7 +11,8 @@ from pathlib import Path
 
 import duckdb
 
-from .dbt_runner import ROOT, run_dbt, transform_version
+from . import config
+from .dbt_runner import run_dbt, transform_version
 from .ledger import Ledger
 from .minute_candidate import MinuteCandidate, build_minute_candidate
 from .minute_quality import record_minute_quality
@@ -26,7 +27,7 @@ class MinutePublisher:
 
     def __init__(
         self, ledger: Ledger, raw: RawStore, warehouse: Path,
-        *, project: Path = ROOT / "dbt_v2",
+        *, project: Path = config.DBT_PROJECT,
     ) -> None:
         """绑定状态账、raw、同文件系统候选目录和独立 dbt 项目。"""
 
@@ -189,6 +190,6 @@ class MinutePublisher:
             "as_of_date": day.isoformat(),
         }
         run_dbt("run", "minute_bars", variables, project=self.project,
-                database=self.ledger.database, raw=self.raw, dataset=DATASET, day=day, run_id=run_id)
+                ledger_database=self.ledger.database, raw=self.raw, dataset=DATASET, day=day, run_id=run_id)
         run_dbt("test", "minute_view_contract", variables, project=self.project,
-                database=self.ledger.database, raw=self.raw, dataset=DATASET, day=day, run_id=run_id)
+                ledger_database=self.ledger.database, raw=self.raw, dataset=DATASET, day=day, run_id=run_id)

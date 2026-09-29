@@ -15,6 +15,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from quant_ingest.minute_publish import MinutePublisher
+from quant_ingest import config
 from tests_v2.test_minute_candidate import CODE, DAY, _setup
 
 
@@ -51,12 +52,17 @@ class MinutePublishTest(unittest.TestCase):
             self.assertEqual(ledger.publication("stk_mins", DAY)[0], "published")
             with duckdb.connect(str(ledger.database), read_only=True) as conn:
                 canonical_rows = conn.execute("select count(*) from read_parquet(?)", [str(target)]).fetchone()[0]
-                view_rows = conn.execute("select count(*) from minute_bars where trade_date = ?", [DAY]).fetchone()[0]
                 findings = conn.execute(
                     "select check_name from quality_findings where dataset = 'stk_mins'"
                 ).fetchall()
+                ledger_tables = {row[0] for row in conn.execute("show tables").fetchall()}
+            with duckdb.connect(str(config.dbt_db_for(ledger.database)), read_only=True) as conn:
+                view_rows = conn.execute("select count(*) from minute_bars where trade_date = ?", [DAY]).fetchone()[0]
+                work_tables = {row[0] for row in conn.execute("show tables").fetchall()}
             self.assertEqual(canonical_rows, 3)
             self.assertEqual(view_rows, 1)
+            self.assertNotIn("minute_bars", ledger_tables)
+            self.assertNotIn("plans", work_tables)
             self.assertIn(("negative_value",), findings)
             self.assertIn(("suspend_d_missing",), findings)
 
@@ -152,6 +158,25 @@ class MinutePublishTest(unittest.TestCase):
             summary = json.loads(samples)[0]
             self.assertEqual((summary["added_keys"], summary["removed_keys"], summary["changed_values"]), (1, 1, 1))
             self.assertEqual(len(summary["changed_samples"]), 1)
+
+    def test_quarantine_self_heal_is_written_during_publication(self):
+        """已自愈的隔离切片在日级发布时留下长期 warn。"""
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            row = [CODE, "2026-09-18 09:31:00", "1MIN", 10, 10, 10, 10, 100, 1000]
+            ledger, raw = _setup(root, [row])
+            evidence = raw.quarantine("earlier-000001_SZ", "stk_mins", DAY, b'{"code":1}',
+                                      slice_key=CODE, reason="minute key has conflicting values")
+            target = MinutePublisher(ledger, raw, root / "warehouse").publish(DAY)
+            self.assertTrue(target.is_file())
+            with duckdb.connect(str(ledger.database), read_only=True) as conn:
+                finding = conn.execute(
+                    """select severity, finding_count, samples_json from quality_findings
+                       where check_name = 'quarantine_self_healed'"""
+                ).fetchone()
+            self.assertEqual(finding[:2], ("warn", 1))
+            self.assertEqual(json.loads(finding[2])[0]["evidence_path"], str(evidence))
 
 
 if __name__ == "__main__":

@@ -5,14 +5,11 @@ from __future__ import annotations
 
 import argparse
 from datetime import date
-from pathlib import Path
 
+from quant_ingest import config
 from quant_ingest.ledger import Ledger
 from quant_ingest.minute_publish import MinutePublisher
 from quant_ingest.raw import RawStore
-
-
-ROOT = Path(__file__).resolve().parents[1]
 
 
 def main() -> None:
@@ -22,9 +19,9 @@ def main() -> None:
     parser.add_argument("--date", type=date.fromisoformat, required=True, help="YYYY-MM-DD")
     parser.add_argument("--rebuild", action="store_true", help="从现存 raw 整日替换已发布文件")
     args = parser.parse_args()
-    warehouse = ROOT / "data" / "warehouse" / "v2"
+    warehouse = config.WAREHOUSE_ROOT
     publisher = MinutePublisher(
-        Ledger(warehouse / "state.duckdb"), RawStore(ROOT / "data" / "raw" / "v2"), warehouse,
+        Ledger(config.LEDGER_DB), RawStore(config.RAW_ROOT), warehouse,
     )
     print(publisher.publish(args.date, rebuild=args.rebuild))
 

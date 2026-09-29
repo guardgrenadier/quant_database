@@ -85,6 +85,21 @@ class FoundationTest(unittest.TestCase):
                 names = {row[0] for row in conn.execute("describe publications").fetchall()}
             self.assertTrue({"prepared_at", "published_at"}.issubset(names))
 
+    def test_legacy_dbt_relations_are_removed_from_ledger(self):
+        """旧 V2 留在账本库的派生表和视图在迁移时被清除。"""
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "state.duckdb"
+            with duckdb.connect(str(path)) as conn:
+                conn.execute("create table stock_basic (ts_code varchar)")
+                conn.execute("create view minute_bars as select 1 as n")
+                conn.execute("create view minute_bars__dbt_tmp as select 1 as n")
+                conn.execute("create table stk_mins__dbt_backup (n integer)")
+            Ledger(path)
+            with duckdb.connect(str(path)) as conn:
+                names = {row[0] for row in conn.execute("show tables").fetchall()}
+            self.assertEqual(names, {"plans", "slices", "publications", "quality_findings"})
+
 
 if __name__ == "__main__":
     unittest.main()

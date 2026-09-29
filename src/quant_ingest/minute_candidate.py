@@ -9,7 +9,8 @@ from pathlib import Path
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from .dbt_runner import ROOT, run_dbt
+from . import config
+from .dbt_runner import run_dbt
 from .ledger import Ledger
 from .minute_temp import MinuteTemp, build_minute_temp
 from .raw import RawStore
@@ -34,7 +35,7 @@ class MinuteCandidate:
 
 def build_minute_candidate(
     ledger: Ledger, raw: RawStore, warehouse: Path, day: date, run_id: str,
-    *, project: Path = ROOT / "dbt_v2",
+    *, project: Path = config.DBT_PROJECT,
 ) -> MinuteCandidate:
     """只用已完成 raw 建 temp，经 dbt 转换与契约测试后返回候选。"""
 
@@ -45,7 +46,7 @@ def build_minute_candidate(
 
 def check_minute_temp_candidate(
     ledger: Ledger, raw: RawStore, day: date, run_id: str, temp: MinuteTemp,
-    *, historical: bool = False, project: Path = ROOT / "dbt_v2",
+    *, historical: bool = False, project: Path = config.DBT_PROJECT,
 ) -> MinuteCandidate:
     """让 API 与历史临时输入共用同一 dbt 转换和阻断级契约。"""
 
@@ -57,11 +58,11 @@ def check_minute_temp_candidate(
         "as_of_date": day.isoformat(), "expected_rows": temp.unique_rows,
         "historical": historical,
     }
-    run_dbt("run", "stk_mins", variables, project=project, database=ledger.database,
+    run_dbt("run", "stk_mins", variables, project=project, ledger_database=ledger.database,
             raw=raw, dataset="stk_mins", day=day, run_id=run_id)
     if temp.unique_rows == 0:
         # external 零行哨兵不属于真实数据，改写为类型明确的空候选。
         pq.write_table(pa.Table.from_pylist([], schema=EMPTY_SCHEMA), candidate, compression="zstd")
-    run_dbt("test", "minute_contract", variables, project=project, database=ledger.database,
+    run_dbt("test", "minute_contract", variables, project=project, ledger_database=ledger.database,
             raw=raw, dataset="stk_mins", day=day, run_id=run_id)
     return MinuteCandidate(candidate, temp)

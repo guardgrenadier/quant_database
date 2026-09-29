@@ -102,12 +102,19 @@ class RawStore:
         with (directory / f"{run_id}.jsonl").open("a", encoding="utf-8") as stream:
             stream.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
 
-    def quarantine(self, run_id: str, dataset: str, day: date, body: bytes) -> Path:
-        """将违约响应原文留在 raw 清理范围之外，等待人工检查。"""
+    def quarantine(
+        self, run_id: str, dataset: str, day: date, body: bytes,
+        *, slice_key: str, reason: str,
+    ) -> Path:
+        """先记切片与违约摘要，再将原文留在 raw 清理范围之外。"""
 
         directory = self.root.parent / "quarantine" / dataset / f"trade_date={day:%Y%m%d}"
         directory.mkdir(parents=True, exist_ok=True)
         path = directory / f"{run_id}.response"
+        # 元数据先于证据文件写成；进程在随后记账前坠机仍可由证据恢复告警。
+        metadata = path.with_suffix(".meta.json")
+        metadata.write_text(json.dumps({"slice_key": slice_key, "reason": reason}, ensure_ascii=False),
+                            encoding="utf-8")
         with path.open("xb") as stream:
             stream.write(body)
         return path

@@ -96,7 +96,8 @@ class MinutePipeline:
                 except Exception as exc:
                     # 孤儿文件不可信时先移入隔离区，避免每轮都卡在同一坏文件上。
                     evidence = self.raw.quarantine(
-                        f"{run_id}-{code.replace('.', '_')}", DATASET, day, path.read_bytes()
+                        f"{run_id}-{code.replace('.', '_')}", DATASET, day, path.read_bytes(),
+                        slice_key=code, reason=str(exc),
                     )
                     path.unlink()
                     self.ledger.record(DATASET, day, code, "quarantined")
@@ -137,7 +138,10 @@ class MinutePipeline:
                 except SourceContractError as exc:
                     for attempt in exc.requests:
                         self.raw.log(run_id, DATASET, day, "http_attempt", code=code, **attempt)
-                    evidence = self.raw.quarantine(f"{run_id}-{code.replace('.', '_')}", DATASET, day, exc.body)
+                    evidence = self.raw.quarantine(
+                        f"{run_id}-{code.replace('.', '_')}", DATASET, day, exc.body,
+                        slice_key=code, reason=str(exc),
+                    )
                     self.ledger.record(DATASET, day, code, "quarantined")
                     self.raw.log(run_id, DATASET, day, "contract_violation", code=code,
                                  evidence=str(evidence), error=str(exc))

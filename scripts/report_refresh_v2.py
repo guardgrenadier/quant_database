@@ -6,14 +6,11 @@ from __future__ import annotations
 import argparse
 import json
 from datetime import datetime, timedelta
-from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from quant_ingest import config
 from quant_ingest.ledger import Ledger
 from quant_ingest.refresh_report import summarize_refresh
-
-
-ROOT = Path(__file__).resolve().parents[1]
 
 
 def main() -> None:
@@ -25,7 +22,7 @@ def main() -> None:
     if args.days <= 0:
         parser.error("--days must be positive")
     since = datetime.now(ZoneInfo("Asia/Shanghai")).date() - timedelta(days=args.days)
-    ledger = Ledger(ROOT / "data" / "warehouse" / "v2" / "state.duckdb")
+    ledger = Ledger(config.LEDGER_DB)
     print(json.dumps(summarize_refresh(ledger, since), ensure_ascii=False, indent=2))
 
 

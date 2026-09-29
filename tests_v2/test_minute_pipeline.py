@@ -160,6 +160,22 @@ class MinutePipelineTest(unittest.TestCase):
             self.assertEqual(len(source.calls), 1)
             self.assertEqual(summary.statuses.get("planned"), 1)
 
+    def test_repeated_contract_violation_stays_unpublished(self):
+        """自动重抓再次违约时仍为未决，不允许进入发布。"""
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "warehouse"
+            code = "000001.SZ"
+            ledger, raw = self._setup(root, [code])
+            bad = b'{"code":0,"data":"bad"}'
+            source = FakeMinuteSource({code: [SourceContractError("bad fields", bad),
+                                              SourceContractError("bad fields", bad)]})
+            pipeline = MinutePipeline(source, ledger, raw, root)
+            self.assertFalse(pipeline.run(DAY).complete)
+            self.assertFalse(pipeline.run(DAY).complete)
+            self.assertEqual(ledger.status_counts("stk_mins", DAY), {"quarantined": 1})
+            self.assertIsNone(ledger.publication("stk_mins", DAY))
+
 
 if __name__ == "__main__":
     unittest.main()
