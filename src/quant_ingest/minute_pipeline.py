@@ -53,12 +53,15 @@ class MinutePipeline:
         self.warehouse = warehouse
         self.workers = workers
 
-    def run(self, day: date, *, refresh: bool = False) -> MinuteRunSummary:
-        """处理未决切片；refresh 对已发布日整日重抓并可跨 run 收敛。"""
+    def run(
+        self, day: date, *, refresh: bool = False, snapshot_day: date | None = None,
+    ) -> MinuteRunSummary:
+        """处理未决切片；历史补抓可指定当前快照，刷新可跨 run 收敛。"""
 
         run_id = uuid.uuid4().hex
         request_start = self.source.request_count
-        codes = plan_day(self.ledger, self.warehouse, day, self.source.parameters)
+        codes = plan_day(self.ledger, self.warehouse, day, self.source.parameters,
+                         snapshot_day=snapshot_day)
         if not codes:
             if refresh:
                 raise ValueError("closed day has no minute publication to refresh")

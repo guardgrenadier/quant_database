@@ -13,8 +13,10 @@ import pyarrow.parquet as pq
 
 from quant_ingest.ledger import Ledger
 from quant_ingest.minute_pipeline import MinutePipeline
+from quant_ingest.minute_publish import MinutePublisher
 from quant_ingest.minute_source import MinuteFetch
 from quant_ingest.raw import RawStore
+from quant_ingest.refresh_report import summarize_refresh
 from tests_v2.test_minute_pipeline import FakeMinuteSource, _body, _published, _result
 
 
@@ -41,7 +43,12 @@ def _published_minute(root: Path) -> tuple[Ledger, RawStore, Path]:
     ledger.mark_fetched("stk_mins", DAY)
     target = warehouse / "canonical" / "stk_mins" / "date=20260918.parquet"
     target.parent.mkdir(parents=True, exist_ok=True)
-    pq.write_table(pa.Table.from_pylist([{"ts_code": CODE, "trade_time": "2026-09-18 09:31:00"}]), target)
+    pq.write_table(pa.Table.from_pylist([{
+        "ts_code": CODE, "trade_time": datetime(2026, 9, 18, 9, 31), "trade_date": DAY,
+        "open": 10.0, "high": 10.0, "low": 10.0, "close": 10.0,
+        "vol": 100, "amount": 100000,
+        "extracted_at": datetime(2026, 9, 18, 10, tzinfo=timezone.utc),
+    }]), target)
     checksum = hashlib.sha256(target.read_bytes()).hexdigest()
     ledger.prepare_publish("stk_mins", DAY, target, checksum, 1, "test")
     ledger.finish_publish("stk_mins", DAY)
@@ -85,6 +92,23 @@ class MinuteRefreshTest(unittest.TestCase):
             self.assertTrue(summary.complete)
             self.assertEqual(source.calls, [])
             self.assertEqual(ledger.plan_status("stk_mins", DAY), "refresh_ready")
+
+    def test_completed_refresh_republishes_and_appears_in_observation_report(self):
+        """新 raw 整日替换后发布账进入 refreshed，并计入修订观察。"""
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            ledger, raw, _ = _published_minute(root)
+            ledger.start_refresh("stk_mins", DAY)
+            new_row = [CODE, "2026-09-18 09:31:00", "1MIN", 10, 10, 10, 12, 100, 1200]
+            artifact = raw.write("stk_mins", DAY, CODE, [_body(CODE, [new_row])], replace=True)
+            ledger.record("stk_mins", DAY, CODE, "ok", artifact=artifact, row_count=1,
+                          extracted_at=datetime(2026, 9, 19, 10, tzinfo=timezone.utc))
+            ledger.mark_fetched("stk_mins", DAY)
+            MinutePublisher(ledger, raw, root / "warehouse").publish(DAY, rebuild=True)
+            self.assertEqual(ledger.plan_status("stk_mins", DAY), "refreshed")
+            report = summarize_refresh(ledger, DAY)
+            self.assertEqual((report["observed_days"], report["changed_days"]), (1, 1))
 
 
 if __name__ == "__main__":

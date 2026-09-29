@@ -30,14 +30,16 @@ def _published_file(ledger: Ledger, warehouse: Path, dataset: str, day: date) ->
 def plan_day(
     ledger: Ledger, warehouse: Path, day: date,
     slice_parameters: Callable[[str, date], dict],
+    *, snapshot_day: date | None = None,
 ) -> list[str]:
-    """先查已固定计划；首次运行按 D6 谓词生成切片并落账。"""
+    """先查固定计划；首次运行按指定快照的 D6 谓词生成切片。"""
 
     saved = ledger.saved_plan(DATASET, day)
     if saved is not None:
         return list(saved[1])
 
-    calendar, calendar_sha = _published_file(ledger, warehouse, "trade_cal", day)
+    source_day = snapshot_day or day
+    calendar, calendar_sha = _published_file(ledger, warehouse, "trade_cal", source_day)
     with duckdb.connect() as conn:
         opening = conn.execute(
             "select is_open from read_parquet(?) where exchange = 'SSE' and cal_date = ?",
@@ -47,7 +49,7 @@ def plan_day(
             raise ValueError("trade_cal does not contain target date")
         if opening[0] != 1:
             return []  # 闭市日不生成分钟请求计划。
-    universe, universe_sha = _published_file(ledger, warehouse, "stock_basic", day)
+    universe, universe_sha = _published_file(ledger, warehouse, "stock_basic", source_day)
     with duckdb.connect() as conn:
         codes = [row[0] for row in conn.execute(
             """select ts_code from read_parquet(?)
@@ -59,5 +61,6 @@ def plan_day(
         raise ValueError("open day has no eligible securities")
     slices = {code: slice_parameters(code, day) for code in codes}
     # 将快照哈希一起固定，便于解释当日 S 的来源；后续轮次不再读取变化的快照。
-    ledger.plan(DATASET, day, {"calendar_sha256": calendar_sha, "universe_sha256": universe_sha}, slices)
+    ledger.plan(DATASET, day, {"calendar_sha256": calendar_sha, "universe_sha256": universe_sha,
+                               "snapshot_day": source_day.isoformat()}, slices)
     return codes
