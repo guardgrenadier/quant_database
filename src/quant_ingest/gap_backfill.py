@@ -34,6 +34,8 @@ def open_gap_days(
 
     if start > end:
         raise ValueError("gap start is after end")
+    if start.year != snapshot_day.year or end.year != snapshot_day.year:
+        raise ValueError("published trade_cal snapshot covers only its target year")
     calendar, _ = _published_file(ledger, warehouse, "trade_cal", snapshot_day)
     _published_file(ledger, warehouse, "stock_basic", snapshot_day)
     with duckdb.connect() as conn:

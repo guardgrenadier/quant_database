@@ -55,6 +55,8 @@ class GapBackfillTest(unittest.TestCase):
             self.assertEqual(latest_snapshot_day(ledger), SNAPSHOT)
             trading = open_gap_days(ledger, root, SNAPSHOT, days[0], days[-1])
             self.assertEqual(trading, [days[0], days[1], days[3], days[4]])
+            with self.assertRaisesRegex(ValueError, "target year"):
+                open_gap_days(ledger, root, SNAPSHOT, date(2025, 12, 31), days[-1])
             self.assertEqual(next_gap_segment(ledger, trading, 2), [days[0], days[1]])
             self.assertEqual(plan_day(ledger, root, days[0],
                                       lambda code, day: {"ts_code": code}, snapshot_day=SNAPSHOT),
