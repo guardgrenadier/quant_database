@@ -11,18 +11,20 @@ with raw as (
     select 1 from raw
     where ts_code is null or ts_code = '' or trade_time is null or freq is null or freq != '1MIN'
        or open is null or high is null or low is null or close is null
-       or vol is null or amount is null or extracted_at is null
+       or vol is null or amount is null
+       {% if not var('historical', false) %} or extracted_at is null {% endif %}
        or try_strptime(trade_time, '%Y-%m-%d %H:%M:%S') is null
        or try_cast(open as double) is null or try_cast(high as double) is null
        or try_cast(low as double) is null or try_cast(close as double) is null
        or try_cast(vol as bigint) is null or try_cast(amount as decimal(38,18)) is null
        or try_cast(round(try_cast(amount as decimal(38,18)) * 100, 0) as bigint) is null
-       or try_cast(extracted_at as timestamptz) is null
+       {% if not var('historical', false) %} or try_cast(extracted_at as timestamptz) is null {% endif %}
     union all
     select 1 from candidate
     where ts_code is null or trade_time is null or trade_date is null
        or open is null or high is null or low is null or close is null
-       or vol is null or amount is null or extracted_at is null
+       or vol is null or amount is null
+       {% if not var('historical', false) %} or extracted_at is null {% endif %}
        or not isfinite(open) or not isfinite(high) or not isfinite(low) or not isfinite(close)
     union all
     select 1 from candidate c left join plan p

@@ -15,3 +15,4 @@ vars:
   quality_path: ''
   suspend_path: ''
   minute_canonical_glob: ''
+  historical: false

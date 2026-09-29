@@ -320,11 +320,11 @@ class Ledger:
 
     def prepare_publish(
         self, dataset: str, day: date, target: Path, sha256: str, rows: int, version: str,
-        *, replace: bool = False,
+        *, replace: bool = False, source: str = "tushare", require_complete: bool = True,
     ) -> None:
         """替换正式文件前登记候选哈希，供替换后、登记前的坠机恢复。"""
 
-        if not self.complete(dataset, day):
+        if require_complete and not self.complete(dataset, day):
             raise ValueError("cannot publish an incomplete plan")
         with duckdb.connect(str(self.database)) as conn:
             prior = conn.execute(
@@ -334,19 +334,19 @@ class Ledger:
                 raise ValueError("published dataset cannot be replaced in this stage")
             if prior:
                 conn.execute(
-                    """update publications set stage = 'prepared', canonical_path = ?,
+                    """update publications set stage = 'prepared', source = ?, canonical_path = ?,
                        canonical_sha256 = ?, row_count = ?, transform_version = ?,
                        prepared_at = current_timestamp, published_at = null,
                        updated_at = current_timestamp
                        where dataset = ? and trade_date = ?""",
-                    [str(target), sha256, rows, version, dataset, day],
+                    [source, str(target), sha256, rows, version, dataset, day],
                 )
             else:
                 conn.execute(
                     """insert into publications (dataset, trade_date, stage, source, canonical_path,
                        canonical_sha256, row_count, transform_version, prepared_at)
-                       values (?, ?, 'prepared', 'tushare', ?, ?, ?, ?, current_timestamp)""",
-                    [dataset, day, str(target), sha256, rows, version],
+                       values (?, ?, 'prepared', ?, ?, ?, ?, ?, current_timestamp)""",
+                    [dataset, day, source, str(target), sha256, rows, version],
                 )
 
     def finish_publish(self, dataset: str, day: date) -> None:

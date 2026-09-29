@@ -68,18 +68,44 @@ class MinutePublisher:
         candidate = build_minute_candidate(
             self.ledger, self.raw, self.warehouse, day, run_id, project=self.project
         )
+        return self._finish_candidate(day, run_id, candidate, prior, target,
+                                      replace=rebuild, source="tushare", require_complete=True)
+
+    def publish_history_candidate(self, day: date, run_id: str, candidate: MinuteCandidate) -> Path:
+        """网盘历史跳过 API raw 账，从 temp 候选走同一检查与原子替换。"""
+
+        target = self.target(day)
+        prior = self.ledger.publication(DATASET, day)
+        if prior is not None and prior[0] == "published":
+            raise ValueError("historical day is already published")
+        if prior is not None and prior[0] == "prepared":
+            if target.is_file() and hashlib.sha256(target.read_bytes()).hexdigest() == prior[2]:
+                self.ledger.finish_publish(DATASET, day)
+                self._ensure_view(day, run_id)
+                shutil.rmtree(candidate.path.parent)
+                return target
+        return self._finish_candidate(day, run_id, candidate, prior, target,
+                                      replace=False, source="netdisk", require_complete=False)
+
+    def _finish_candidate(
+        self, day: date, run_id: str, candidate: MinuteCandidate,
+        prior: tuple[str, str, str] | None, target: Path,
+        *, replace: bool, source: str, require_complete: bool,
+    ) -> Path:
+        """两种入场方式共用候选对账、质量告警和发布状态迁移。"""
+
         self._validate(day, candidate)
         record_minute_quality(
             self.ledger, self.raw, self.warehouse, day, run_id, candidate, project=self.project
         )
-        if prior is not None and prior[0] == "published" and rebuild:
+        if prior is not None and prior[0] == "published" and replace:
             self._record_diff(day, run_id, target, candidate.path)
 
         # prepared 先记候选哈希，再原子替换；下一轮用实际文件决定补登记或重建。
         checksum = hashlib.sha256(candidate.path.read_bytes()).hexdigest()
         self.ledger.prepare_publish(
             DATASET, day, target, checksum, candidate.temp.unique_rows,
-            transform_version(), replace=rebuild,
+            transform_version(), replace=replace, source=source, require_complete=require_complete,
         )
         target.parent.mkdir(parents=True, exist_ok=True)
         os.replace(candidate.path, target)

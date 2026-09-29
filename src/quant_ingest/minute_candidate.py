@@ -40,11 +40,22 @@ def build_minute_candidate(
 
     work = warehouse / "candidates" / "stk_mins" / f"{day:%Y%m%d}" / run_id
     temp = build_minute_temp(ledger, day, work)
+    return check_minute_temp_candidate(ledger, raw, day, run_id, temp, project=project)
+
+
+def check_minute_temp_candidate(
+    ledger: Ledger, raw: RawStore, day: date, run_id: str, temp: MinuteTemp,
+    *, historical: bool = False, project: Path = ROOT / "dbt_v2",
+) -> MinuteCandidate:
+    """让 API 与历史临时输入共用同一 dbt 转换和阻断级契约。"""
+
+    work = temp.data_path.parent
     candidate = work / "candidate.parquet"
     variables = {
         "dataset": "stk_mins", "temp_path": str(temp.data_path),
         "plan_path": str(temp.plan_path), "candidate_path": str(candidate),
         "as_of_date": day.isoformat(), "expected_rows": temp.unique_rows,
+        "historical": historical,
     }
     run_dbt("run", "stk_mins", variables, project=project, database=ledger.database,
             raw=raw, dataset="stk_mins", day=day, run_id=run_id)
