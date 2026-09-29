@@ -32,10 +32,12 @@ class Ledger:
                 create table if not exists plans (
                     dataset varchar not null, trade_date date not null,
                     parameters_json varchar not null, status varchar not null,
+                    raw_deleted_at timestamptz,
                     created_at timestamptz default current_timestamp,
                     primary key (dataset, trade_date)
                 )
             """)
+            conn.execute("alter table plans add column if not exists raw_deleted_at timestamptz")
             conn.execute("""
                 create table if not exists slices (
                     dataset varchar not null, trade_date date not null, slice_key varchar not null,
@@ -134,6 +136,32 @@ class Ledger:
                 "select status from plans where dataset = ? and trade_date = ?", [dataset, day]
             ).fetchone()
             return row[0] if row else None
+
+    def expired_raw_plans(self, cutoff: datetime) -> list[tuple[str, date, str, str]]:
+        """筛出抓取时间已满 30 天、全部切片完成且 canonical 已发布的计划。"""
+
+        with duckdb.connect(str(self.database)) as conn:
+            return conn.execute(
+                """select p.dataset, p.trade_date, pub.canonical_path, pub.canonical_sha256
+                   from plans p join slices s using (dataset, trade_date)
+                   join publications pub using (dataset, trade_date)
+                   where p.status in ('fetched', 'refreshed') and p.raw_deleted_at is null
+                     and pub.stage = 'published'
+                   group by p.dataset, p.trade_date, pub.canonical_path, pub.canonical_sha256
+                   having bool_and(s.status in ('ok', 'empty'))
+                      and bool_and(s.extracted_at is not null)
+                      and max(s.extracted_at) < ?""", [cutoff]
+            ).fetchall()
+
+    def mark_raw_deleted(self, dataset: str, day: date) -> None:
+        """在物理 raw 目录删除后，长期记录审计断源时间。"""
+
+        with duckdb.connect(str(self.database)) as conn:
+            conn.execute(
+                """update plans set raw_deleted_at = current_timestamp
+                   where dataset = ? and trade_date = ? and raw_deleted_at is null""",
+                [dataset, day],
+            )
 
     def start_refresh(self, dataset: str, day: date) -> str:
         """已发布日开始一次整日重抓；已有刷新轮次只续跑不重置切片。"""
