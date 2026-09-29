@@ -41,8 +41,11 @@ class RawStore:
             raise ValueError("invalid dataset or slice key")
         return self.root / dataset / f"trade_date={day:%Y%m%d}" / f"{slice_key}.json.gz"
 
-    def write(self, dataset: str, day: date, slice_key: str, pages: list[bytes]) -> RawArtifact:
-        """将各页响应原文字节放入 JSON 数组，完整写入后才公布文件。"""
+    def write(
+        self, dataset: str, day: date, slice_key: str, pages: list[bytes],
+        *, replace: bool = False,
+    ) -> RawArtifact:
+        """原子写入完整响应；仅已发布日刷新时允许整切片替换。"""
 
         if not pages:
             raise ValueError("a completed slice needs at least one response page")
@@ -66,8 +69,11 @@ class RawStore:
                     zipped.write(b"]")
                 stream.flush()
                 os.fsync(stream.fileno())
-            # 原子创建正式文件；目标已存在时失败，避免覆盖已完成的切片。
-            os.link(temp, target)
+            # 常规抓取只允许首次创建；刷新阶段由调用方显式启用原子替换。
+            if replace:
+                os.replace(temp, target)
+            else:
+                os.link(temp, target)
             return RawArtifact(target, hashlib.sha256(target.read_bytes()).hexdigest(), len(pages))
         finally:
             temp.unlink(missing_ok=True)

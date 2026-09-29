@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import gzip
+import hashlib
 import json
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -52,19 +53,34 @@ class MinutePipeline:
         self.warehouse = warehouse
         self.workers = workers
 
-    def run(self, day: date) -> MinuteRunSummary:
-        """只处理未决切片；pending 留待后续 run，不在本轮轮询。"""
+    def run(self, day: date, *, refresh: bool = False) -> MinuteRunSummary:
+        """处理未决切片；refresh 对已发布日整日重抓并可跨 run 收敛。"""
 
         run_id = uuid.uuid4().hex
         request_start = self.source.request_count
         codes = plan_day(self.ledger, self.warehouse, day, self.source.parameters)
         if not codes:
+            if refresh:
+                raise ValueError("closed day has no minute publication to refresh")
             return MinuteRunSummary(day.isoformat(), 0, {}, 0, complete=True, closed=True)
+        status = self.ledger.start_refresh(DATASET, day) if refresh else self.ledger.plan_status(DATASET, day)
+        if status in {"refresh_ready", "refreshed"} and refresh:
+            return MinuteRunSummary(day.isoformat(), len(codes),
+                                    self.ledger.status_counts(DATASET, day), 0, complete=True)
+        if status in {"refreshing", "refresh_ready"} and not refresh:
+            raise ValueError("minute refresh is in progress; use refresh mode")
+        refreshing = status == "refreshing"
         self.raw.log(run_id, DATASET, day, "planned", planned=len(codes))
         pending: list[str] = []
         for code in self.ledger.unresolved(DATASET, day):
             path = self.raw.path(DATASET, day, code)
             if path.is_file():
+                if refreshing:
+                    # 与旧账哈希一致的文件属于已发布版本，必须重新请求。
+                    _, _, previous_sha, _, _ = self.ledger.slice_details(DATASET, day, code)
+                    if previous_sha == hashlib.sha256(path.read_bytes()).hexdigest():
+                        pending.append(code)
+                        continue
                 try:
                     artifact = self.raw.inspect(DATASET, day, code)
                     rows = self._raw_rows(code, day, path)
@@ -106,7 +122,9 @@ class MinutePipeline:
                         continue
                     if result.extracted_at is None:
                         raise ValueError("completed slice lacks extracted_at")
-                    artifact = self.raw.write(DATASET, day, code, [page.body for page in result.pages])
+                    artifact = self.raw.write(
+                        DATASET, day, code, [page.body for page in result.pages], replace=refreshing
+                    )
                     self.ledger.record(
                         DATASET, day, code, result.status, artifact=artifact,
                         row_count=len(result.rows), extracted_at=result.extracted_at,

@@ -126,6 +126,52 @@ class Ledger:
             ).fetchall()
             return json.loads(plan[0]), {key: json.loads(params) for key, params in slices}
 
+    def plan_status(self, dataset: str, day: date) -> str | None:
+        """读取计划阶段，供发布后刷新和清理护栏使用。"""
+
+        with duckdb.connect(str(self.database)) as conn:
+            row = conn.execute(
+                "select status from plans where dataset = ? and trade_date = ?", [dataset, day]
+            ).fetchone()
+            return row[0] if row else None
+
+    def start_refresh(self, dataset: str, day: date) -> str:
+        """已发布日开始一次整日重抓；已有刷新轮次只续跑不重置切片。"""
+
+        record = self.publication(dataset, day)
+        if record is None or record[0] != "published":
+            raise ValueError("cannot refresh an unpublished day")
+        target = Path(record[1])
+        if not target.is_file() or hashlib.sha256(target.read_bytes()).hexdigest() != record[2]:
+            raise ValueError("published canonical file is missing or changed")
+        with duckdb.connect(str(self.database)) as conn:
+            conn.execute("begin transaction")
+            try:
+                row = conn.execute(
+                    "select status from plans where dataset = ? and trade_date = ?", [dataset, day]
+                ).fetchone()
+                if row is None:
+                    raise ValueError("cannot refresh a missing plan")
+                if row[0] == "fetched":
+                    conn.execute(
+                        """update plans set status = 'refreshing'
+                           where dataset = ? and trade_date = ?""", [dataset, day]
+                    )
+                    conn.execute(
+                        """update slices set status = 'refresh_pending'
+                           where dataset = ? and trade_date = ?""", [dataset, day]
+                    )
+                    status = "refreshing"
+                elif row[0] in {"refreshing", "refresh_ready", "refreshed"}:
+                    status = row[0]
+                else:
+                    raise ValueError(f"cannot refresh plan in {row[0]} stage")
+                conn.execute("commit")
+                return status
+            except Exception:
+                conn.execute("rollback")
+                raise
+
     def record(
         self, dataset: str, day: date, slice_key: str, status: str,
         *, artifact: RawArtifact | None = None, row_count: int | None = None,
@@ -155,9 +201,11 @@ class Ledger:
                 raise KeyError((dataset, day, slice_key))
             if prior[0] in {"ok", "empty"}:
                 raise ValueError("completed slice is immutable")
+            # 刷新中的 pending/failed 不覆盖旧 raw 哈希；下轮才能区分旧文件与已替换孤儿文件。
             conn.execute(
-                """update slices set status = ?, raw_path = ?, raw_sha256 = ?, row_count = ?,
-                   extracted_at = ?, updated_at = current_timestamp
+                """update slices set status = ?, raw_path = coalesce(?, raw_path),
+                   raw_sha256 = coalesce(?, raw_sha256), row_count = coalesce(?, row_count),
+                   extracted_at = coalesce(?, extracted_at), updated_at = current_timestamp
                    where dataset = ? and trade_date = ? and slice_key = ?""",
                 [status, str(artifact.path) if artifact else None, artifact.sha256 if artifact else None,
                  row_count, extracted_at or (datetime.now(timezone.utc) if completed else None),
@@ -227,7 +275,9 @@ class Ledger:
             raise ValueError("cannot mark an incomplete plan fetched")
         with duckdb.connect(str(self.database)) as conn:
             conn.execute(
-                "update plans set status = 'fetched' where dataset = ? and trade_date = ?",
+                """update plans set status = case when status = 'refreshing' then 'refresh_ready'
+                   when status = 'refreshed' then 'refreshed' else 'fetched' end
+                   where dataset = ? and trade_date = ?""",
                 [dataset, day],
             )
 
@@ -285,6 +335,11 @@ class Ledger:
                 """update publications set stage = 'published', published_at = current_timestamp,
                    updated_at = current_timestamp
                    where dataset = ? and trade_date = ?""", [dataset, day]
+            )
+            conn.execute(
+                """update plans set status = 'refreshed'
+                   where dataset = ? and trade_date = ? and status = 'refresh_ready'""",
+                [dataset, day],
             )
 
     def record_finding(
