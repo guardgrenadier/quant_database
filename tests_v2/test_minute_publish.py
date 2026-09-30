@@ -178,6 +178,34 @@ class MinutePublishTest(unittest.TestCase):
             self.assertEqual(finding[:2], ("warn", 1))
             self.assertEqual(json.loads(finding[2])[0]["evidence_path"], str(evidence))
 
+    def test_close_only_null_bar_is_published_with_warnings(self):
+        """close-only bar 的缺字段保持 NULL，产生观察告警而不阻断。"""
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            rows = [
+                [CODE, "2026-09-18 09:30:00", "1MIN", None, None, None, 10, None, None],
+                [CODE, "2026-09-18 09:31:00", "1MIN", 10, 10, 10, 10, 100, 1000],
+            ]
+            ledger, raw = _setup(root, rows)
+            target = MinutePublisher(ledger, raw, root / "warehouse").publish(DAY)
+            with duckdb.connect(str(ledger.database), read_only=True) as conn:
+                value = conn.execute(
+                    """select open, high, low, close, vol, amount from read_parquet(?)
+                       where trade_time = '2026-09-18 09:30:00'""", [str(target)]
+                ).fetchone()
+                findings = conn.execute(
+                    """select check_name, severity, ts_code, details_json from quality_findings
+                       where check_name in ('close_only_bars', 'boundary_bar_incomplete')"""
+                ).fetchall()
+                errors = conn.execute(
+                    "select count(*) from quality_findings where severity = 'error'"
+                ).fetchone()[0]
+            self.assertEqual(value, (None, None, None, 10.0, None, None))
+            self.assertEqual(errors, 0)
+            self.assertEqual({row[0] for row in findings}, {"close_only_bars", "boundary_bar_incomplete"})
+            self.assertTrue(all(row[1:3] == ("warn", CODE) for row in findings))
+
 
 if __name__ == "__main__":
     unittest.main()

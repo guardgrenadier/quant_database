@@ -1,6 +1,6 @@
 {{ config(materialized='external', format='parquet', location=var('candidate_path'), tags=['minute_ingestion']) }}
 
--- temp 保留源数字文本；先按十进制元值乘 100，再按 half-up 舍入为整数分。
+-- temp 保留源数字文本；NULL 原样透传，非 NULL 金额按十进制元值乘 100 后 half-up 舍入为整数分。
 with raw as (
     select * from read_parquet('{{ var("temp_path") }}')
 )

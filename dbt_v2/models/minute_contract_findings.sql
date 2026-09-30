@@ -13,13 +13,13 @@ with raw as (
                case when ts_code is null or ts_code = '' then 'ts_code' end,
                case when trade_time is null or try_strptime(trade_time, '%Y-%m-%d %H:%M:%S') is null then 'trade_time' end,
                case when freq is null or freq != '1MIN' then 'freq' end,
-               case when open is null or try_cast(open as double) is null or not isfinite(try_cast(open as double)) then 'open' end,
-               case when high is null or try_cast(high as double) is null or not isfinite(try_cast(high as double)) then 'high' end,
-               case when low is null or try_cast(low as double) is null or not isfinite(try_cast(low as double)) then 'low' end,
-               case when close is null or try_cast(close as double) is null or not isfinite(try_cast(close as double)) then 'close' end,
-               case when vol is null or try_cast(vol as bigint) is null then 'vol' end,
-               case when amount is null or try_cast(amount as decimal(38,18)) is null
-                 or try_cast(round(try_cast(amount as decimal(38,18)) * 100, 0) as bigint) is null then 'amount' end,
+               case when open is not null and (try_cast(open as double) is null or not isfinite(try_cast(open as double))) then 'open' end,
+               case when high is not null and (try_cast(high as double) is null or not isfinite(try_cast(high as double))) then 'high' end,
+               case when low is not null and (try_cast(low as double) is null or not isfinite(try_cast(low as double))) then 'low' end,
+               case when close is not null and (try_cast(close as double) is null or not isfinite(try_cast(close as double))) then 'close' end,
+               case when vol is not null and try_cast(vol as bigint) is null then 'vol' end,
+               case when amount is not null and (try_cast(amount as decimal(38,18)) is null
+                 or try_cast(round(try_cast(amount as decimal(38,18)) * 100, 0) as bigint) is null) then 'amount' end,
                {% if var('historical', false) %}
                case when extracted_at is not null and try_cast(extracted_at as timestamptz) is null then 'extracted_at' end
                {% else %}

@@ -98,6 +98,23 @@ class MinuteCandidateTest(unittest.TestCase):
                 ).fetchall()
             self.assertEqual(findings, [("raw_contract", 2)])
 
+    def test_nonnull_price_conversion_failure_still_blocks(self):
+        """放行 NULL 不会放行非 NULL 但不可解析的价格。"""
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            row = [CODE, f"{DAY} 09:31:00", "1MIN", "not-a-price", 10, 10, 10, 100, 1000]
+            ledger, raw = _setup(root, [row])
+            with self.assertRaisesRegex(RuntimeError, "dbt test failed"):
+                build_minute_candidate(ledger, raw, root / "warehouse", DAY, "bad-price")
+            with duckdb.connect(str(ledger.database)) as conn:
+                finding = conn.execute(
+                    """select ts_code, details_json from quality_findings
+                       where check_name = 'raw_contract'"""
+                ).fetchone()
+            self.assertEqual(finding[0], CODE)
+            self.assertIn("open", json.loads(finding[1])["issues"])
+
     def test_missing_required_column_is_recorded_before_block(self):
         """temp 缺字段时先留下字段清单 error，再停止 dbt 转换。"""
 
