@@ -53,6 +53,22 @@ class FindingStoreTest(unittest.TestCase):
             self.assertEqual(len(json.loads(first[3])["bar_times"]), 4)
             self.assertIsNone(next(row for row in found if row[0] == "row_reconciliation")[1])
 
+    def test_contract_details_split_invalid_field_names(self):
+        """一行同时有多个无效字段时，细节 JSON 按字段保存。"""
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            ledger = Ledger(root / "state.duckdb")
+            path = root / "contract.parquet"
+            pq.write_table(pa.Table.from_pylist([{
+                "check_name": "raw_contract", "ts_code": "000001.SZ",
+                "trade_time": "2026-09-18 09:31:00", "detail": "open,amount",
+            }]), path)
+            record_finding_rows(ledger, "run", "stk_mins", date(2026, 9, 18), path, "error")
+            with duckdb.connect(str(ledger.database)) as conn:
+                details = conn.execute("select details_json from quality_findings").fetchone()[0]
+            self.assertEqual(json.loads(details)["issues"], ["amount", "open"])
+
 
 if __name__ == "__main__":
     unittest.main()

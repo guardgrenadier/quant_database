@@ -32,7 +32,10 @@ def record_finding_rows(
                 if stamp:
                     group["times"].add(str(stamp).split(" ")[-1])
                 if detail:
-                    group["issues"].add(detail)
+                    if check == "raw_contract":
+                        group["issues"].update(detail.split(","))
+                    else:
+                        group["issues"].add(detail)
                 fields = [name for name in (null_fields or "").split(",") if name]
                 group["null_fields"].update(fields)
                 if len(group["samples"]) < 3:
