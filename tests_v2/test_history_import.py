@@ -154,8 +154,10 @@ class HistoryImportTest(unittest.TestCase):
                     """模拟一次已收敛的 API 单代码请求。"""
 
                     rows = [
+                        [code, f"{day} 09:25:00", "1MIN", 10, 10, 10, 10, 100, 1000],
                         [code, f"{day} 09:30:00", "1MIN", 10, 10, 10, 10, 100, 1000],
                         [code, f"{day} 09:31:00", "1MIN", 10, 10, 10, 10, 200, 2000],
+                        [code, f"{day} 15:30:00", "1MIN", 10, 10, 10, 10, 0, 0],
                     ]
                     return _result(code, rows)
             report = build_trust_report(ledger, source_root, DAY, ["000001.SZ"], Source())

@@ -78,7 +78,9 @@ def build_trust_report(
                 [str(path), code, start, end],
             ).fetchall()
         historical = {row[0]: row[1:] for row in source_rows}
-        current = {row["trade_time"]: row for row in result.rows}
+        # D24 API raw 已扩为全天；历史重叠比较仍对齐网盘的 09:30–15:00 紧窗。
+        current = {row["trade_time"]: row for row in result.rows
+                   if start <= row["trade_time"] <= end}
         shared = historical.keys() & current.keys()
         mismatches = 0
         for stamp in shared:

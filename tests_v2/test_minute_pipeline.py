@@ -52,11 +52,13 @@ class FakeMinuteSource(TushareMinuteSource):
         super().__init__(api_key="offline")
         self.replies = replies
         self.calls: list[str] = []
+        self.requested_params: list[dict | None] = []
 
-    def fetch_slice(self, code: str, day: date) -> MinuteFetch:
+    def fetch_slice(self, code: str, day: date, *, parameters: dict | None = None) -> MinuteFetch:
         """返回预制结果或抛出预制契约异常。"""
 
         self.calls.append(code)
+        self.requested_params.append(parameters)
         value = self.replies[code].pop(0)
         if isinstance(value, Exception):
             raise value
@@ -102,6 +104,9 @@ class MinutePipelineTest(unittest.TestCase):
             first = pipeline.run(DAY)
             self.assertFalse(first.complete)
             self.assertEqual(first.statuses, {"pending": 1, "ok": 1})
+            planned = ledger.saved_plan("stk_mins", DAY)[1][a]
+            self.assertEqual((planned["start_date"], planned["end_date"]),
+                             ("2026-09-18 00:00:00", "2026-09-18 23:59:59"))
             self.assertFalse(raw.path("stk_mins", DAY, a).exists())
             self.assertTrue(raw.path("stk_mins", DAY, b).exists())
             second = pipeline.run(DAY)
@@ -175,6 +180,23 @@ class MinutePipelineTest(unittest.TestCase):
             self.assertFalse(pipeline.run(DAY).complete)
             self.assertEqual(ledger.status_counts("stk_mins", DAY), {"quarantined": 1})
             self.assertIsNone(ledger.publication("stk_mins", DAY))
+
+    def test_existing_plan_uses_saved_window_parameters(self):
+        """代码默认窗口变更后，未完成旧计划仍按账上请求参数执行。"""
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "warehouse"
+            code = "000001.SZ"
+            ledger, raw = self._setup(root, [code])
+            source = FakeMinuteSource({code: [_result(code, [
+                [code, "2026-09-18 15:00:00", "1MIN", 10, 10, 10, 10, 100, 1000],
+            ])]})
+            saved = {**source.parameters(code, DAY), "start_date": "2026-09-18 09:30:00",
+                     "end_date": "2026-09-18 15:00:00"}
+            ledger.plan("stk_mins", DAY, {}, {code: saved})
+            self.assertTrue(MinutePipeline(source, ledger, raw, root).run(DAY).complete)
+            self.assertEqual(source.requested_params[0]["start_date"], saved["start_date"])
+            self.assertEqual(source.requested_params[0]["end_date"], saved["end_date"])
 
 
 if __name__ == "__main__":

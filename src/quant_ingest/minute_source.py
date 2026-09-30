@@ -17,6 +17,8 @@ from .tushare_transport import BASE_URL, RequestLimiter, TushareTransport
 FIELDS = "ts_code,trade_time,freq,open,high,low,close,vol,amount"
 LIMIT = 500
 MAX_PAGES = 20
+WINDOW_START = "00:00:00"
+WINDOW_END = "23:59:59"
 
 
 def row_signature(row: dict[str, Any]) -> tuple:
@@ -83,8 +85,8 @@ class TushareMinuteSource:
 
         text_day = day.isoformat()
         return {
-            "ts_code": code, "freq": "1min", "start_date": f"{text_day} 09:30:00",
-            "end_date": f"{text_day} 15:00:00", "fields": FIELDS,
+            "ts_code": code, "freq": "1min", "start_date": f"{text_day} {WINDOW_START}",
+            "end_date": f"{text_day} {WINDOW_END}", "fields": FIELDS,
             "limit": LIMIT, "offset": 0,
         }
 
@@ -100,10 +102,13 @@ class TushareMinuteSource:
 
         return None if self.limiter.budget is None else max(0, self.limiter.budget - self.limiter.count)
 
-    def fetch_slice(self, code: str, day: date) -> MinuteFetch:
-        """逐页取完单代码切片；遇 pending 立即返回，留给后续 run。"""
+    def fetch_slice(
+        self, code: str, day: date, *, parameters: dict[str, Any] | None = None,
+    ) -> MinuteFetch:
+        """按固定计划参数逐页取完切片；pending 留给后续 run。"""
 
-        params = self.parameters(code, day)
+        params = dict(parameters if parameters is not None else self.parameters(code, day))
+        self._check_parameters(code, day, params)
         pages: list[MinutePage] = []
         records: list[dict[str, Any]] = []
         seen: dict[tuple[str, str], dict] = {}
@@ -120,7 +125,7 @@ class TushareMinuteSource:
                 return MinuteFetch("pending", requests=records, retry_after=retry_after)
             assert page is not None
             try:
-                previous = self._check_page(code, day, page.rows, seen, previous)
+                previous = self._check_page(code, params, page.rows, seen, previous)
             except ValueError as exc:
                 raise SourceContractError(str(exc), page.body, records) from exc
             pages.append(page)
@@ -131,9 +136,14 @@ class TushareMinuteSource:
                 )
         raise SourceContractError(f"pagination exceeded {MAX_PAGES} pages", pages[-1].body, records)
 
-    def rows_from_raw(self, code: str, day: date, pages: list[dict]) -> list[dict]:
+    def rows_from_raw(
+        self, code: str, day: date, pages: list[dict],
+        *, parameters: dict[str, Any] | None = None,
+    ) -> list[dict]:
         """重放 raw 时重新验证分页、范围和主键，不信任孤儿文件。"""
 
+        params = dict(parameters if parameters is not None else self.parameters(code, day))
+        self._check_parameters(code, day, params)
         if not pages or len(pages) > MAX_PAGES:
             raise ValueError("invalid raw page count")
         seen: dict[tuple[str, str], dict] = {}
@@ -143,7 +153,7 @@ class TushareMinuteSource:
             page_rows = self._decode_payload(payload, json.dumps(payload, default=str).encode())
             if index < len(pages) - 1 and len(page_rows) != LIMIT:
                 raise ValueError("raw pagination ended before last page")
-            previous = self._check_page(code, day, page_rows, seen, previous)
+            previous = self._check_page(code, params, page_rows, seen, previous)
             rows.extend(page_rows)
         if len(page_rows) >= LIMIT:
             raise ValueError("raw pagination lacks a short final page")
@@ -194,16 +204,24 @@ class TushareMinuteSource:
             raise SourceContractError("minute response rows do not match fields", body)
         return [dict(zip(FIELDS.split(","), item)) for item in items]
 
+    @staticmethod
+    def _check_parameters(code: str, day: date, params: dict[str, Any]) -> None:
+        """只接受账上同代码、同日期且有界的单日请求窗口。"""
+
+        start, end = params.get("start_date"), params.get("end_date")
+        if (params.get("ts_code") != code or not isinstance(start, str) or not isinstance(end, str)
+                or not start.startswith(f"{day} ") or not end.startswith(f"{day} ") or start > end):
+            raise ValueError("saved minute request parameters differ from code or day")
+
     def _check_page(
-        self, code: str, day: date, rows: list[dict],
+        self, code: str, params: dict[str, Any], rows: list[dict],
         seen: dict[tuple[str, str], dict], previous: set[tuple[str, str]] | None,
     ) -> set[tuple[str, str]]:
         """检查请求边界和冲突重复行；相同重复行保留到 temp 再去重。"""
 
         if len(rows) > LIMIT:
             raise ValueError("minute page exceeds requested limit")
-        start = f"{day} 09:30:00"
-        end = f"{day} 15:00:00"
+        start, end = params["start_date"], params["end_date"]
         keys: set[tuple[str, str]] = set()
         new_count = 0
         for row in rows:

@@ -21,7 +21,7 @@ class FoundationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             ledger = Ledger(Path(directory) / "state.duckdb")
             day = date(2026, 9, 18)
-            params = {"window": ["09:30:00", "15:00:00"], "limit": 500}
+            params = {"window": ["00:00:00", "23:59:59"], "limit": 500}
             slices = {"000001.SZ": {"ts_code": "000001.SZ"}, "600000.SH": {"ts_code": "600000.SH"}}
             ledger.plan("stk_mins", day, params, slices)
             ledger.plan("stk_mins", day, params, slices)

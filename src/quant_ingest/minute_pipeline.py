@@ -73,6 +73,9 @@ class MinutePipeline:
         if status in {"refreshing", "refresh_ready"} and not refresh:
             raise ValueError("minute refresh is in progress; use refresh mode")
         refreshing = status == "refreshing"
+        saved = self.ledger.saved_plan(DATASET, day)
+        assert saved is not None
+        slice_parameters = saved[1]
         self.raw.log(run_id, DATASET, day, "planned", planned=len(codes))
         pending: list[str] = []
         for code in self.ledger.unresolved(DATASET, day):
@@ -86,7 +89,7 @@ class MinutePipeline:
                         continue
                 try:
                     artifact = self.raw.inspect(DATASET, day, code)
-                    rows = self._raw_rows(code, day, path)
+                    rows = self._raw_rows(code, day, path, slice_parameters[code])
                     extracted_at = datetime.fromtimestamp(path.stat().st_mtime, timezone.utc)
                     self.ledger.record(
                         DATASET, day, code, "ok" if rows else "empty",
@@ -112,7 +115,8 @@ class MinutePipeline:
             pending = pending[:remaining]
         # 网络请求并行；future 结果在主线程逐一写 raw 与 DuckDB，避免多写方争锁。
         with ThreadPoolExecutor(max_workers=self.workers) as pool:
-            futures = {pool.submit(self.source.fetch_slice, code, day): code for code in pending}
+            futures = {pool.submit(self.source.fetch_slice, code, day,
+                                   parameters=slice_parameters[code]): code for code in pending}
             for future in as_completed(futures):
                 code = futures[future]
                 try:
@@ -161,8 +165,8 @@ class MinutePipeline:
             self.source.request_count - request_start, complete,
         )
 
-    def _raw_rows(self, code: str, day: date, path: Path) -> list[dict]:
+    def _raw_rows(self, code: str, day: date, path: Path, parameters: dict) -> list[dict]:
         """让适配器重放原文并复核分页、窗口与重复主键。"""
 
         pages = json.loads(gzip.decompress(path.read_bytes()), parse_float=Decimal)
-        return self.source.rows_from_raw(code, day, pages)
+        return self.source.rows_from_raw(code, day, pages, parameters=parameters)

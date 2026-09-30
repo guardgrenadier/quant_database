@@ -15,6 +15,7 @@ import pyarrow.parquet as pq
 from quant_ingest.gap_backfill import latest_snapshot_day, next_gap_segment, open_gap_days
 from quant_ingest.ledger import Ledger
 from quant_ingest.minute_plan import plan_day
+from quant_ingest.minute_source import TushareMinuteSource
 
 
 SNAPSHOT = date(2026, 9, 29)
@@ -58,9 +59,12 @@ class GapBackfillTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "target year"):
                 open_gap_days(ledger, root, SNAPSHOT, date(2025, 12, 31), days[-1])
             self.assertEqual(next_gap_segment(ledger, trading, 2), [days[0], days[1]])
-            self.assertEqual(plan_day(ledger, root, days[0],
-                                      lambda code, day: {"ts_code": code}, snapshot_day=SNAPSHOT),
+            source = TushareMinuteSource(api_key="offline")
+            self.assertEqual(plan_day(ledger, root, days[0], source.parameters, snapshot_day=SNAPSHOT),
                              ["000001.SZ"])
+            planned = ledger.saved_plan("stk_mins", days[0])[1]["000001.SZ"]
+            self.assertEqual(planned["start_date"], "2026-04-20 00:00:00")
+            self.assertEqual(planned["end_date"], "2026-04-20 23:59:59")
             _publication(ledger, root, "stk_mins", [{"ts_code": "000001.SZ"}], days[3])
             self.assertEqual(next_gap_segment(ledger, trading, 7), [days[0], days[1]])
 

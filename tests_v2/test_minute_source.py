@@ -124,6 +124,31 @@ class MinuteSourceTest(unittest.TestCase):
         self.assertEqual(session.offsets, [0])
         self.assertEqual(caught.exception.requests[0]["http_status"], 503)
 
+    def test_all_day_window_accepts_same_day_edges_and_rejects_next_day(self):
+        """新计划覆盖盘前盘后，仍逐行拒绝跨日返回。"""
+
+        rows = [_row(f"2026-09-18 {stamp}") for stamp in
+                ("00:00:00", "09:25:00", "15:30:00", "23:59:59")]
+        session = Session({0: Response(rows)})
+        source = TushareMinuteSource(api_key="offline", session_factory=lambda: session)
+        params = source.parameters(CODE, DAY)
+        self.assertEqual((params["start_date"], params["end_date"]),
+                         ("2026-09-18 00:00:00", "2026-09-18 23:59:59"))
+        self.assertEqual(len(source.fetch_slice(CODE, DAY).rows), 4)
+        wrong = Session({0: Response([_row("2026-09-19 00:00:00")])})
+        with self.assertRaisesRegex(SourceContractError, "outside requested window"):
+            TushareMinuteSource(api_key="offline", session_factory=lambda: wrong).fetch_slice(CODE, DAY)
+
+    def test_saved_legacy_window_still_controls_resume(self):
+        """旧日计划按原 09:30–15:00 参数续抓，不暗中扩大范围。"""
+
+        source = TushareMinuteSource(api_key="offline",
+                                     session_factory=lambda: Session({0: Response([_row("2026-09-18 15:30:00")])}))
+        saved = {**source.parameters(CODE, DAY),
+                 "start_date": "2026-09-18 09:30:00", "end_date": "2026-09-18 15:00:00"}
+        with self.assertRaisesRegex(SourceContractError, "outside requested window"):
+            source.fetch_slice(CODE, DAY, parameters=saved)
+
 
 if __name__ == "__main__":
     unittest.main()
