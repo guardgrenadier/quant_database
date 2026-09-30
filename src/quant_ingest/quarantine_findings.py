@@ -47,8 +47,13 @@ def record_quarantine_self_healed(ledger: Ledger, raw: RawStore, dataset: str, d
             })
     if not findings:
         return 0
-    evidence = "\n".join(sorted(item["evidence_path"] for item in findings))
-    stable_run = f"quarantine-healed-{day:%Y%m%d}-{hashlib.sha256(evidence.encode()).hexdigest()[:16]}"
-    ledger.record_finding(stable_run, dataset, day, "quarantine_self_healed", "warn",
-                          len({item["slice_key"] for item in findings}), findings)
+    by_slice: dict[str, list[dict]] = {}
+    for item in findings:
+        by_slice.setdefault(item["slice_key"], []).append(item)
+    for code, events in by_slice.items():
+        evidence = "\n".join(sorted(item["evidence_path"] for item in events))
+        stable_run = f"quarantine-healed-{day:%Y%m%d}-{hashlib.sha256(evidence.encode()).hexdigest()[:16]}"
+        ledger.record_finding(stable_run, dataset, day, "quarantine_self_healed", "warn",
+                              len(events), events[:3], ts_code=code if dataset == "stk_mins" else None,
+                              details={"events": events})
     return len(findings)

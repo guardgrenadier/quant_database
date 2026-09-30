@@ -6,7 +6,6 @@ import hashlib
 from datetime import date
 from pathlib import Path
 
-import duckdb
 import pyarrow as pa
 import pyarrow.parquet as pq
 
@@ -14,6 +13,7 @@ from . import config
 from .dbt_runner import run_dbt
 from .ledger import Ledger
 from .minute_candidate import MinuteCandidate
+from .finding_store import record_finding_rows
 from .raw import RawStore
 from .quarantine_findings import record_quarantine_self_healed
 
@@ -59,19 +59,7 @@ def record_minute_quality(
     run_dbt("test", "minute_quality_warning", variables, project=project, ledger_database=ledger.database,
             raw=raw, dataset="stk_mins", day=day, run_id=run_id)
 
-    with duckdb.connect() as conn:
-        groups = conn.execute(
-            "select check_name, count(*) from read_parquet(?) group by check_name",
-            [str(quality)],
-        ).fetchall()
-        for check_name, count in groups:
-            rows = conn.execute(
-                """select ts_code, trade_time, detail from read_parquet(?)
-                   where check_name = ? order by ts_code, trade_time limit 3""",
-                [str(quality), check_name],
-            ).fetchall()
-            samples = [dict(ts_code=code, trade_time=stamp, detail=detail) for code, stamp, detail in rows]
-            ledger.record_finding(run_id, "stk_mins", day, check_name, "warn", count, samples)
+    record_finding_rows(ledger, run_id, "stk_mins", day, quality, "warn")
     counts = ledger.status_counts("stk_mins", day)
     total = sum(counts.values())
     threshold = max(5, (total + 99) // 100)

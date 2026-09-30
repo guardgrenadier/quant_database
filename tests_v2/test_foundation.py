@@ -100,6 +100,35 @@ class FoundationTest(unittest.TestCase):
                 names = {row[0] for row in conn.execute("show tables").fetchall()}
             self.assertEqual(names, {"plans", "slices", "publications", "quality_findings"})
 
+    def test_quality_findings_migrate_and_allow_per_code_errors(self):
+        """旧历史告警不丢，新账按证券区分并支持 error。"""
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "state.duckdb"
+            with duckdb.connect(str(path)) as conn:
+                conn.execute("""create table quality_findings (
+                    run_id varchar, dataset varchar, trade_date date, check_name varchar,
+                    severity varchar, finding_count bigint, samples_json varchar,
+                    created_at timestamptz, primary key (run_id, check_name))""")
+                conn.execute("""insert into quality_findings values
+                    ('old', 'stk_mins', '2026-09-18', 'negative_value', 'warn', 2, '[]', current_timestamp)""")
+            ledger = Ledger(path)
+            day = date(2026, 9, 18)
+            for code in ("000001.SZ", "600000.SH"):
+                ledger.record_finding("new", "stk_mins", day, "raw_contract", "error", 1,
+                                      [{"trade_time": "09:31"}], ts_code=code,
+                                      details={"fields": ["amount"]})
+            ledger.record_finding("new", "stk_mins", day, "raw_contract", "error", 1,
+                                  [], ts_code="000001.SZ")
+            with duckdb.connect(str(path)) as conn:
+                rows = conn.execute("""select run_id, ts_code, severity, details_json
+                    from quality_findings order by run_id, ts_code""").fetchall()
+            self.assertEqual(len(rows), 3)
+            self.assertIsNone(next(row for row in rows if row[0] == "old")[1])
+            self.assertEqual({row[1] for row in rows if row[0] == "new"},
+                             {"000001.SZ", "600000.SH"})
+            self.assertEqual({row[2] for row in rows if row[0] == "new"}, {"error"})
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -65,6 +65,10 @@ class MinutePublisher:
                     return target
 
         if not self.ledger.complete(DATASET, day):
+            self.ledger.record_finding(
+                run_id, DATASET, day, "raw_incomplete", "error", 1, [],
+                details={"statuses": self.ledger.status_counts(DATASET, day)},
+            )
             raise ValueError("minute raw plan is incomplete")
         candidate = build_minute_candidate(
             self.ledger, self.raw, self.warehouse, day, run_id, project=self.project
@@ -95,10 +99,20 @@ class MinutePublisher:
     ) -> Path:
         """两种入场方式共用候选对账、质量告警和发布状态迁移。"""
 
-        self._validate(day, candidate)
-        record_minute_quality(
-            self.ledger, self.raw, self.warehouse, day, run_id, candidate, project=self.project
-        )
+        try:
+            self._validate(day, candidate)
+        except Exception as exc:
+            self.ledger.record_finding(run_id, DATASET, day, "candidate_validation_error", "error",
+                                       1, [], details={"error": str(exc)})
+            raise
+        try:
+            record_minute_quality(
+                self.ledger, self.raw, self.warehouse, day, run_id, candidate, project=self.project
+            )
+        except Exception as exc:
+            self.ledger.record_finding(run_id, DATASET, day, "quality_pipeline_error", "error",
+                                       1, [], details={"error": str(exc)})
+            raise
         if prior is not None and prior[0] == "published" and replace:
             self._record_diff(day, run_id, target, candidate.path)
 
@@ -189,7 +203,12 @@ class MinutePublisher:
             "minute_canonical_glob": str(self.warehouse / "canonical" / DATASET / "date=*.parquet"),
             "as_of_date": day.isoformat(),
         }
-        run_dbt("run", "minute_bars", variables, project=self.project,
-                ledger_database=self.ledger.database, raw=self.raw, dataset=DATASET, day=day, run_id=run_id)
-        run_dbt("test", "minute_view_contract", variables, project=self.project,
-                ledger_database=self.ledger.database, raw=self.raw, dataset=DATASET, day=day, run_id=run_id)
+        try:
+            run_dbt("run", "minute_bars", variables, project=self.project,
+                    ledger_database=self.ledger.database, raw=self.raw, dataset=DATASET, day=day, run_id=run_id)
+            run_dbt("test", "minute_view_contract", variables, project=self.project,
+                    ledger_database=self.ledger.database, raw=self.raw, dataset=DATASET, day=day, run_id=run_id)
+        except Exception as exc:
+            self.ledger.record_finding(run_id, DATASET, day, "view_contract_error", "error", 1, [],
+                                       details={"error": str(exc)})
+            raise

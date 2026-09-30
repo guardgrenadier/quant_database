@@ -62,15 +62,29 @@ class Ledger:
             # 已存在的 V2 账本补上阶段时间戳，不要求用户手动重建数据库。
             conn.execute("alter table publications add column if not exists prepared_at timestamptz")
             conn.execute("alter table publications add column if not exists published_at timestamptz")
-            conn.execute("""
-                create table if not exists quality_findings (
-                    run_id varchar not null, dataset varchar not null, trade_date date not null,
-                    check_name varchar not null, severity varchar not null,
-                    finding_count bigint not null, samples_json varchar,
-                    created_at timestamptz default current_timestamp,
-                    primary key (run_id, check_name)
-                )
-            """)
+            columns = {row[0] for row in conn.execute(
+                """select column_name from information_schema.columns
+                   where table_schema = 'main' and table_name = 'quality_findings'"""
+            ).fetchall()}
+            if columns and "finding_key" not in columns:
+                # 旧主键只有 run_id×check_name；迁移为可按证券细分的新表，历史行保留。
+                conn.execute("begin transaction")
+                try:
+                    conn.execute("alter table quality_findings rename to quality_findings_legacy")
+                    self._create_findings(conn)
+                    conn.execute("""insert into quality_findings
+                        (run_id, dataset, trade_date, check_name, ts_code, finding_key,
+                         severity, finding_count, details_json, samples_json, created_at)
+                        select run_id, dataset, trade_date, check_name, null, '__dataset__',
+                               severity, finding_count, '{}', samples_json, created_at
+                        from quality_findings_legacy""")
+                    conn.execute("drop table quality_findings_legacy")
+                    conn.execute("commit")
+                except Exception:
+                    conn.execute("rollback")
+                    raise
+            else:
+                self._create_findings(conn)
             # 早期 V2 把 dbt 派生关系建在账本库；含中断时留下的 dbt 临时关系。
             model_names = {"minute_bars", "stock_basic", "trade_cal", "suspend_d", "stk_mins", "minute_quality"}
             relations = conn.execute(
@@ -80,6 +94,19 @@ class Ledger:
                 if name in model_names or any(name.startswith(f"{model}__dbt_") for model in model_names):
                     quoted = name.replace('"', '""')
                     conn.execute(f'drop {"view" if kind == "VIEW" else "table"} if exists "{quoted}"')
+
+    @staticmethod
+    def _create_findings(conn: duckdb.DuckDBPyConnection) -> None:
+        """创建按轮次、检查和证券定位的长期质量账。"""
+
+        conn.execute("""create table if not exists quality_findings (
+            run_id varchar not null, dataset varchar not null, trade_date date not null,
+            check_name varchar not null, ts_code varchar, finding_key varchar not null,
+            severity varchar not null, finding_count bigint not null,
+            details_json varchar not null, samples_json varchar,
+            created_at timestamptz default current_timestamp,
+            primary key (run_id, check_name, dataset, trade_date, finding_key)
+        )""")
 
     def plan(self, dataset: str, day: date, parameters: dict, slices: Mapping[str, dict]) -> None:
         """抓取前一次性固定计划；仅允许相同计划续跑。"""
@@ -382,15 +409,18 @@ class Ledger:
     def record_finding(
         self, run_id: str, dataset: str, day: date, check_name: str,
         severity: str, count: int, samples: list[dict],
+        *, ts_code: str | None = None, details: dict | None = None,
     ) -> None:
-        """按 run 与检查名幂等保留告警摘要，不覆盖历史轮次。"""
+        """按 run×检查×数据集×日期×证券幂等保留质量发现。"""
 
-        if count < 0 or severity not in {"warn", "info"}:
+        if count < 0 or severity not in {"warn", "info", "error"}:
             raise ValueError("invalid quality finding")
         with duckdb.connect(str(self.database)) as conn:
             conn.execute(
                 """insert into quality_findings
-                   (run_id, dataset, trade_date, check_name, severity, finding_count, samples_json)
-                   values (?, ?, ?, ?, ?, ?, ?) on conflict do nothing""",
-                [run_id, dataset, day, check_name, severity, count, _json(samples)],
+                   (run_id, dataset, trade_date, check_name, ts_code, finding_key,
+                    severity, finding_count, details_json, samples_json)
+                   values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) on conflict do nothing""",
+                [run_id, dataset, day, check_name, ts_code, ts_code or "__dataset__",
+                 severity, count, _json(details or {}), _json(samples[:3])],
             )

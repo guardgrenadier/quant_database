@@ -9,10 +9,13 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 
 import duckdb
+import pyarrow as pa
+import pyarrow.parquet as pq
 
 from quant_ingest.ledger import Ledger
-from quant_ingest.minute_candidate import build_minute_candidate
+from quant_ingest.minute_candidate import build_minute_candidate, check_minute_temp_candidate
 from quant_ingest.minute_source import FIELDS
+from quant_ingest.minute_temp import MinuteTemp
 from quant_ingest.raw import RawStore
 
 
@@ -68,6 +71,53 @@ class MinuteCandidateTest(unittest.TestCase):
                 build_minute_candidate(ledger, raw, root / "warehouse", DAY, "failure")
             self.assertIsNone(ledger.publication("stk_mins", DAY))
             self.assertTrue(raw.path("stk_mins", DAY, CODE).is_file())
+            with duckdb.connect(str(ledger.database)) as conn:
+                finding = conn.execute(
+                    """select ts_code, severity, finding_count, samples_json from quality_findings
+                       where check_name = 'raw_contract'"""
+                ).fetchone()
+            self.assertEqual(finding[:3], (CODE, "error", 1))
+            self.assertIn("freq", json.loads(finding[3])[0]["detail"])
+
+    def test_two_bad_source_rows_are_not_double_counted(self):
+        """两个无效源行只记两次，不因候选侧 NULL 再记两次。"""
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            rows = [
+                [CODE, f"{DAY} 09:31:00", "1MIN", 10, 10, 10, 10, 100, "bad"],
+                [CODE, f"{DAY} 09:32:00", "1MIN", 10, 10, 10, 10, 100, "bad"],
+            ]
+            ledger, raw = _setup(root, rows)
+            with self.assertRaisesRegex(RuntimeError, "dbt test failed"):
+                build_minute_candidate(ledger, raw, root / "warehouse", DAY, "two-bad")
+            with duckdb.connect(str(ledger.database)) as conn:
+                findings = conn.execute(
+                    """select check_name, finding_count from quality_findings
+                       where run_id = 'two-bad' order by check_name"""
+                ).fetchall()
+            self.assertEqual(findings, [("raw_contract", 2)])
+
+    def test_missing_required_column_is_recorded_before_block(self):
+        """temp 缺字段时先留下字段清单 error，再停止 dbt 转换。"""
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            ledger = Ledger(root / "state.duckdb")
+            raw = RawStore(root / "raw")
+            temp_path = root / "temp.parquet"
+            plan_path = root / "plan.parquet"
+            pq.write_table(pa.Table.from_pylist([], schema=pa.schema([("ts_code", pa.string())])), temp_path)
+            pq.write_table(pa.Table.from_pylist([], schema=pa.schema([("ts_code", pa.string())])), plan_path)
+            temp = MinuteTemp(temp_path, plan_path, 0, 0)
+            with self.assertRaisesRegex(ValueError, "missing required columns"):
+                check_minute_temp_candidate(ledger, raw, DAY, "missing", temp)
+            with duckdb.connect(str(ledger.database)) as conn:
+                details = conn.execute(
+                    """select details_json from quality_findings
+                       where check_name = 'required_columns_missing'"""
+                ).fetchone()[0]
+            self.assertIn("amount", json.loads(details)["columns"])
 
     def test_amount_cent_overflow_blocks_candidate(self):
         """源成交额能解析但换算为分后超出 BIGINT 时不得发布。"""

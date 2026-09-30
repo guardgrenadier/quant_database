@@ -13,6 +13,7 @@ vars:
   expected_rows: 0
   plan_path: ''
   quality_path: ''
+  contract_path: ''
   suspend_path: ''
   minute_canonical_glob: ''
   historical: false

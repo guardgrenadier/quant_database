@@ -125,8 +125,13 @@ class BasicPipeline:
         temp = work / "temp.parquet"
         candidate = work / "candidate.parquet"
         self._write_temp(dataset, rows, extracted_at, temp)
-        self._dbt(dataset, day, temp, candidate, expected_rows, run_id)
-        self._validate_candidate(dataset, day, candidate, expected_rows)
+        try:
+            self._dbt(dataset, day, temp, candidate, expected_rows, run_id)
+            self._validate_candidate(dataset, day, candidate, expected_rows)
+        except Exception as exc:
+            self.ledger.record_finding(run_id, dataset, day, "basic_contract_error", "error", 1, [],
+                                       details={"error": str(exc)})
+            raise
         record_quarantine_self_healed(self.ledger, self.raw, dataset, day)
         self.raw.log(run_id, dataset, day, "candidate_checked", row_count=expected_rows)
 
