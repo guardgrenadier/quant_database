@@ -21,6 +21,7 @@ from .quarantine_findings import record_quarantine_self_healed
 QUALITY_SCHEMA = pa.schema([
     ("check_name", pa.string()), ("ts_code", pa.string()),
     ("trade_time", pa.string()), ("detail", pa.string()),
+    ("null_fields", pa.string()),
 ])
 
 
