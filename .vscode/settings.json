@@ -1,0 +1,26 @@
+{
+    "duckdb.databases": [
+        {
+            "alias": "dbt",
+            "type": "file",
+            "path": "/home/xindingtian/code/quant_data/data/warehouse/v2/dbt.duckdb",
+            "readOnly": true,
+            "attached": true
+        },
+        {
+            "alias": "state",
+            "type": "file",
+            "path": "/home/xindingtian/code/quant_data/data/warehouse/v2/state.duckdb",
+            "readOnly": true,
+            "attached": true
+        },
+        {
+            "alias": "quant",
+            "type": "file",
+            "path": "/home/xindingtian/code/quant_data/data/warehouse/quant.duckdb",
+            "readOnly": true,
+            "attached": true
+        }
+    ],
+    "duckdb.defaultDatabase": "quant"
+}
