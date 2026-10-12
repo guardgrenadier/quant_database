@@ -1,7 +1,0 @@
-quant_ingest_v2:
-  target: dev
-  outputs:
-    dev:
-      type: duckdb
-      path: "{{ env_var('QUANT_V2_DBT_PATH') }}"
-      threads: 1

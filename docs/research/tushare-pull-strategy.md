@@ -1,8 +1,8 @@
 # Tushare 拉取策略（2026-09-19 更新）
 
-状态：保留为网关端点实测知识（仍有效），供未来 dataset（日线、基本面等）实现 adapter 时参考。现行设计决策见 [ingestion-design-v2.md](ingestion-design-v2.md)；[ingestion-framework.md](ingestion-framework.md) 已冻结保留。
+状态：2026-09-19 的历史接口观察，不代表当前接口保证或新项目实现方案。`stock_basic` 等端点的后续复测见 [分钟 API 实测报告](minute-api-request-experiments.md)，与本页冲突时优先参考日期较晚的实测。
 
-本页是策略结论；逐项请求参数、HTTP 响应和按 [ProMax 手册](../research/promax.md) 补测的结果见 [官方示例兼容性抽样](../research/tushare-proxy-official-examples-2026-09-19.md)。官方接口的行数上限与第三方网关的请求估算是两层约束，不能互相替代。
+本页是策略结论；逐项请求参数、HTTP 响应和按 [ProMax 手册](promax.md) 补测的结果见 [官方示例兼容性抽样](tushare-proxy-official-examples-2026-09-19.md)。官方接口的行数上限与第三方网关的请求估算是两层约束，不能互相替代。
 
 ## 当前可用的请求方向
 
@@ -23,8 +23,8 @@
 
 ## 落地规则
 
-1. 每个 dataset 明确传入所需 `fields`，并按 [ProMax 手册](../research/promax.md) 为大响应设置有界 `limit/offset`；记录参数、行数、请求时间和返回日期范围。已多次看到同条件仅增加 `fields` 或 `limit`，网关从 400 变成非空成功。Wrapper 不自动分页，防止一次成功请求被误认为完整数据。
+1. 每个 dataset 明确传入所需 `fields`，并按 [ProMax 手册](promax.md) 为大响应设置有界 `limit/offset`；记录参数、行数、请求时间和返回日期范围。已多次看到同条件仅增加 `fields` 或 `limit`，网关从 400 变成非空成功。Wrapper 不自动分页，防止一次成功请求被误认为完整数据。
 2. 对每行校验证券／指数代码与日期落在请求范围内。HTTP 200、`code=0`、甚至大于官方标称上限的行数，都不能单独证明正确或完整；`stock_st` 的单证券年窗已出现日期过滤失效。
 3. 接近或命中官方行数上限时，先验证该接口能否按代码拆分，再做补抓。不能假设所有端点都支持相同的逗号代码或分页参数。
 4. HTTP 400 的「预计响应超限」先缩小字段、设置 `limit` 或缩短窗口；超过 366 天的范围是网关曾明确拒绝的请求形态。HTTP 503 `upstream_pool_exhausted` 做有限重试并记录失败，不能把它当成确定的行数上限。单证券不设日期或使用较长区间即使返回 200、0 行，也不能据此确认历史已完整拉取。
-5. 退市证券的 SSE/BSE 已有小范围正例，SZSE 本轮仍为 503；指数权重已有单月正例。两者都还未完成历史覆盖和一致性校验，因此暂不宣称无幸存者偏差的股票池或完整指数成分。Client 继续只负责一次请求；请求切分与分页属于各 dataset 的源 adapter，整日完整性属于 pipeline（见 [ingestion-framework.md](ingestion-framework.md)）。
+5. 退市证券的 SSE/BSE 已有小范围正例，SZSE 本轮仍为 503；指数权重已有单月正例。两者都还未完成历史覆盖和一致性校验，因此暂不宣称无幸存者偏差的股票池或完整指数成分。请求切分、分页和整日完整性检查的实现方式需在重建时重新决定。

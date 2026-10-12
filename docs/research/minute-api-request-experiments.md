@@ -1,6 +1,8 @@
 # 股票分钟 API 请求切分与终止条件：实测报告
 
-基础实验日期：2026-09-21；多代码专项复测日期：2026-09-23（UTC 时间戳见 `research/minute-api/tmp/requests.jsonl`）。实测接口为 ProMax 网关（`https://pcd.mobcvb.cn/tushare/pro`）的 `stk_mins`，对照 `a_share_mins`、`suspend_d`、`stock_basic`、`trade_cal`。API Key 只从本地 `.env` 读入并用于 `X-API-Key` Header，未写入任何文件。实验脚本：`research/minute-api/experiment.py`、`research/minute-api/retry_pending.py`；逐请求脱敏日志与响应样本在 `research/minute-api/tmp/`（不入 Git）。
+> 保留接口观察与证据。报告中的“最终方案”、canonical、并发建议和处理策略是当时的推断，不是新项目的推荐实现；接口行为仅在标注的日期和样本范围内得到验证。
+
+基础实验日期：2026-09-21；多代码专项复测日期：2026-09-23（UTC 时间戳见 `research/minute-api/tmp/requests.jsonl`）。实测接口为 ProMax 网关（`https://pcd.mobcvb.cn/tushare/pro`）的 `stk_mins`，对照 `a_share_mins`、`suspend_d`、`stock_basic`、`trade_cal`。API Key 只从本地 `.env` 读入并用于 `X-API-Key` Header，未写入任何文件。实验脚本已归档到 Git 分支 `archive/pre-restart-2026-10-12` 的 `research/minute-api/`，不属于当前项目实现；逐请求脱敏日志与响应样本在 `research/minute-api/tmp/`（不入 Git）。
 
 基础实验预算与执行：全程顺序、有界请求，共 120 次 HTTP 请求（2 次 capabilities + 118 次业务请求）：32 次 HTTP 200、81 次 HTTP 202 `minute_data_pending`（其中绝大多数是对 3 个补数任务的有限轮询）、7 次裸 503（网关约 3.5 分钟的临时故障期间）。实验脚本内 `max_retries=0`，失败不叠加重试；pending 由单独脚本按 30–120 秒间隔、有界轮询。请求耗时最小 21ms、中位约 995ms、最大 7.6s。2026-09-23 专项请求预算、状态分布和并发范围单列在 §8；只做 20 代码内的有界探测，未做全市场压力测试。
 
@@ -202,7 +204,7 @@ B3 无需重测：上市前会长 pending；本轮退市后日期也表现为 pe
 
 ## 未解决且会阻止正式 ingestion 实现的问题
 
-> 2026-09-21 后续：第 1、2 条已在设计讨论中决策，见 [../architecture/minute-data-ingestion.md](../architecture/minute-data-ingestion.md)——amount 在 dbt staging 显式四舍五入转 BIGINT；填充 bar 由 canonical 全量保留、默认 view 只保留连续竞价时段记录。第 3–5 条仍是开放风险，已并入该文档"未验证事项"。
+> 本报告保留实验当时的问题和推断。旧设计及其处理决策已归档，不作为重建约束；以下涉及 canonical、dbt、窗口、发布等表述均为当时的方案背景。
 
 1. **`amount` 非整数浮点噪声**：canonical 设计要求 `amount` BIGINT 且"源值为整数、不静默舍入"，实测 `stk_mins` 的 `amount` 是带二进制噪声的 float（如 `55929077.10000002`）。需要架构层决定：放宽为 DOUBLE、按分（round 到 0.01 元）规则转换，或要求供应商修正。此条直接阻塞 dbt 转换落地。
 2. **填充 bar 的处置口径**：午间/盘后/盘前填充 bar（重复前 bar 量价、逐日不规则）会进入 canonical；旧设计中"正常完整日 241/240 根"的预期不适用于本网关 `stk_mins` 源。需要确认 canonical 全量保留、消费侧过滤的规则（本报告建议窗口先排除盘前/盘后，午间填充保留），并相应修订该预期表述。

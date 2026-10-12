@@ -1,7 +1,0 @@
-version: 2
-
-models:
-  - name: minute_bars
-    description: Default minute view with invalid vendor filler times removed.
-    config:
-      tags: [minute_view]
