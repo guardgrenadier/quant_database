@@ -1,0 +1,1 @@
+{"request_id":"","code":0,"msg":"ok","data":{"fields":["ts_code","symbol","name","exchange","market","list_status","list_date","delist_date"],"items":[["000001.SZ","000001","平安银行","SZSE","主板","L","19910403",null]]},"api_name":"stock_basic","count":1}

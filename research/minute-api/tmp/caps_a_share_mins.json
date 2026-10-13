@@ -1,0 +1,13 @@
+{
+ "name": "a_share_mins",
+ "provider": "clickhouse",
+ "enabled": true,
+ "methods": [
+  "GET"
+ ],
+ "required": [
+  "ts_code"
+ ],
+ "required_any": [],
+ "probe_example": "/tushare/pro/a_share_mins?__probe=1"
+}

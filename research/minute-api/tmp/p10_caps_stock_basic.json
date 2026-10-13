@@ -1,0 +1,11 @@
+{
+ "name": "stock_basic",
+ "provider": "tushare",
+ "enabled": true,
+ "methods": [
+  "GET"
+ ],
+ "required": [],
+ "required_any": [],
+ "probe_example": "/tushare/pro/stock_basic?__probe=1"
+}
