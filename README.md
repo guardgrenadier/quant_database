@@ -4,8 +4,10 @@
 
 | 阅读目的 | 文档 |
 |---|---|
-| 理解架构与 invariant | [核心设计](docs/design/core_design.md) |
-| 理解当前接口与实现 | [实施说明](docs/design/ingestion_v3.2_implementation.md) |
+| 理解核心心智模型、职责与 invariant | [核心架构](docs/design/core_design.md) |
+| 理解当前模型、接口、事务与能力边界 | [技术设计与实现边界](docs/design/ingestion_v3.2_implementation.md) |
+
+这两份是当前维护文档：先读核心架构，再按需查技术细节。[V3.1.1 归档](docs/design/archive/core_design_v3.1.1.md)保留设计历史与 invariant 对照，不代表当前实现进度。
 
 ## stock_basic Ingestion
 
