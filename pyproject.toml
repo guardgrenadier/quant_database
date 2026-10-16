@@ -1,0 +1,22 @@
+[project]
+name = "quant-data"
+version = "0.1.0"
+description = "Personal quantitative research database"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "duckdb>=1.4,<2",
+    "pyarrow>=21,<25",
+    "dbt-duckdb>=1.9,<2",
+    "python-dotenv>=1.1,<2",
+    "polars>=2.0,<3",
+]
+
+[build-system]
+requires = ["setuptools>=80"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+quant_data = ["core/*.sql", "datasets/*.sql"]

@@ -1,6 +1,72 @@
-# quant_data：重新开发起点
+# quant_data
 
-2026-10-12 已清理旧项目。当前仓库保留已下载的历史数据；没有应用源码、下载入口、dbt 模型、测试框架或旧架构方案。重建时重新决定实现与数据处理口径。
+个人量化数据库，当前已完成 V3.2 `stock_basic` 纵向切片：真实请求 → Polars 标准化与验收 → Canonical 和 Meta 原子发布。
+
+| 阅读目的 | 文档 |
+|---|---|
+| 理解架构与 invariant | [核心设计](docs/design/core_design.md) |
+| 理解当前接口与实现 | [实施说明](docs/design/ingestion_v3.2_implementation.md) |
+
+## stock_basic Ingestion
+
+在仓库根目录设置 `.env` 的 `TUSHARE_TOKEN` 后执行：
+
+```bash
+uv sync --frozen
+uv run --frozen python -m quant_data ingest stock_basic --db data/warehouse_v3_2.duckdb
+```
+
+默认路径仍为 `data/warehouse.duckdb`；已有 V3.1 Meta 的原型库需指定一个新库路径，新版明确报错且不自动迁移或删除旧数据。每次请求五种上市状态 × 三交易所，获取全部 17 字段，直接形成 Polars Raw/Candidate 数据表；验收后单事务替换数据、成功版本、Coverage 和 Unit 审计。重跑产生新版本，失败保留旧成功数据。
+
+可指定独立验证库及暂存目录：
+
+```bash
+uv run --frozen python -m quant_data ingest stock_basic \
+  --db data/probes/my-validation/warehouse.duckdb \
+  --landing-dir data/probes/my-validation/landing
+```
+
+成功默认清理 Landing；失败或部分成功保留原始信封。CLI 输出具名模型的 JSON 结果及独立的产物状态。请求尝试位于 `meta.request_attempt`，检查位于 `meta.validation_check`，Unit 保存引用和阶段；`meta.run.summary` 仅保存计数。全程使用同一 DuckDB 连接。
+
+添加 `--keep-artifacts` 保留完整 walkthrough 产物：
+
+```bash
+uv run --frozen python -m quant_data ingest stock_basic \
+  --db data/probes/my-walkthrough/warehouse.duckdb --keep-artifacts
+# 或一次生成独立观察库和产物目录
+uv run --frozen python scripts/capture_stock_basic_walkthrough.py
+```
+
+产物目录的 README 提供阅读顺序；包含原始响应、Raw/Candidate Parquet、Schema、验收、发布和各阶段 Meta 快照。诊断不完整以 `artifacts_complete=false` 和 `export_errors` 表达，成功发布状态独立保留。
+
+运行时保持串行访问：Ingestion、dbt 和外部研究进程应错开访问同一文件。当前只开放 stock_basic 入口；触及满页/has_more 时明确阻断，未实现自动分页或恢复执行。尚未接入 suspend_daily、交易日历或正式 Serving 模型。
+
+## 开发环境与接口探查
+
+使用 uv 管理 Python 3.13、`.venv` 和锁定依赖（Polars、DuckDB、Arrow/Parquet、dbt-duckdb、python-dotenv）。在仓库根目录执行：
+
+```bash
+uv sync --frozen
+uv run --frozen python scripts/check_environment.py
+uv run --frozen python -m unittest discover -s tests -v
+```
+
+环境检查在临时目录验证 DuckDB DDL、Arrow/Parquet 和 dbt View；结束后自动清理。
+
+在本地 `.env` 设置 `TUSHARE_TOKEN`（格式见 [.env.example](.env.example)），然后执行：
+
+```bash
+# 两个快速探针；完整矩阵去掉 --case 参数
+uv run --frozen python scripts/probe_tushare.py --case stock_L --case suspend_20200312
+```
+
+探针优先读取项目 `.env` 的 `TUSHARE_TOKEN`，没有时才读取环境变量；只访问官方 `https://api.tushare.pro`。原始响应和脱敏请求信息保存在 `data/probes/<运行时间>/`，不入 Git。供应商/网络/协议错误会保存证据并返回非零退出码。探针中的日期与分页尾部 offset 是本轮固定测试用例，后续复跑的最新股票快照与尾页行数可能变化。
+
+- [官方接口探查报告与 Canonical 契约建议](docs/research/tushare-official-stock-suspend-2026-10-13.md)
+- [日频与指数接口探查报告](docs/research/tushare-official-daily-index-2026-10-14.md)
+- [停复牌 Schema 建议](docs/design/canonical_suspend_daily_proposal.sql)
+
+stock_basic Schema 已作为首片契约采用，正式 DDL 见 [stock_basic.sql](src/quant_data/datasets/stock_basic.sql)；suspend_daily DDL 仍为建议稿。逐请求摘要由探查报告引用。历史 review、walkthrough 和探查原始产物已于 2026-10-16 清理，可按上述入口重新生成。
 
 ## 数据商接口
 
