@@ -8,7 +8,7 @@
 
 建设面向个人量化研究的数据平台，将供应商数据转为可追溯、可修订、可靠发布的标准业务事实，供研究与回测使用。
 
-当前已落地 `stock_basic` 完整快照 ingestion。多 Unit、部分成功和合法零行替换已有通用机制及测试；其他 Dataset 与正式 Serving 尚未接入。
+当前已落地 `stock_basic` 完整快照与 SSE `trade_calendar` 自然日日历 ingestion。多 Unit、部分成功已有正式日历切片验证，合法零行替换已有通用机制测试；其他 Dataset 与正式 Serving 尚未接入。
 
 ## 二、职责分工
 
@@ -37,7 +37,7 @@ Runner 管机制，Dataset 管业务语义，Adapter 管供应商交付，Client
 | Publication | 一次成功发布的版本与变更范围，包含合法零行替换和修订；不等于历史数据快照 |
 | Run Audit | 本次执行的请求、检查、成功或失败结果及所用上游版本 |
 
-`stock_basic` 的 Unit 是一个完整快照。设计中的 `suspend_daily` 以一个交易日为 Unit，`stock_1min` 以一只股票的一个交易日为 Unit；后两者尚未正式实现。
+`stock_basic` 的 Unit 是一个完整快照，`trade_calendar` 是一个交易所的一个自然日（包含休市日）。设计中的 `suspend_daily` 以一个交易日为 Unit，`stock_1min` 以一只股票的一个交易日为 Unit；后两者尚未正式实现。
 
 控制信息明确表达范围、交付状态、验收结论和版本；业务数据按列式批次处理。Unit 是业务粒度，与文件、表或分块组织独立，一份批次可以包含多个 Unit。
 

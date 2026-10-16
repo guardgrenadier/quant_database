@@ -1,12 +1,12 @@
 # 个人量化数据库技术设计与实现边界 V3.2
 
-**更新：2026-10-16｜范围：当前 ingestion 内核与 `stock_basic` 首片**
+**更新：2026-10-16｜范围：当前 ingestion 内核、`stock_basic` 与 `trade_calendar`**
 
 本文说明已落地的模型、接口、执行机制和能力边界，与[核心架构](core_design.md)配套。内容依据当前代码；不重新定义冻结的架构与 invariant，也不把规划中的 Dataset 或 Serving 写成已实现能力。后续实现变化时同步更新对应章节。
 
 ## 一、实现范围与代码地图
 
-正式入口目前只有 `stock_basic`：获取官方 Tushare 最新股票基础信息，验收后原子替换完整快照。通用内核已支持多 Unit、部分成功、零行替换和依赖版本检查；这些机制通过测试 Dataset 验证，尚未接入第二个正式 Dataset。
+正式入口已有 `stock_basic` 完整快照及 SSE `trade_calendar` 自然日日历，均使用官方 Tushare。日历切片验证多 Unit 与部分成功；合法零行替换和依赖版本检查另有通用机制测试，两个正式 Dataset 本身均无上游依赖。
 
 | 位置 | 职责与边界 |
 |---|---|
@@ -18,7 +18,9 @@
 | [`core/publisher.py`](../../src/quant_data/core/publisher.py) | 按许可 Unit 集合替换数据并提交成功元数据 |
 | [`core/audit.py`](../../src/quant_data/core/audit.py)、[`artifacts.py`](../../src/quant_data/core/artifacts.py) | 分阶段审计与产物管理；原始证据、可选导出各有不同失败语义 |
 | [`datasets/stock_basic.py`](../../src/quant_data/datasets/stock_basic.py)、[DDL](../../src/quant_data/datasets/stock_basic.sql) | 股票业务契约、验收规则及数据库约束 |
+| [`datasets/trade_calendar.py`](../../src/quant_data/datasets/trade_calendar.py)、[DDL](../../src/quant_data/datasets/trade_calendar.sql) | SSE 自然日范围、逐日唯一事实与前交易日约束 |
 | [`sources/tushare/client.py`](../../src/quant_data/sources/tushare/client.py)、[`stock_basic.py`](../../src/quant_data/sources/tushare/stock_basic.py) | 通用供应商通信与股票专属交付适配 |
+| [`sources/tushare/trade_calendar.py`](../../src/quant_data/sources/tushare/trade_calendar.py) | 按年请求、逐日交付影响与日历类型标准化 |
 
 采用对象组合与普通函数。Protocol 表达现有接口，不要求具体类继承；没有 Dataset 注册框架、通用分页框架或规则 DSL。
 
@@ -47,7 +49,7 @@
 ### 2.2 业务数据
 
 ```text
-供应商 JSON 信封 ──→ Arrow String ──→ Polars Raw ──→ Polars Candidate
+供应商 JSON 信封 ──→ 严格 Arrow 类型 ──→ Polars Raw ──→ Polars Candidate
        │                                                │
        └── 即时保存脱敏证据 JSON                         ▼
                                              Arrow 注册 → DuckDB 临时表
@@ -114,9 +116,9 @@ Scope 外的发布许可被拒绝；没有合格 Unit 时不修改业务数据�
 
 Raw/Candidate 在验收、发布提交或回滚期间保持可访问，正常收尾时在诊断导出之后释放连接级临时关系。进程强制退出、审计写入故障等不提供完整自动恢复保证，可能留下 RUNNING / PENDING 审计或暂存目录；这不能据以推断存在成功发布。
 
-## 五、stock_basic 的正式契约
+## 五、正式 Dataset 契约
 
-### 5.1 范围与语义
+### 5.1 stock_basic 范围与语义
 
 | 项目 | 当前约定 |
 |---|---|
@@ -148,6 +150,25 @@ Raw/Candidate 在验收、发布提交或回滚期间保持可访问，正常收
 因此 UN/G 可以缺上市日期，L 可以带已公告的未来退市日期，历史特殊代码及 symbol 映射差异保留。通用机制允许零行发布，股票契约自身拒绝没有 L 的快照，两者职责不同。
 
 上述交付契约来自[官方接口探查](../research/tushare-official-stock-suspend-2026-10-13.md)。成功只表示满足已知交付及验收规则，不证明供应商覆盖所有曾上市证券，也不证明 15 次请求处于供应商同一时点快照。当前未实现与旧快照比较数量突变的告警或独立业务完整性证明。
+
+### 5.4 trade_calendar 范围与语义
+
+用户确认首版只获取 SSE，作为当前沪深北研究的共同日历。Canonical 保存真实 SSE 行，不生成 SZSE/BSE 替代行，也不独立证明三市场全历史安排一致。后续 Scope 应读取并固定 `trade_calendar / SSE:YYYY-MM-DD` 的成功版本。
+
+| 项目 | 当前约定 |
+|---|---|
+| Canonical / 主键 | `canonical.trade_calendar` / `(exchange, cal_date)` |
+| 字段 | exchange 字符串固定 SSE；cal_date DATE；is_open BOOLEAN；pretrade_date 可空 DATE，完整约束见 [DDL](../../src/quant_data/datasets/trade_calendar.sql) |
+| Scope / Unit | 显式 start_date / end_date 闭区间的每个自然日，包括休市；Unit 为 `SSE:YYYY-MM-DD`，无上游依赖 |
+| 获取 | 按自然年拆请求片段，首尾年只取目标子区间；显式四字段、不传 is_open 过滤；片段之间至少间隔 1.3 秒 |
+| Raw / Candidate | Raw 为三列字符串、一列整数 is_open 及请求标签；Candidate 为四列正式类型，不依赖返回列顺序或日期排序 |
+| 发布 | 按日完整替换，每 Unit 恰好一行；is_open=false 是成功休市事实，零行日历不能发布 |
+
+每片要求字段齐全及 has_more=false，不使用 count；请求失败、截断、非约定 JSON 类型或无法定位的日期/交易所越界阻断该请求片段。缺日期单独阻断对应 Unit，不推断为休市；其他日期可以发布。JSON is_open 必须是整数或 NULL，字符串、布尔与浮点不隐式转换；NULL 或非 0/1 值在验收时阻断对应日期。
+
+cal_date / 非空 pretrade_date 要求 ASCII 八位及有效历法日期。前交易日非法时阻断对应日期；有值须早于 cal_date，允许引用区间外日期，未强制验证其一定指向成功开市事实。缺前交易日允许发布并告警；未来日历保留供应商事实并告警，不承诺未来安排不修订。格式错误已显式阻断的值在 Candidate 中可能为 NULL，Raw 和请求证据保留原值，不会通过发布许可。
+
+按日规则支持缺失、重复、修订失败及旧 Coverage 保护；本轮没有改动共享模型、Runner、Validator、Publisher 或 Meta。交付探查和真实运行记录见[交易日历报告](../research/tushare-official-trade-calendar-2026-10-16.md)。
 
 ## 六、元数据与状态语义
 
@@ -210,6 +231,9 @@ uv run --frozen python -m quant_data ingest stock_basic \
   --db data/probes/new/warehouse.duckdb --landing-dir data/probes/new/landing --keep-artifacts
 uv run --frozen python scripts/capture_stock_basic_walkthrough.py
 
+uv run --frozen python -m quant_data ingest trade_calendar \
+  --start-date 20100101 --end-date 20261231 --db data/warehouse_v3_2.duckdb
+
 uv run --frozen python -m unittest discover -s tests -v
 ```
 
@@ -217,13 +241,17 @@ CLI 默认库路径仍为 `data/warehouse.duckdb`，landing_root 默认为 `data
 
 CLI 输出 RunResult JSON，业务 SUCCESS 返回 0，FAILED / PARTIAL 返回 1；诊断不完整独立表达，可能仍返回 0。walkthrough 脚本额外要求 `artifacts_complete=True`，否则返回非零。
 
-2026-10-16 验证：现有 27 项测试中 26 项通过，1 项因本地真实响应样本缺失跳过。测试覆盖源失败、严格类型与日期、业务规则、重复替换、事务回滚、旧成功数据保护、依赖漂移、部分成功、零行及产物故障。100 / 5,000 Unit 的机制测试 SQL 调用数均为 28，后者处理约 120 万行；这不等同于正式分钟 ingestion 的性能验收。真实 API 与字段探查结论另见研究报告，此次验证未重新请求供应商。
+trade_calendar 必须提供 `--start-date` / `--end-date`（ASCII YYYYMMDD）；stock_basic 拒绝这两个日期过滤。未接入其他交易所参数，避免在 SSE 事实表中混入不同口径。
+
+2026-10-16 验证：36 项测试中 35 项通过，1 项因本地股票真实响应样本缺失跳过。覆盖源失败、严格类型与日期、业务规则、重复替换、事务回滚、旧成功数据保护、依赖漂移、部分成功、零行及产物故障，新增日历覆盖跨年请求、缺日、重复日、错误影响定位与 CLI。100 / 5,000 Unit 的机制测试 SQL 调用数均为 28，后者处理约 120 万行；这不等同于正式分钟 ingestion 的性能验收。
+
+正式日历 CLI 在独立验证库完成 2010-01-01–2026-12-31 的真实运行：17 个请求、6,209 条事实及同数量的成功 Publication / Coverage（开市 4,128 天、休市 2,081 天），无 ERROR，未来 76 日保留告警。产物完整，60 个清单文件的 SHA-256 与发布后 Canonical 快照核对通过。运行与库路径见[报告](../research/tushare-official-trade-calendar-2026-10-16.md)。
 
 ## 九、当前边界与后续接入
 
 | 方面 | 当前边界 |
 |---|---|
-| 正式 Dataset | 仅 stock_basic；suspend_daily 仍是 [Schema 建议](canonical_suspend_daily_proposal.sql)，日频、分钟和交易日历尚未接入 |
+| 正式 Dataset | stock_basic 与 SSE trade_calendar；suspend_daily 仍是 [Schema 建议](canonical_suspend_daily_proposal.sql)，日频、分钟尚未接入 |
 | 依赖管理 | 检查已有成功版本，发布前复核；不自动运行上游或传播失效 |
 | 执行与数据规模 | 单连接、单内存批次、串行请求；不支持断点恢复、超内存流式处理或分布式执行 |
 | 并发 | Ingestion、dbt、外部研究进程按运行约定错开访问同一文件；未实现锁协调服务 |

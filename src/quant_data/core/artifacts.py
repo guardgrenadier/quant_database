@@ -97,7 +97,7 @@ class Artifacts:
         self.complete = result.status == "SUCCESS" and not self.errors and required <= self.seen
         try:
             (self.root / "README.md").write_text(
-                "# stock_basic V3.2 walkthrough\n\n"
+                "# Ingestion V3.2 walkthrough\n\n"
                 f"Run：{result.run_id}；执行状态：{result.status}。\n\n"
                 "按 scope.json → requests/ → delivery.json → landing.parquet → candidate.parquet → "
                 "validation.json → publication.json → result.json 阅读。\n\n"
