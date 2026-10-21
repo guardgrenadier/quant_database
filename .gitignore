@@ -8,6 +8,7 @@ __pycache__/
 .vscode/
 /*.parquet
 data/raw/**
+data/downloads/
 research/*/tmp/
 data/probes/
 data/landing/
