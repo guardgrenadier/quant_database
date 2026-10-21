@@ -56,7 +56,8 @@ class TushareStockBasicAdapter:
                 if last_request is not None:
                     time.sleep(max(0, REQUEST_INTERVAL - (time.monotonic() - last_request)))
                 last_request = time.monotonic()
-                request_id = f"request-{len(request_ids):04d}"
+                # 请求标识直接表达接口及分片范围，便于审计与原始证据文件相互定位。
+                request_id = f"stock_basic-{status}-{exchange}"
                 request_ids.append(request_id)
                 try:
                     response = self.client.query("stock_basic", {"list_status": status, "exchange": exchange},
@@ -67,11 +68,10 @@ class TushareStockBasicAdapter:
                     state = "FAILED"
                     break
                 data = response["data"]
-                # 业务检查：17 个约定字段必须全部出现；缺列属于交付不完整，不能补 NULL 冒充成功。
+                # 准备诊断：缺列不能补 NULL；请求已完成的事实独立保留，最终由统一验收阻断。
                 missing = sorted(set(self.fields) - set(data["fields"]))
                 if missing:
-                    checks.append(Check("ERROR", "source.fields", "fetch", scope.units, {"missing": missing}))
-                    state = "INCOMPLETE"
+                    checks.append(Check("ERROR", "source.fields", "prepare", scope.units, {"missing": missing}))
                 # 业务检查：必须明确 has_more=False，且行数不能碰到单次上限；否则无法确认完整性。
                 # 本切片不以分页或截断后的数据继续替换全快照。
                 if data.get("has_more") is not False or len(data["items"]) >= ROW_LIMIT:
@@ -80,50 +80,54 @@ class TushareStockBasicAdapter:
                     state = "INCOMPLETE"
                 if state != "COMPLETE":
                     break
+                if missing:
+                    # 业务影响：该片无法构造完整 Raw，但仍获取剩余计划请求；错误不会被空表掩盖。
+                    continue
                 try:
                     # 仅通过交付检查的分片进入内存 Raw 表；JSON 仅留证据，不参与组表。
                     frames.append(self._frame(data, status, exchange))
                 except (pa.ArrowException, ValueError, TypeError) as exc:
-                    checks.append(Check("ERROR", "source.types", "fetch", scope.units, {"error": str(exc)}))
-                    state = "INCOMPLETE"
-                    break
+                    # 准备诊断：严格 Raw 类型构造失败不改写获取状态，原始值已经保存在信封中。
+                    checks.append(Check("ERROR", "source.types", "prepare", scope.units, {"error": str(exc)}))
             if state != "COMPLETE":
                 break
         # 完整空交付仍有 19 列 Schema，失败的部分数据不伪装成空成功。
-        frame = pl.concat(frames) if frames else (pl.DataFrame(schema=self.raw_schema) if state == "COMPLETE" else None)
+        frame = pl.concat(frames) if frames else None
         return Delivery(frame, (UnitDelivery(scope.units[0], state, tuple(request_ids)),),
                         tuple(attempts), tuple(checks))
 
-    def validate_source(self, delivery, scope):
-        """用 Polars 检查交付记录的状态和交易所是否与各自请求一致。"""
-        if delivery.frame is None:
-            return ()
-        frame = delivery.frame
-        # 业务检查：每行的上市状态、交易所须匹配其请求标签；NULL 也视为不匹配并阻断快照。
-        invalid = frame.filter(
-            (pl.col("list_status") != pl.col("_requested_status")).fill_null(True)
-            | (pl.col("exchange") != pl.col("_requested_exchange")).fill_null(True))
-        return (Check("ERROR", "source.range", "source_validation", scope.units,
-                      {"rows": invalid.height}),) if invalid.height else ()
-
-    def normalize(self, delivery, scope):
-        """列式标准化为 17 列 Candidate，格式或日期失败返回阻断检查与 None。"""
+    def prepare(self, delivery, scope):
+        """一次清理、核对请求范围并解析日期，返回 Candidate 和明确诊断。"""
+        # 业务输入：无 Raw 不补造空 Candidate，获取或解码问题由 Delivery 送入统一验收。
         if delivery.frame is None:
             return None, ()
-        # 业务转换：选回 17 个业务字段、去除两端空白、将空字符串统一为 NULL；不去重或修正代码。
-        clean = delivery.frame.select(
+        # 业务转换：文本只清理一次，保留请求标签核对源身份；Raw 保持原始内容。
+        clean = delivery.frame.with_columns(
             pl.col(c).str.strip_chars().replace("", None).alias(c) for c in self.fields)
-        for field in ("list_date", "delist_date"):
-            # 业务检查：非空日期必须是 ASCII 八位 YYYYMMDD；先挡住解析器可能接受的七位日期。
-            # NULL 是否允许由 Dataset 按上市状态判断，此处不把缺失日期误判为格式错误。
-            invalid = clean.filter(pl.col(field).is_not_null() & ~pl.col(field).str.contains(r"^[0-9]{8}$"))
+        # 业务检查：规范化后的状态/交易所须匹配请求；NULL 或跨分片返回都阻断完整快照。
+        invalid = clean.filter(
+            (pl.col("list_status") != pl.col("_requested_status")).fill_null(True)
+            | (pl.col("exchange") != pl.col("_requested_exchange")).fill_null(True))
+        if invalid.height:
+            return None, (Check("ERROR", "source.range", "prepare", scope.units, {"rows": invalid.height}),)
+        # 业务转换：每列日期只解析一次；暂存 NULL 仅用于识别失败，不代表非法原值可作为空值接受。
+        dates = ("list_date", "delist_date")
+        parsed = clean.with_columns(
+            [pl.col(c).str.strptime(pl.Date, "%Y%m%d", strict=False).alias(f"_{c}") for c in dates]
+            + [pl.col(c).str.contains(r"^[0-9]{8}$").alias(f"_{c}_format") for c in dates])
+        checks = []
+        for field in dates:
+            # 业务检查：可空日期不误报；非空值分别校验 ASCII 八位格式和真实历法。
+            invalid = parsed.filter(pl.col(field).is_not_null() & ~pl.col(f"_{field}_format"))
             if invalid.height:
-                return None, (Check("ERROR", "source.date_format", "normalize", scope.units,
-                                    {"field": field, "rows": invalid.height}),)
-        try:
-            # 业务转换：严格解析真实日历日期；如 20260230 必须阻断，不转正常 NULL、不丢弃记录。
-            candidate = clean.with_columns(
-                pl.col(c).str.strptime(pl.Date, "%Y%m%d", strict=True) for c in ("list_date", "delist_date"))
-        except pl.exceptions.PolarsError as exc:
-            return None, (Check("ERROR", "source.date_parse", "normalize", scope.units, {"error": str(exc)}),)
-        return candidate, ()
+                checks.append(Check("ERROR", "source.date_format", "prepare", scope.units,
+                                    {"field": field, "rows": invalid.height}))
+            invalid = parsed.filter(pl.col(f"_{field}_format") & pl.col(f"_{field}").is_null())
+            if invalid.height:
+                checks.append(Check("ERROR", "source.date_parse", "prepare", scope.units,
+                                    {"field": field, "rows": invalid.height}))
+        # 业务影响：股票只有一个 Unit，任意转换失败都阻断整快照，不制造 NULL 日期或部分成功。
+        if checks:
+            return None, tuple(checks)
+        # 业务转换：复用已验证日期、去掉临时列与请求标签；不去重、不修正代码或填属性。
+        return parsed.select(pl.col(f"_{c}").alias(c) if c in dates else pl.col(c) for c in self.fields), ()

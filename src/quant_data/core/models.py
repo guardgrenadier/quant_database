@@ -82,7 +82,7 @@ class RequestAttempt:
 
 @dataclass(frozen=True, slots=True)
 class UnitDelivery:
-    """交付结局独立于 DataFrame 是否有行。"""
+    """获取状态独立于行数、转换与验收；COMPLETE 仅表示请求及终止条件完成。"""
     unit_key: str
     state: Literal["COMPLETE", "FAILED", "INCOMPLETE"]
     request_ids: tuple[str, ...] = ()
@@ -90,7 +90,7 @@ class UnitDelivery:
 
 @dataclass(frozen=True, slots=True)
 class Delivery:
-    """供应商原始批次及交付控制信息；失败时 frame 可以缺失。"""
+    """Raw 与获取证据；构表失败也可无 frame，但必须通过 checks 保留明确问题。"""
     frame: pl.DataFrame | None
     units: tuple[UnitDelivery, ...]
     attempts: tuple[RequestAttempt, ...] = ()
@@ -173,12 +173,8 @@ class SourceAdapter(Protocol):
         """组织供应商请求，交付原始列式批次与独立控制结果。"""
         ...
 
-    def validate_source(self, delivery: Delivery, scope: Scope) -> tuple[Check, ...]:
-        """检查供应商特定字段、范围与已知交付契约。"""
-        ...
-
-    def normalize(self, delivery: Delivery, scope: Scope) -> tuple[pl.DataFrame | None, tuple[Check, ...]]:
-        """标准化为 Canonical Schema，转换失败以检查结果明确表达。"""
+    def prepare(self, delivery: Delivery, scope: Scope) -> tuple[pl.DataFrame | None, tuple[Check, ...]]:
+        """集中核对源记录并标准化；返回 Candidate 与诊断，不产生发布许可。"""
         ...
 
 

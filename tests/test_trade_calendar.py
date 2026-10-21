@@ -159,6 +159,32 @@ class TradeCalendarTest(unittest.TestCase):
         self.assertEqual(self.facts(), [])
         self.assertEqual(self.con.execute("SELECT DISTINCT status,publication_id FROM meta.coverage").fetchall(), [("FAILED", None)])
         self.assertEqual(result.publications, ())
+        # 获取已完成但业务缺日；仅由 Dataset 的一日一行规则产生一次验收诊断。
+        self.assertEqual(self.con.execute("SELECT DISTINCT delivery_state FROM meta.run_unit WHERE run_id=?", [result.run_id]).fetchall(), [("COMPLETE",)])
+        self.assertEqual(self.con.execute("SELECT rule FROM meta.validation_check WHERE run_id=?", [result.run_id]).fetchall(), [("calendar.one_row",)])
+
+    def test_preparation_keeps_legal_null_distinct_from_conversion_error(self):
+        """可空前交易日和非法日期不能经 NULL 混同，Raw 保留原值，错误日保护旧版本。"""
+        self.ingest()
+        before = self.current()
+        rows = deepcopy(self.rows)
+        rows[2]["pretrade_date"] = "20260230"
+        params = {"start_date": "20260102", "end_date": "20260102"}
+        bad = self.ingest(rows, params=params, keep=True)
+        self.assertEqual(bad.status, "FAILED", bad)
+        self.assertEqual(self.current(), before)
+        self.assertEqual(self.con.execute("SELECT delivery_state FROM meta.run_unit WHERE run_id=?", [bad.run_id]).fetchone()[0], "COMPLETE")
+        self.assertEqual(self.con.execute("SELECT rule,stage FROM meta.validation_check WHERE run_id=? AND level='ERROR'", [bad.run_id]).fetchall(), [("source.pretrade_date", "prepare")])
+        folder = Path(bad.artifact_dir)
+        self.assertEqual(pl.read_parquet(folder / "landing.parquet")["pretrade_date"].to_list(), ["20260230"])
+        self.assertEqual(pl.read_parquet(folder / "candidate.parquet").height, 0)
+        self.assertTrue((folder / "preparation.json").exists())
+        self.assertFalse((folder / "source_checks.json").exists())
+        rows[2]["pretrade_date"] = None
+        good = self.ingest(rows, params=params)
+        self.assertEqual(good.status, "SUCCESS", good)
+        self.assertEqual(good.publications[0].row_count, 1)
+        self.assertIsNone(self.con.execute("SELECT pretrade_date FROM canonical.trade_calendar WHERE cal_date='2026-01-02'").fetchone()[0])
 
     def test_per_day_invalid_values_and_duplicates(self):
         """定位到单日的错误只阻断该日，既有数据和版本保持可用。"""
@@ -245,11 +271,11 @@ class TradeCalendarTest(unittest.TestCase):
         """删除后、成功审计前和原始证据故障均不能改变旧成功数据。"""
         self.ingest()
         before = self.current()
-        for prefix in ('INSERT INTO "canonical"."trade_calendar"', "UPDATE meta.run_unit AS u SET status='PUBLISHED'"):
+        for prefix in ('INSERT INTO "canonical"."trade_calendar"', "UPDATE meta.run_unit AS u SET status = 'PUBLISHED'"):
             proxy = Mock(wraps=self.con)
             def execute(sql, *args):
                 """在指定发布语句注入故障，其余操作使用真实连接。"""
-                if sql.startswith(prefix):
+                if " ".join(sql.split()).startswith(prefix):
                     raise RuntimeError("injected publication failure")
                 return self.con.execute(sql, *args)
             proxy.execute.side_effect = execute

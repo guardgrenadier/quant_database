@@ -99,11 +99,7 @@ class FixtureAdapter:
         self.called = True
         return Delivery(self.frame, tuple(UnitDelivery(u, "COMPLETE") for u in scope.units), checks=self.checks)
 
-    def validate_source(self, delivery, scope):
-        """该替身的字段直接由测试契约生成，不额外伪造验收。"""
-        return ()
-
-    def normalize(self, delivery, scope):
+    def prepare(self, delivery, scope):
         """返回已按契约构造的测试业务表。"""
         return delivery.frame, ()
 
@@ -218,16 +214,41 @@ class StockIngestionTest(unittest.TestCase):
         self.assertEqual(result.status, "FAILED")
         self.assertEqual(self.con.execute("SELECT status,publication_id FROM meta.coverage").fetchone(), ("FAILED", None))
         self.assertEqual(self.con.execute("SELECT count(*) FROM meta.publication").fetchone()[0], 0)
-        self.assertEqual(len(list(Path(result.artifact_dir).rglob("request-*.json"))), 15)
+        self.assertEqual(len(list(Path(result.artifact_dir).rglob("stock_basic-*-attempt-*.json"))), 15)
+
+    def test_fetch_complete_is_not_preparation_success(self):
+        """全部请求完成但源值无法转换时仍阻断，不能把坏值或不可构表当成合法空快照。"""
+        self.ingest([stock_row()])
+        for row, rule in ((stock_row(symbol=1), "source.types"),
+                          (stock_row(list_date="20260230"), "source.date_parse")):
+            with self.subTest(rule=rule):
+                result = self.assert_failed_preserving(lambda: self.ingest([row]))
+                self.assertEqual(self.con.execute("SELECT delivery_state FROM meta.run_unit WHERE run_id=?", [result.run_id]).fetchone()[0], "COMPLETE")
+                errors = self.con.execute("SELECT rule,stage FROM meta.validation_check WHERE run_id=? AND level='ERROR'", [result.run_id]).fetchall()
+                self.assertEqual(errors, [(rule, "prepare")])
+                self.assertEqual(self.con.execute("SELECT count(*) FROM meta.request_attempt WHERE run_id=?", [result.run_id]).fetchone()[0], 15)
+
+    def test_text_cleanup_precedes_source_identity_check(self):
+        """既有首尾空白标准化政策也用于源身份核对，清理只在 prepare 中执行。"""
+        def whitespace(params, data):
+            """只在供应商响应增加空白，不改变请求本身的范围。"""
+            for row in data["items"]:
+                for field in ("exchange", "list_status", "ts_code"):
+                    i = data["fields"].index(field)
+                    row[i] = f" {row[i]} "
+        result = self.ingest([stock_row()], whitespace)
+        self.assertEqual(result.status, "SUCCESS", result)
+        self.assertEqual(self.con.execute("SELECT ts_code,exchange,list_status FROM canonical.stock_basic").fetchall(),
+                         [("000001.SZ", "SZSE", "L")])
 
     def test_transaction_rolls_back_data_and_success_metadata(self):
         """在 DELETE 后和成功元数据写入后失败，重新打开库仍为旧版。"""
         self.ingest([stock_row()])
-        for prefix in ('INSERT INTO "canonical"."stock_basic"', "UPDATE meta.run_unit AS u SET status='PUBLISHED'"):
+        for prefix in ('INSERT INTO "canonical"."stock_basic"', "UPDATE meta.run_unit AS u SET status = 'PUBLISHED'"):
             proxy = Mock(wraps=self.con)
             def execute(sql, *args):
                 """在指定发布语句前故障，其他 SQL 走真实连接。"""
-                if sql.startswith(prefix):
+                if " ".join(sql.split()).startswith(prefix):
                     raise RuntimeError("injected publication failure")
                 return self.con.execute(sql, *args)
             proxy.execute.side_effect = execute
@@ -336,7 +357,7 @@ class MechanismTest(unittest.TestCase):
     def test_zero_row_replacement_and_explicit_units(self):
         """验收阻断 a，零行 b 仍替换并发布，未合格 Candidate 行不写入。"""
         frame = pl.DataFrame({"unit_key": ["a"], "value": [99]}, schema=self.dataset.schema)
-        result = self.run_frame(frame, (Check("ERROR", "fixture.blocked", "source_validation", ("a",)),))
+        result = self.run_frame(frame, (Check("ERROR", "fixture.blocked", "prepare", ("a",)),))
         self.assertEqual(result.status, "PARTIAL", result)
         self.assertEqual(result.publications[0].row_count, 0)
         self.assertEqual(self.con.execute("SELECT * FROM canonical.fixture").fetchall(), [("a", 1)])
@@ -353,6 +374,34 @@ class MechanismTest(unittest.TestCase):
         frame = pl.DataFrame({"unit_key": ["outside"], "value": [3]}, schema=self.dataset.schema)
         self.assertEqual(self.run_frame(frame).status, "FAILED")
         self.assertEqual(validation.blocked_units(("a", "b"), (Check("ERROR", "global", "validation"),)), {"a", "b"})
+        result = self.run_frame(checks=(Check("ERROR", "fixture.unresolved", "prepare", ("outside",)),))
+        self.assertEqual(result.status, "FAILED")
+        units, detail = self.con.execute(
+            "SELECT units,detail FROM meta.validation_check WHERE run_id=?", [result.run_id]).fetchone()
+        self.assertIsNone(units)
+        self.assertEqual(json.loads(detail)["unresolved_units"], ["outside"])
+
+    def test_validation_preserves_diagnostic_policy(self):
+        """重排检查顺序不改变既有报错保留、告警保留与范围越界的阻断语义。"""
+        self.dataset.checks = (
+            Check("ERROR", "fixture.quality_a", "validation", ("a",)),
+            Check("WARNING", "fixture.warning_a", "validation", ("a",)),
+            Check("ERROR", "fixture.quality_b", "validation", ("b",)),
+        )
+        frame = pl.DataFrame({"unit_key": ["a", "b"], "value": [1, 2]}, schema=self.dataset.schema)
+        result = self.run_frame(frame, (Check("ERROR", "fixture.conversion_a", "prepare", ("a",)),))
+        self.assertEqual(result.status, "FAILED")
+        rules = {r[0] for r in self.con.execute(
+            "SELECT rule FROM meta.validation_check WHERE run_id=?", [result.run_id]).fetchall()}
+        self.assertEqual(rules, {"fixture.conversion_a", "fixture.warning_a", "fixture.quality_b"})
+        # 范围检查提前执行也不能省略原本会保留的 Dataset 诊断；全局越界阻断所有 Unit。
+        self.dataset.checks = (Check("ERROR", "fixture.quality_a", "validation", ("a",)),)
+        outside = pl.DataFrame({"unit_key": ["outside"], "value": [3]}, schema=self.dataset.schema)
+        result = self.run_frame(outside)
+        self.assertEqual(result.status, "FAILED")
+        rules = {r[0] for r in self.con.execute(
+            "SELECT rule FROM meta.validation_check WHERE run_id=?", [result.run_id]).fetchall()}
+        self.assertEqual(rules, {"candidate.scope", "fixture.quality_a"})
 
     def test_dependency_missing_pin_audit_and_changed_version(self):
         """批量依赖核对、审计以及提交前版本漂移保护。"""
@@ -402,6 +451,24 @@ class MechanismTest(unittest.TestCase):
         """空关系仍需匹配 Canonical Schema，不能由零行推断列类型。"""
         self.assertEqual(self.run_frame(pl.DataFrame({"wrong": []})).status, "FAILED")
         self.assertEqual(self.run_frame().status, "SUCCESS")
+
+    def test_empty_candidate_requires_acquisition_and_preparation_evidence(self):
+        """同一张空 Candidate 在获取失败、未知或转换失败时均不得取得发布许可。"""
+        rid, _ = audit.begin(self.con, self.dataset.name, {}, self.root)
+        audit.scope(self.con, rid, self.dataset.name, self.dataset.scope, ())
+        for state, issues in (("COMPLETE", ()), ("FAILED", ()), ("INCOMPLETE", ()),
+                              (None, ()), ("COMPLETE", (Check("ERROR", "fixture.conversion", "prepare"),))):
+            with self.subTest(state=state, conversion=bool(issues)):
+                units = tuple(UnitDelivery(u, state) for u in self.dataset.scope.units) if state else ()
+                # 测试证据中可有源记录；Candidate 零行不能掩盖无法转换的问题。
+                raw = pl.DataFrame({"raw": ["invalid"]}) if issues else self.frame
+                delivery = Delivery(raw, units)
+                verdict = validation.validate(self.con, self.dataset, self.dataset.scope, delivery, self.frame, issues)
+                self.assertEqual(verdict.passed_units, self.dataset.scope.units if state == "COMPLETE" and not issues else ())
+        delivery = Delivery(self.frame, tuple(UnitDelivery(u, "COMPLETE") for u in self.dataset.scope.units))
+        verdict = validation.validate(self.con, self.dataset, self.dataset.scope, delivery, None)
+        self.assertEqual(verdict.passed_units, ())
+        self.assertIn("candidate.missing", {c.rule for c in verdict.checks})
 
 
 class ClientTest(unittest.TestCase):

@@ -43,20 +43,16 @@ def run(con, dataset: Dataset, adapter: SourceAdapter, params: dict, options: Ru
             artifacts.capture("delivery", delivery)
             if delivery.frame is not None:
                 artifacts.capture("landing", delivery.frame)
-            stage = "source_validation"
-            source_checks = adapter.validate_source(delivery, scope)
-            artifacts.capture("source_checks", source_checks)
-            complete = {u.unit_key for u in delivery.units if u.state == "COMPLETE"}
-            # 业务检查：至少存在一个交付完整且未被源检查阻断的 Unit，才进行标准化。
-            # 这里不删掉其他 Unit 的业务行；后续验收和 Publisher 根据显式许可控制实际发布范围。
-            if complete - validation.blocked_units(scope.units, delivery.checks + source_checks):
-                stage = "normalize"
-                candidate, conversion_checks = adapter.normalize(delivery, scope)
-                source_checks += conversion_checks
-                if candidate is not None:
-                    artifacts.capture("candidate", candidate)
+            stage = "prepare"
+            # 业务流程：准备只产生标准化数据及诊断，不从获取状态或非空行数提前决定发布许可。
+            # 即使没有 Candidate 或全部行转换失败，也必须把获取证据送入统一验收。
+            candidate, preparation_checks = adapter.prepare(delivery, scope)
+            # 业务审计：Raw 解码时发现的准备错误也集中展示；最终 Meta 中每项仍只保存一次。
+            artifacts.capture("preparation", tuple(c for c in delivery.checks if c.stage == "prepare") + preparation_checks)
+            if candidate is not None:
+                artifacts.capture("candidate", candidate)
             stage = "validation"
-            verdict = validation.validate(con, dataset, scope, delivery, candidate, source_checks)
+            verdict = validation.validate(con, dataset, scope, delivery, candidate, preparation_checks)
             # 先保存检查和失败 Unit，成功 Unit 的审计留给发布事务一起提交。
             with transaction(con):
                 audit.record_checks(con, run_id, verdict.checks)

@@ -66,18 +66,17 @@ class TushareTradeCalendarAdapter:
             else:
                 data = body["data"]
                 missing = sorted(set(self.fields) - set(data["fields"]))
-                # 业务检查：四个字段必须全部交付；pretrade_date 可空不等于可以缺少该列。
+                # 准备诊断：pretrade_date 可空不等于可以缺列；获取完成与能否构表分别表达。
                 if missing:
-                    checks.append(Check("ERROR", "source.fields", "fetch", units, {"missing": missing}))
-                    state = "INCOMPLETE"
+                    checks.append(Check("ERROR", "source.fields", "prepare", units, {"missing": missing}))
                 # 业务检查：必须明确没有后续页；标记缺失或为 true 都阻断本请求片段。
                 # 本切片不自动分页，也不使用不可靠的 count 作为完整性证明。
                 if data.get("has_more") is not False:
                     checks.append(Check("ERROR", "source.truncated", "fetch", units,
                                         {"rows": len(data["items"]), "has_more": data.get("has_more")}))
                     state = "INCOMPLETE"
-                # 业务门禁：只有字段和交付标记都通过的片段，才构造可处理的 Raw。
-                if state == "COMPLETE":
+                # 业务门禁：只解码完整且字段齐全的响应，业务日期与范围留给 prepare 集中处理。
+                if state == "COMPLETE" and not missing:
                     try:
                         # 业务映射：按返回字段名对齐契约顺序，不能假定供应商返回列序固定。
                         indices = [data["fields"].index(c) for c in self.fields]
@@ -89,77 +88,63 @@ class TushareTradeCalendarAdapter:
                         arrays = [pa.array((row[i] for row in data["items"]), type=kind)
                                   for i, kind in zip(indices, (pa.string(), pa.string(), pa.int64(), pa.string()), strict=True)]
                         raw = pl.from_arrow(pa.Table.from_arrays(arrays, names=self.fields))
-                        # 业务转换：身份校验只忽略日期两端空白，Raw 仍保留原始文本。
-                        dates = raw["cal_date"].str.strip_chars()
-                        # 业务检查：暂将非法日期解析为 NULL 以批量识别，后续 valid 必须拒绝它。
-                        # 不能将解析失败当作有效空日期，也不能因解析器接受七位日期而放宽格式。
-                        parsed = dates.str.strptime(pl.Date, "%Y%m%d", strict=False)
-                        # 业务检查：每行须为 SSE、ASCII 八位有效日期且属于本请求目标 Unit。
-                        # 身份或比较结果为 NULL 同样判失败，不默认归入某一天。
-                        valid = (raw["exchange"].str.strip_chars().eq("SSE")
-                                 & dates.str.contains(r"^[0-9]{8}$")
-                                 & parsed.dt.to_string("%Y-%m-%d").is_in([u[4:] for u in units])).fill_null(False)
-                        if not valid.all():
-                            # 业务影响：身份/范围出错阻断整个请求片段，不能只删坏行后宣称完整。
-                            checks.append(Check("ERROR", "source.range", "fetch", units,
-                                                {"rows": int((~valid).sum())}))
-                            state = "INCOMPLETE"
-                        else:
-                            # 业务转换：仅接受通过身份验收的片段，并附请求标签供 Raw 追溯。
-                            frames.append(raw.with_columns(pl.lit(request_id).alias("_request_id")))
-                    except (pa.ArrowException, pl.exceptions.PolarsError, ValueError, TypeError, OverflowError) as exc:
-                        # 业务影响：类型构造失败不能冒充空交付；阻断该片段并保留原始信封。
-                        checks.append(Check("ERROR", "source.types", "fetch", units, {"error": str(exc)}))
-                        state = "INCOMPLETE"
-            # COMPLETE 表示请求交付完成；是否每个日期都有唯一合法事实由源及业务验收决定。
+                        # 业务追溯：不清理或转换原始日期；请求标签用于准备阶段定位错误片段。
+                        frames.append(raw.with_columns(pl.lit(request_id).alias("_request_id")))
+                    except (pa.ArrowException, ValueError, TypeError, OverflowError) as exc:
+                        # 准备诊断：构表失败不伪造空成功，也不改写已完成请求；原值仍在信封中。
+                        checks.append(Check("ERROR", "source.types", "prepare", units, {"error": str(exc)}))
+            # COMPLETE 仅表示获取完成；日期能否转换、是否恰好一行由准备诊断与统一验收决定。
             # 业务映射：同一请求结果关联片段内每个 Unit，发布许可仍由后续验收逐日决定。
             deliveries.extend(UnitDelivery(u, state, (request_id,)) for u in units)
-        # 业务批次：合并请求片段而非为每个 Unit 建表；无可用片段时仍保留明确 Raw Schema。
-        # 空表本身不代表成功，失败状态和后续缺日检查共同阻止其被发布。
-        raw = pl.concat(frames) if frames else pl.DataFrame(schema=self.raw_schema)
+        # 业务批次：合并请求片段而非逐日建表；完整空响应仍有明确 Schema，无可解码片段则为 None。
+        # 获取状态和准备诊断独立保留，不能将没有 Raw 当作合法空日历。
+        raw = pl.concat(frames) if frames else None
         return Delivery(raw, tuple(deliveries), tuple(attempts), tuple(checks))
 
-    def validate_source(self, delivery, scope):
-        """缺少自然日不能视作休市，阻断对应日期且保留其他日期的发布机会。"""
-        # 业务转换：把已通过身份检查的源日期映射回 SSE Unit；这里只比较交付覆盖，不去重业务行。
-        present = set("SSE:" + value for value in delivery.frame["cal_date"].str.strip_chars()
-                      .str.strptime(pl.Date, "%Y%m%d", strict=True).dt.to_string("%Y-%m-%d").to_list())
-        # 业务检查：仅核对请求已完成的日期；FAILED/INCOMPLETE 的日期已有独立交付阻断。
-        complete = tuple(u.unit_key for u in delivery.units if u.state == "COMPLETE")
-        missing = tuple(u for u in complete if u not in present)
-        # 业务影响：缺行只阻断缺少的自然日，不能推断为休市；重复行另由 Dataset 的一日一行规则阻断。
-        return (Check("ERROR", "source.calendar_missing", "source_validation", missing),) if missing else ()
-
-    def normalize(self, delivery, scope):
-        """显式检查开市标记与可空前交易日，坏值只阻断能够定位的日期。"""
-        # 业务转换：选回四个正式字段，移除请求标签；文本去首尾空白、空串转 NULL。
-        # is_open 保留原始整数供下方枚举验收，不把空值或未知值默认成休市。
-        clean = delivery.frame.select(
-            pl.col(c).str.strip_chars().replace("", None) if c != "is_open" else pl.col(c)
-            for c in self.fields)
-        # 业务映射：cal_date 已通过获取阶段身份检查，严格解析并生成出错行所属 Unit。
-        key = pl.concat_str([pl.col("exchange"),
-                             pl.col("cal_date").str.strptime(pl.Date, "%Y%m%d", strict=True).dt.to_string("%Y-%m-%d")], separator=":")
+    def prepare(self, delivery, scope):
+        """集中清理、解析与定位错误；缺日/重复日只由 Dataset 的一日一行规则验收。"""
+        # 业务输入：无可处理批次不能当成合法空日历，原因与获取状态保留在 Delivery 中。
+        if delivery.frame is None:
+            return None, ()
+        # 业务转换：文本清理一次，两个日期各解析一次并保留临时结果；Raw 与整数开市标记不变。
+        parsed = delivery.frame.with_columns(
+            pl.col(c).str.strip_chars().replace("", None) for c in self.fields if c != "is_open"
+        ).with_columns(
+            pl.col("cal_date").str.strptime(pl.Date, "%Y%m%d", strict=False).alias("_date"),
+            pl.col("pretrade_date").str.strptime(pl.Date, "%Y%m%d", strict=False).alias("_previous"),
+        ).with_columns(
+            pl.concat_str([pl.col("exchange"), pl.col("_date").dt.to_string("%Y-%m-%d")], separator=":").alias("_unit"))
+        # 业务归属：同时匹配请求标签与 Unit，防止错年度记录被归入另一个合格请求。
+        expected = pl.DataFrame([(r, u.unit_key, True) for u in delivery.units for r in u.request_ids],
+                                schema={"_request_id": pl.String, "_unit": pl.String, "_requested": pl.Boolean}, orient="row")
+        parsed = parsed.join(expected, on=["_request_id", "_unit"], how="left")
+        # 业务检查：SSE、ASCII 八位有效日期且属于对应请求；NULL 或解析失败同样拒绝。
+        valid_identity = (pl.col("cal_date").str.contains(r"^[0-9]{8}$")
+                          & pl.col("_date").is_not_null() & pl.col("_requested")).fill_null(False)
+        invalid = parsed.filter(~valid_identity)
         checks = []
-        # 业务转换：可空前交易日先尝试解析；非空非法值必须由下方 ERROR 阻断，不能静默丢失。
-        parsed_previous = pl.col("pretrade_date").str.strptime(pl.Date, "%Y%m%d", strict=False)
-        for rule, invalid in (
-            # 业务检查：仅整数 0/1 有开闭市含义；NULL、负数及其他整数都阻断对应日。
-            ("source.is_open", ~pl.col("is_open").is_in([0, 1]).fill_null(False)),
-            # 业务检查：前交易日允许缺失；非空时必须是 ASCII 八位且为有效历法日期。
-            ("source.pretrade_date", pl.col("pretrade_date").is_not_null()
-             & (~pl.col("pretrade_date").str.contains(r"^[0-9]{8}$") | parsed_previous.is_null())),
-        ):
-            # 业务影响：汇总出错行对应日期，不删除业务记录；ERROR 只阻断这些 Unit。
-            units = tuple(clean.filter(invalid).select(key.alias("unit_key"))["unit_key"].unique().to_list())
-            if units:
-                checks.append(Check("ERROR", rule, "normalize", units))
-        # 非法值已显式关联阻断 Unit；转换中的 NULL 不会成为可发布的默认日历事实。
-        candidate = clean.select(
-            # 业务转换：保留真实交易所，将已验证的自然日严格转为 DATE。
-            "exchange", pl.col("cal_date").str.strptime(pl.Date, "%Y%m%d", strict=True),
-            # 业务转换：0→false（休市）、1→true（开市）；非法值仅暂存为 NULL，所属日已阻断。
-            pl.when(pl.col("is_open").is_in([0, 1])).then(pl.col("is_open") == 1).otherwise(None).alias("is_open"),
-            # 业务转换：前交易日转为可空 DATE；与当日先后关系由 Dataset 再验收。
-            parsed_previous.alias("pretrade_date"))
+        if invalid.height:
+            # 业务影响：日期身份不可信时阻断整个请求片段，保持年度隔离；Raw/信封保留所有原值。
+            requests = set(invalid["_request_id"].unique().to_list())
+            units = tuple(u.unit_key for u in delivery.units if set(u.request_ids) & requests)
+            rejected = parsed.filter(pl.col("_request_id").is_in(requests)).height
+            checks.append(Check("ERROR", "source.range", "prepare", units,
+                                {"rows": invalid.height, "rejected_rows": rejected}))
+            parsed = parsed.filter(~pl.col("_request_id").is_in(requests))
+        # 业务检查：合法性掩码只算一次；非法整数不能转成 true，非法日期不能伪装成合法 NULL。
+        parsed = parsed.with_columns(
+            pl.col("is_open").is_in([0, 1]).fill_null(False).alias("_open_ok"),
+            (pl.col("pretrade_date").is_null() | (pl.col("pretrade_date").str.contains(r"^[0-9]{8}$")
+                                                & pl.col("_previous").is_not_null())).alias("_previous_ok"))
+        for rule, mask in (("source.is_open", "_open_ok"), ("source.pretrade_date", "_previous_ok")):
+            invalid = parsed.filter(~pl.col(mask))
+            if invalid.height:
+                # 业务影响：身份已经可靠定位，转换失败只阻断对应自然日，不用默认值补造事实。
+                checks.append(Check("ERROR", rule, "prepare", tuple(invalid["_unit"].unique().to_list()),
+                                    {"rows": invalid.height}))
+        # 业务转换：只将可可靠表达的行放入 Candidate；排除的记录都有 ERROR，不能解释为合法空日。
+        # 复用日期结果，保留合法空前交易日；0/1 分别转 false/true，不再次解析或校验同一枚举。
+        candidate = parsed.filter(pl.col("_open_ok") & pl.col("_previous_ok")).select(
+            "exchange", pl.col("_date").alias("cal_date"),
+            (pl.col("is_open") == 1).alias("is_open"), pl.col("_previous").alias("pretrade_date"))
         return candidate, tuple(checks)

@@ -93,13 +93,13 @@ class Artifacts:
             # 失败运行的默认模式仅保留已产生的证据，不宣称导出了完整 walkthrough。
             return
         # 完整性检查：保留模式必须成功且关键阶段产物齐全；目录存在本身不代表诊断完整。
-        required = {"scope", "delivery", "landing", "candidate", "validation", "publication", "meta:published"}
+        required = {"scope", "delivery", "landing", "preparation", "candidate", "validation", "publication", "meta:published"}
         self.complete = result.status == "SUCCESS" and not self.errors and required <= self.seen
         try:
             (self.root / "README.md").write_text(
                 "# Ingestion V3.2 walkthrough\n\n"
                 f"Run：{result.run_id}；执行状态：{result.status}。\n\n"
-                "按 scope.json → requests/ → delivery.json → landing.parquet → candidate.parquet → "
+                "按 scope.json → requests/ → delivery.json → landing.parquet → preparation.json → candidate.parquet → "
                 "validation.json → publication.json → result.json 阅读。\n\n"
                 "DataFrame 的 CSV 和 Schema JSON 同时保留。stages/scope、validation、published、finished "
                 "保存各阶段七张 Meta 表；published/canonical.parquet 是本次发布后的实际业务数据。\n\n"
