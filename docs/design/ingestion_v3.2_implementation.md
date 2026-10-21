@@ -1,12 +1,12 @@
 # 个人量化数据库技术设计与实现边界 V3.2
 
-**更新：2026-10-16｜范围：当前 ingestion 内核、`stock_basic` 与 `trade_calendar`**
+**更新：2026-10-18｜范围：统一验收内核与三个正式 Dataset**
 
 本文说明已落地的模型、接口、执行机制和能力边界，与[核心架构](core_design.md)配套。内容依据当前代码；不重新定义冻结的架构与 invariant，也不把规划中的 Dataset 或 Serving 写成已实现能力。后续实现变化时同步更新对应章节。
 
 ## 一、实现范围与代码地图
 
-正式入口已有 `stock_basic` 完整快照及 SSE `trade_calendar` 自然日日历，均使用官方 Tushare。日历切片验证多 Unit 与部分成功；合法零行替换和依赖版本检查另有通用机制测试，两个正式 Dataset 本身均无上游依赖。
+正式入口已有 `stock_basic` 完整快照、SSE `trade_calendar` 自然日日历与 `suspend_daily` 停复牌日集合，均使用官方 Tushare。前两者无上游依赖；停复牌依赖成功 SSE 日历，复用多 Unit、部分成功、合法零行替换和版本复核机制。
 
 | 位置 | 职责与边界 |
 |---|---|
@@ -19,8 +19,10 @@
 | [`core/audit.py`](../../src/quant_data/core/audit.py)、[`artifacts.py`](../../src/quant_data/core/artifacts.py) | 分阶段审计与产物管理；原始证据、可选导出各有不同失败语义 |
 | [`datasets/stock_basic.py`](../../src/quant_data/datasets/stock_basic.py)、[DDL](../../src/quant_data/datasets/stock_basic.sql) | 股票业务契约、验收规则及数据库约束 |
 | [`datasets/trade_calendar.py`](../../src/quant_data/datasets/trade_calendar.py)、[DDL](../../src/quant_data/datasets/trade_calendar.sql) | SSE 自然日范围、逐日唯一事实与前交易日约束 |
+| [`datasets/suspend_daily.py`](../../src/quant_data/datasets/suspend_daily.py)、[DDL](../../src/quant_data/datasets/suspend_daily.sql) | 固定 SSE 日历依赖、解析开闭市 Scope、停复牌稀疏日契约 |
 | [`sources/tushare/client.py`](../../src/quant_data/sources/tushare/client.py)、[`stock_basic.py`](../../src/quant_data/sources/tushare/stock_basic.py) | 通用供应商通信与股票专属交付适配 |
 | [`sources/tushare/trade_calendar.py`](../../src/quant_data/sources/tushare/trade_calendar.py) | 按年请求、逐日交付影响与日历类型标准化 |
+| [`sources/tushare/suspend_daily.py`](../../src/quant_data/sources/tushare/suspend_daily.py) | 逐交易日全市场获取，源日期归属与字符串标准化 |
 
 采用对象组合与普通函数。Protocol 表达现有接口，不要求具体类继承；没有 Dataset 注册框架、通用分页框架或规则 DSL。
 
@@ -35,8 +37,8 @@
 | `Scope` / `ScopeReason` | `units` 为 IN_SCOPE，`out_of_scope` / `unknown` 保存 Unit 与原因；三集合互斥，标识唯一且非空 |
 | `DependencyRef` / `DependencyPin` | 上游 `(dataset, unit_key)` 及本次实际使用的 `publication_id` |
 | `RequestAttempt` | 一个逻辑请求的一次 HTTP 尝试：参数、字段、时间、返回标记、错误及证据路径，不含业务行 |
-| `UnitDelivery` | Unit 的 `COMPLETE` / `FAILED` / `INCOMPLETE` 交付状态及关联请求 ID |
-| `Delivery` | 原始 `frame`、Unit 交付状态、全部请求尝试和获取阶段检查；失败时可无表 |
+| `UnitDelivery` | Unit 的 `COMPLETE` / `FAILED` / `INCOMPLETE` 获取状态及关联请求 ID；不表示转换或验收成功 |
+| `Delivery` | Raw `frame`、Unit 获取状态、全部尝试和诊断；获取完成但 Raw 解码失败时也可无表，须有明确 ERROR |
 | `Check` | `level`、`rule`、`stage`、影响 `units`、`detail`；ERROR 阻断，WARNING 留审计 |
 | `ValidationResult` | 显式 `passed_units` / `blocked_units` 及检查，与 Candidate 行是否存在无关 |
 | `Publication` / `UnitResult` | 成功发布的 Unit、版本和行数；本次 Unit 的状态与阶段 |
@@ -63,6 +65,8 @@ Landing 是暂存阶段：当前处理对象是 `Delivery.frame` 中的内存 Ra
 
 空表必须有明确 Schema；`None` 表示没有可处理表，不能替代合法零行 Candidate。当前每个 Run 使用单个内存 Raw/Candidate 批次，尚无分块或超内存执行。
 
+严格 Raw 解码仍在读取响应时完成，失败记为 prepare 阶段的 `source.fields` / `source.types` 诊断，原值留在请求信封；不把字段或类型错误改写成请求失败。COMPLETE 只表达请求计划与终止条件完成，FAILED 表达请求失败，INCOMPLETE 表达截断、无法确认结束或超出已知覆盖。任何状态都不能替代准备与业务验收。
+
 ## 三、模块接口与调用约定
 
 | 接口 | 输入 → 输出 / 责任 |
@@ -73,8 +77,8 @@ Landing 是暂存阶段：当前处理对象是 `Delivery.frame` 中的内存 Ra
 | `unit_key_sql(alias)` | SQL 表别名 → 记录所属 Unit 的 SQL 表达式 |
 | `validate_candidate(con, candidate_relation, scope)` | 标准化关系及 Scope → 业务 `Check` tuple |
 | `Adapter.fetch(scope, artifacts)` | 统一 Scope 及证据写入对象 → `Delivery` |
-| `Adapter.validate_source(delivery, scope)` | 原始交付 → 源检查 tuple |
-| `Adapter.normalize(delivery, scope)` | 原始交付 → `(Candidate 或 None, 转换检查 tuple)` |
+| `Adapter.prepare(delivery, scope)` | 原始交付 → `(Candidate 或 None, 准备诊断 tuple)`；集中清理、范围匹配、解析并复用临时结果 |
+| `validation.validate(con, dataset, scope, delivery, candidate, preparation_checks)` | Scope、获取证据、Candidate、准备诊断及 Dataset 规则 → 唯一的 `ValidationResult` 发布许可 |
 | `Client.query(api_name, params, fields, *, request_id, on_attempt)` | 请求与逐次回调 → 完整信封；终态失败抛异常 |
 | `runner.run(con, dataset, adapter, params, options)` | 同一连接及显式实例 → `RunResult` |
 | `publisher.publish(con, dataset, candidate, passed_units, pins, run_id)` | Candidate 关系名、发布许可及依赖版本 → 已提交 `Publication` tuple |
@@ -83,17 +87,20 @@ Dataset 的写入政策目前体现为 Unit 归属和通用 Publisher 的完整�
 
 Validator 与 Publisher 复用同次运行创建的 `candidate` / `_scope_units` 临时关系，依赖同一连接及阶段顺序。它们是内核内部调用接口，不能只传一个任意 DataFrame 就独立完成发布。
 
+`fetch + prepare` 替换旧 Adapter 两阶段检查/转换入口，不保留兼容包装。复用现有模型、Canonical Schema、Meta 布局及 CLI 参数，不引入准备结果类或规则配置框架。
+
 ## 四、执行流程与事务
 
 ### 4.1 正常路径
 
 1. **初始化与登记**：检查已有 Meta 布局，建表并核对 Canonical 列名、顺序和类型；登记 Run 与唯一产物路径。连接时区设为 `Asia/Shanghai`。
 2. **依赖与 Scope**：同一读取事务内检查所需范围已有 PUBLISHED Coverage，固定版本、解析 Scope，并记录范围决策和依赖。缺少依赖时不请求供应商；没有 IN_SCOPE Unit 时跳过获取与发布。
-3. **获取与源验收**：Adapter 调用 Client；每次尝试结束即时写证据。fetch 返回后，Runner 批量写请求与交付审计，拒绝重复或越界的交付 Unit，再执行源检查。
-4. **标准化与业务验收**：至少还有一个 COMPLETE 且未被源 ERROR 阻断的 Unit 才标准化。Validator 汇总交付和源检查，要求 Candidate 的字段名、顺序、类型匹配；创建临时表，执行 Dataset 规则并检查每行能归属 IN_SCOPE Unit。
-5. **发布与收尾**：先保存检查和失败 Unit，再将合格 Unit 交给 Publisher。发布完成后依据持久化 Unit 状态结束 Run，处理产物并释放临时关系。
+3. **获取**：Adapter 调用 Client；每次尝试即时写证据。fetch 返回后，Runner 批量写请求与获取审计，拒绝重复或越界的 Unit，保留 Raw 与诊断。
+4. **集中准备**：只调用一次 prepare，输出 Candidate 与准备诊断；即使全部转换失败或没有 Candidate 也送入统一验收，不按行数提前放行。准备产物同时展示 Raw 解码时已发现的 prepare 诊断。
+5. **统一验收**：合并获取与准备诊断，要求明确 COMPLETE、Candidate Schema 一致、记录归属合法，并调用 Dataset 业务规则。全部范围已阻断时不强行执行业务验收；部分成功仍使用原 Scope，业务 ERROR 仅影响已阻断范围时不重复记录。获取无详细原因的缺失/失败状态必须补充门禁诊断。
+6. **发布与收尾**：先保存检查和失败 Unit，再将合格 Unit 交给 Publisher。发布完成后依据持久化 Unit 状态结束 Run，处理产物并释放临时关系。
 
-交付未声明、FAILED 或 INCOMPLETE 的 Unit 均被阻断。仍有可验收范围却没有 Candidate 时也是 ERROR。源检查可以提前阻断全部范围，因此不是每次运行都会生成 Candidate 或执行全部业务规则。
+未声明、FAILED 或 INCOMPLETE 的 Unit 均被阻断；有错误诊断的 COMPLETE Unit 同样不能发布。仍有未阻断范围却没有 Candidate 也是 ERROR。合法空响应与坏值全部被隔离后的 Candidate 都可能零行，必须结合证据和规则区分；检查未执行不等于通过。
 
 ### 4.2 发布事务
 
@@ -132,11 +139,11 @@ Raw/Candidate 在验收、发布提交或回滚期间保持可访问，正常收
 
 ### 5.2 获取与标准化
 
-- 官方 HTTPS JSON POST，显式请求全部 17 字段。15 个请求串行执行，逻辑请求起始间隔至少 1.3 秒；任一分片失败或不完整后停止后续分片。
+- 官方 HTTPS JSON POST，显式请求全部 17 字段。15 个请求串行执行，逻辑请求起始间隔至少 1.3 秒；请求失败或截断后停止后续分片。字段/Raw 类型错误独立记为准备诊断，继续完成剩余获取计划，但仍阻断整个快照。
 - Client 默认超时 40 秒、最多 3 次尝试。仅超时、HTTP 429 和 5xx 重试；权限、供应商业务码、坏信封及其他连接错误直接失败。重试等待支持 `Retry-After` 秒数或 HTTP 日期，超过 60 秒或非法值明确失败。
 - Client 校验成功信封、唯一字段名、行列宽度与布尔 `has_more`；Adapter 按字段名重排，要求 17 列齐全、`has_more=False` 且行数低于 6,000。缺少标记、标记为 true 或触及上限均阻断，不使用 `count` 推断完整性，不自动分页。
-- Arrow String 严格拒绝非字符串非 NULL 的业务值，避免数字隐式转码。Raw 为 17 列字符串加 `_requested_status` / `_requested_exchange`；源验收逐行核对与请求范围一致。
-- 标准化去除文本两端空白并将空串转 NULL，不去重、不补默认值、不改写证券标识。日期先要求 ASCII 八位 `YYYYMMDD`，再严格解析真实历法日期；七位日期、非法日期明确阻断。
+- Arrow String 严格拒绝非字符串非 NULL 的业务值，避免数字隐式转码。Raw 为 17 列字符串加 `_requested_status` / `_requested_exchange`；prepare 一次清理文本后核对请求范围。
+- prepare 中两列日期各解析一次、格式掩码各计算一次，再复用结果识别 ASCII 八位格式与历法错误。合法 NULL 按 Dataset 条件必填验收，非法值不作为 NULL 放行；任意准备错误阻断整个快照。Candidate 只选回 17 列，不去重、不补属性、不改写证券标识。
 
 ### 5.3 业务验收
 
@@ -164,11 +171,32 @@ Raw/Candidate 在验收、发布提交或回滚期间保持可访问，正常收
 | Raw / Candidate | Raw 为三列字符串、一列整数 is_open 及请求标签；Candidate 为四列正式类型，不依赖返回列顺序或日期排序 |
 | 发布 | 按日完整替换，每 Unit 恰好一行；is_open=false 是成功休市事实，零行日历不能发布 |
 
-每片要求字段齐全及 has_more=false，不使用 count；请求失败、截断、非约定 JSON 类型或无法定位的日期/交易所越界阻断该请求片段。缺日期单独阻断对应 Unit，不推断为休市；其他日期可以发布。JSON is_open 必须是整数或 NULL，字符串、布尔与浮点不隐式转换；NULL 或非 0/1 值在验收时阻断对应日期。
+每片要求字段齐全及 has_more=false，不使用 count；请求失败、截断、非约定 JSON 类型或无法定位的日期/交易所越界阻断该请求片段。后两类属于准备诊断，不改写 COMPLETE。prepare 的日期与交易所身份核对同时匹配请求标签和目标 Unit，防止错误年度记录污染另一个合格年度。缺日和重复日统一由 Dataset 的 `calendar.one_row` 判断，移除重复的源缺日扫描。
 
-cal_date / 非空 pretrade_date 要求 ASCII 八位及有效历法日期。前交易日非法时阻断对应日期；有值须早于 cal_date，允许引用区间外日期，未强制验证其一定指向成功开市事实。缺前交易日允许发布并告警；未来日历保留供应商事实并告警，不承诺未来安排不修订。格式错误已显式阻断的值在 Candidate 中可能为 NULL，Raw 和请求证据保留原值，不会通过发布许可。
+prepare 清理文本一次，两列日期各解析一次。cal_date / 非空 pretrade_date 要求 ASCII 八位有效日期；JSON is_open 只接受整数或 NULL，准备时再要求非空 0/1。可定位的日期/开市标记转换失败按日 ERROR，不能通过 NULL 或 false 补造事实；这些行不进入 Candidate，Raw/信封保留原值。合法空前交易日仍保留 NULL 并告警。有值须早于 cal_date，允许引用区间外日期；未强制验证其指向成功开市事实。未来日历保留并告警，不承诺安排不修订。
 
-按日规则支持缺失、重复、修订失败及旧 Coverage 保护；本轮没有改动共享模型、Runner、Validator、Publisher 或 Meta。交付探查和真实运行记录见[交易日历报告](../research/tushare-official-trade-calendar-2026-10-16.md)。
+按日规则支持缺失、重复、修订失败及旧 Coverage 保护；发布事务和 Meta 布局保持不变。原交付探查及真实运行见[交易日历报告](../research/tushare-official-trade-calendar-2026-10-16.md)，反映修订前实现。
+
+### 5.5 suspend_daily 范围与语义
+
+供应商接口为 `suspend_d`，内部表为 `canonical.suspend_daily`。只存供应商报告的稀疏事实，不补正常交易股票日，不依赖当前 stock_basic，不推导全天停牌或可交易状态。
+
+| 项目 | 当前约定 |
+|---|---|
+| 字段 / 主键 | ts_code 字符串、trade_date DATE、suspend_type S/R、可空 suspend_timing 字符串；键为 `(ts_code, trade_date, suspend_type)`，见 [DDL](../../src/quant_data/datasets/suspend_daily.sql) |
+| 输入与依赖 | 显式 start_date / end_date 闭区间；每个自然日都要求同库 `trade_calendar / SSE:YYYY-MM-DD` 的 PUBLISHED 版本，缺一即在获取前阻断 Run |
+| Scope | 在固定版本的同一事务读取日历事实；开市日 IN_SCOPE，休市日 OUT_OF_SCOPE；若成功 Coverage 下实际缺事实则 UNKNOWN |
+| Unit / 写入 | ISO 交易日 `YYYY-MM-DD`；全市场整日替换，完整零行同样写成功版本并删除旧集合；休市日不请求、不生成停复牌 Coverage |
+| 获取 | 每个 IN_SCOPE 日一次全市场请求，只传 trade_date、显式四字段；串行间隔 1.3 秒，失败继续其他日期 |
+| Raw / Candidate | Raw 为四列字符串加 `_requested_date`；Candidate 为四列正式类型，多 Unit 共享一张表 |
+
+源侧要求四字段齐全、has_more=false 且低于 5,000 行，不使用 count、不自动分页。早于官方历史起点 2000-01-03 的目标开市日为 ERROR / INCOMPLETE，不请求或发布空集合。严格 Arrow String 拒绝数字代码等隐式转码；请求、类型或截断失败只阻断对应请求日。源日期去首尾空白后必须等于请求的合法 YYYYMMDD，NULL、七位、非法历法或其他日期均为 ERROR，影响按可信请求标签定位。
+
+prepare 清理文本后只计算一次日期匹配掩码，复用于诊断和安全过滤；只对匹配的合法日期进行一次 DATE 转换。错日期行按可信请求标签 ERROR，原始值保留在 Raw/信封；这些行不进入 Candidate，防止污染其他 Unit 或引发全局解析失败。同请求日保留下来的正常行仍受整日阻断，不能部分发布该日。不去重、不拆分 timing。
+
+业务 ERROR 包括空键、类型非 S/R、非空白时段要求及三字段键重复。同键不同 timing 也阻断整日；同日同证券的 S 与 R 可以同时存在。时段正文（含未知格式）和 NULL 保留，不以 NULL 直接生成全天停牌标记。完整零行的意义仅为该次供应商未报告事件，不承诺历史绝无遗漏或当日数据终态。
+
+依赖审计包含休市日，因为排除决策同样使用了这些版本；发布前任何固定日历版本变化都阻断当前批次并要求重算 Scope。上游最近一次执行失败不阻止使用其仍有效的旧 PUBLISHED 数据。不自动触发日历或传播失效。原真实运行与限制见[落地记录](../research/suspend-daily-ingestion-validation-2026-10-16.md)；本轮只调整 Adapter 准备接口与统一验收，不改日期依赖或写入语义。
 
 ## 六、元数据与状态语义
 
@@ -191,7 +219,7 @@ cal_date / 非空 pretrade_date 要求 ASCII 八位及有效历法日期。前�
 | 层次 | 状态及解释 |
 |---|---|
 | Scope 决策 | IN_SCOPE 应获取验收；OUT_OF_SCOPE 合理排除；UNKNOWN 无法确定 |
-| 交付状态 | COMPLETE 获取完成；FAILED 请求失败；INCOMPLETE 已知不完整；均不等于发布状态 |
+| 获取状态 | COMPLETE 请求及终止条件完成，仍可能有准备/业务错误；FAILED 请求/协议失败；INCOMPLETE 截断、无法确认结束或超出已知覆盖；均不等于发布状态 |
 | Unit 执行 | IN_SCOPE 从 PENDING 变为 FAILED 或 PUBLISHED；排除/未知分别记录 OUT_OF_SCOPE / UNKNOWN |
 | Coverage | PENDING / FAILED / UNKNOWN / PUBLISHED；只有 PUBLISHED 携带成功版本，排除范围不写 Coverage |
 
@@ -212,7 +240,7 @@ Publication 记录的是成功变更范围，Canonical 仅保留当前事实；�
 | 可选阶段导出 | `--keep-artifacts` 下导出；故障记录为 export_errors，影响诊断完整性，不撤销已提交发布 |
 | 目录清理 | 默认仅 SUCCESS 清理；FAILED / PARTIAL 保留已有证据。清理故障为 CLEANUP_FAILED，业务状态独立保留 |
 
-保留模式包含 scope、pins、请求信封、交付控制、源检查、Raw/Candidate Parquet + CSV + Schema、验收、发布和结果。`stages/scope`、`validation`、`published`、`finished` 导出七张 Meta 表，published 另导出 Canonical；这些快照包含当时全表内容，不仅限本次 Run。
+保留模式包含 scope、pins、请求信封、获取控制、Raw/Candidate Parquet + CSV + Schema、`preparation.json` 准备诊断、统一验收、发布和结果。prepare 文件替代旧源检查文件，并纳入产物完整性要求；Raw 解码时发现的准备诊断也集中展示，最终 Meta 中每项仅存一次。旧运行产物不改写。`stages/scope`、`validation`、`published`、`finished` 导出七张 Meta 表，published 另导出 Canonical；这些快照包含当时全表内容，不仅限本次 Run。
 
 目录 README 提供阅读顺序，manifest 保存完整性、错误及文件 SHA-256。`artifacts_complete=True` 要求成功且关键导出齐全；失败、阶段未执行或导出故障可为 false，默认非保留模式为 null。检查诊断结果时结合 RunResult、Meta 与 manifest；证据路径是否仍有效还需结合 CLEANED / RETAINED / CLEANUP_FAILED 状态。
 
@@ -234,6 +262,10 @@ uv run --frozen python scripts/capture_stock_basic_walkthrough.py
 uv run --frozen python -m quant_data ingest trade_calendar \
   --start-date 20100101 --end-date 20261231 --db data/warehouse_v3_2.duckdb
 
+# 停复牌须在同一库先发布相应日期区间的 SSE 日历
+uv run --frozen python -m quant_data ingest suspend_daily \
+  --start-date 20200309 --end-date 20200315 --db data/warehouse_v3_2.duckdb
+
 uv run --frozen python -m unittest discover -s tests -v
 ```
 
@@ -241,9 +273,13 @@ CLI 默认库路径仍为 `data/warehouse.duckdb`，landing_root 默认为 `data
 
 CLI 输出 RunResult JSON，业务 SUCCESS 返回 0，FAILED / PARTIAL 返回 1；诊断不完整独立表达，可能仍返回 0。walkthrough 脚本额外要求 `artifacts_complete=True`，否则返回非零。
 
-trade_calendar 必须提供 `--start-date` / `--end-date`（ASCII YYYYMMDD）；stock_basic 拒绝这两个日期过滤。未接入其他交易所参数，避免在 SSE 事实表中混入不同口径。
+trade_calendar / suspend_daily 必须提供 `--start-date` / `--end-date`（ASCII YYYYMMDD）；stock_basic 拒绝这两个日期过滤。未接入其他交易所或股票/停复牌类型筛选参数，避免改变完整范围契约。
 
-2026-10-16 验证：36 项测试中 35 项通过，1 项因本地股票真实响应样本缺失跳过。覆盖源失败、严格类型与日期、业务规则、重复替换、事务回滚、旧成功数据保护、依赖漂移、部分成功、零行及产物故障，新增日历覆盖跨年请求、缺日、重复日、错误影响定位与 CLI。100 / 5,000 Unit 的机制测试 SQL 调用数均为 28，后者处理约 120 万行；这不等同于正式分钟 ingestion 的性能验收。
+2026-10-16 验证：47 项测试中 46 项通过，1 项因本地股票真实响应样本缺失跳过。新增 11 项停复牌场景覆盖跨 Dataset 日历依赖、休市排除、实际事实缺失 UNKNOWN、零行替换、错日隔离、键冲突、已排除日修订后的版本复核、回滚与 CLI。其余测试覆盖股票、日历、通用机制与诊断故障。100 / 5,000 Unit 的机制测试 SQL 调用数均为 28，后者处理约 120 万行；这不等同于正式分钟 ingestion 的性能验收。环境脚本的正式 DDL、Arrow/Parquet 和 dbt View 检查通过。
+
+2026-10-18 统一验收修订：52 项测试中 51 项通过，1 项旧股票真实样本重放因本地样本缺失跳过；环境烟测通过。新增场景验证同一空 Candidate 在获取失败、未知、转换失败时阻断，完整空交付才可发布；验证合法 NULL 与非法日期、Raw 原值保留、COMPLETE 与准备失败独立、准备产物及日历缺日仅产生一处业务诊断。批量机制 SQL 调用数仍为 28。
+
+本轮未重新请求供应商；重放 2026-10-16 保存的真实响应，日历 6,209 行、停复牌 1,463 行及各次 Candidate 与修订前逐列一致。对照获取 31 份已保存响应（17 份广区间日历、14 份停复牌及其上游日历），重跑 9 次正式 Runner 流程；股票真实样本等价性仍未复验。新观察库与产物位于 `data/probes/unified-acceptance-replay-20261018T005400153706/`，`summary.json` 记录结果；此处为离线重放验证，重放 Client 不进入生产代码。
 
 正式日历 CLI 在独立验证库完成 2010-01-01–2026-12-31 的真实运行：17 个请求、6,209 条事实及同数量的成功 Publication / Coverage（开市 4,128 天、休市 2,081 天），无 ERROR，未来 76 日保留告警。产物完整，60 个清单文件的 SHA-256 与发布后 Canonical 快照核对通过。运行与库路径见[报告](../research/tushare-official-trade-calendar-2026-10-16.md)。
 
@@ -251,7 +287,7 @@ trade_calendar 必须提供 `--start-date` / `--end-date`（ASCII YYYYMMDD）；
 
 | 方面 | 当前边界 |
 |---|---|
-| 正式 Dataset | stock_basic 与 SSE trade_calendar；suspend_daily 仍是 [Schema 建议](canonical_suspend_daily_proposal.sql)，日频、分钟尚未接入 |
+| 正式 Dataset | stock_basic、SSE trade_calendar 与 suspend_daily；日频、分钟尚未接入 |
 | 依赖管理 | 检查已有成功版本，发布前复核；不自动运行上游或传播失效 |
 | 执行与数据规模 | 单连接、单内存批次、串行请求；不支持断点恢复、超内存流式处理或分布式执行 |
 | 并发 | Ingestion、dbt、外部研究进程按运行约定错开访问同一文件；未实现锁协调服务 |

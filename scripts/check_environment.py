@@ -24,9 +24,9 @@ def main():
         pq.write_table(table, temp / "sample.parquet")
         assert pq.read_table(temp / "sample.parquet").equals(table)
         with duckdb.connect(str(temp / "smoke.duckdb")) as con:
-            # 股票表复用正式 DDL；停复牌仅验证建议 Schema，不代表已接入该 Dataset。
+            # 业务结构：股票、停复牌都复用正式 DDL，不维护第二份约束定义。
             con.execute((ROOT / "src/quant_data/datasets/stock_basic.sql").read_text())
-            con.execute((ROOT / "docs/design/canonical_suspend_daily_proposal.sql").read_text())
+            con.execute((ROOT / "src/quant_data/datasets/suspend_daily.sql").read_text())
             assert con.execute("SELECT sum(value) FROM read_parquet(?)", [str(temp / "sample.parquet")]).fetchone()[0] == 3
             con.execute("INSERT INTO canonical.stock_basic (ts_code,symbol,name,exchange,list_status,list_date,delist_date) VALUES ('601198.SH','601198','example','SSE','L','2015-02-26','2026-10-19'), ('874396.BJ','920238','example','BSE','UN',NULL,NULL)")
             con.execute("INSERT INTO canonical.suspend_daily VALUES ('300819.SZ','2020-03-12','S','09:30-10:00'), ('300070.SZ','2020-03-12','R',NULL)")
