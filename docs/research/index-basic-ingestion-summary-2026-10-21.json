@@ -1,0 +1,352 @@
+{
+  "root": "data/probes/index-basic-ingestion-validation-20261021T222359077676",
+  "database": "data/probes/index-basic-ingestion-validation-20261021T222359077676/warehouse.duckdb",
+  "runs": [
+    {
+      "label": "live_first",
+      "mode": "official_live_cli",
+      "exit_code": 0,
+      "command": [
+        "/home/xindingtian/code/quant_data/.venv/bin/python3",
+        "-m",
+        "quant_data",
+        "ingest",
+        "index_basic",
+        "--db",
+        "data/probes/index-basic-ingestion-validation-20261021T222359077676/warehouse.duckdb",
+        "--landing-dir",
+        "data/probes/index-basic-ingestion-validation-20261021T222359077676/landing",
+        "--keep-artifacts"
+      ],
+      "result": {
+        "run_id": "f971a4bf-c4f5-4731-bcf4-6a81bff569c9",
+        "status": "SUCCESS",
+        "units": [
+          {
+            "unit_key": "SNAPSHOT",
+            "status": "PUBLISHED",
+            "stage": "publish"
+          }
+        ],
+        "publications": [
+          {
+            "unit_key": "SNAPSHOT",
+            "publication_id": 1,
+            "row_count": 12599
+          }
+        ],
+        "error": null,
+        "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/index-basic-ingestion-validation-20261021T222359077676/landing/f971a4bf-c4f5-4731-bcf4-6a81bff569c9",
+        "artifact_status": "RETAINED",
+        "artifacts_complete": true,
+        "export_errors": []
+      },
+      "rows": 12599,
+      "distinct_ts_code": 12599,
+      "requests": [
+        [
+          0,
+          1000,
+          true
+        ],
+        [
+          1000,
+          1000,
+          true
+        ],
+        [
+          2000,
+          1000,
+          true
+        ],
+        [
+          3000,
+          1000,
+          true
+        ],
+        [
+          4000,
+          1000,
+          true
+        ],
+        [
+          5000,
+          1000,
+          true
+        ],
+        [
+          6000,
+          1000,
+          true
+        ],
+        [
+          7000,
+          1000,
+          true
+        ],
+        [
+          8000,
+          1000,
+          true
+        ],
+        [
+          9000,
+          1000,
+          true
+        ],
+        [
+          10000,
+          1000,
+          true
+        ],
+        [
+          11000,
+          1000,
+          true
+        ],
+        [
+          12000,
+          599,
+          false
+        ],
+        [
+          13000,
+          0,
+          false
+        ]
+      ],
+      "markets": {
+        "BSE": 2,
+        "CI": 665,
+        "CNI": 1134,
+        "CSI": 9053,
+        "NH": 102,
+        "SSE": 208,
+        "SW": 950,
+        "SZSE": 485
+      },
+      "checks": [
+        [
+          "WARNING",
+          "index.optional_nulls",
+          "{\"base_date\": 126, \"base_point\": 128, \"list_date\": 124, \"weight_rule\": 320, \"desc\": 102}"
+        ]
+      ],
+      "source_candidate_canonical_equal": true
+    },
+    {
+      "label": "live_rerun",
+      "mode": "official_live_cli",
+      "exit_code": 0,
+      "command": [
+        "/home/xindingtian/code/quant_data/.venv/bin/python3",
+        "-m",
+        "quant_data",
+        "ingest",
+        "index_basic",
+        "--db",
+        "data/probes/index-basic-ingestion-validation-20261021T222359077676/warehouse.duckdb",
+        "--landing-dir",
+        "data/probes/index-basic-ingestion-validation-20261021T222359077676/landing",
+        "--keep-artifacts"
+      ],
+      "result": {
+        "run_id": "dc7010c1-8e17-446d-ac84-72143682fc98",
+        "status": "SUCCESS",
+        "units": [
+          {
+            "unit_key": "SNAPSHOT",
+            "status": "PUBLISHED",
+            "stage": "publish"
+          }
+        ],
+        "publications": [
+          {
+            "unit_key": "SNAPSHOT",
+            "publication_id": 2,
+            "row_count": 12599
+          }
+        ],
+        "error": null,
+        "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/index-basic-ingestion-validation-20261021T222359077676/landing/dc7010c1-8e17-446d-ac84-72143682fc98",
+        "artifact_status": "RETAINED",
+        "artifacts_complete": true,
+        "export_errors": []
+      },
+      "rows": 12599,
+      "distinct_ts_code": 12599,
+      "requests": [
+        [
+          0,
+          1000,
+          true
+        ],
+        [
+          1000,
+          1000,
+          true
+        ],
+        [
+          2000,
+          1000,
+          true
+        ],
+        [
+          3000,
+          1000,
+          true
+        ],
+        [
+          4000,
+          1000,
+          true
+        ],
+        [
+          5000,
+          1000,
+          true
+        ],
+        [
+          6000,
+          1000,
+          true
+        ],
+        [
+          7000,
+          1000,
+          true
+        ],
+        [
+          8000,
+          1000,
+          true
+        ],
+        [
+          9000,
+          1000,
+          true
+        ],
+        [
+          10000,
+          1000,
+          true
+        ],
+        [
+          11000,
+          1000,
+          true
+        ],
+        [
+          12000,
+          599,
+          false
+        ],
+        [
+          13000,
+          0,
+          false
+        ]
+      ],
+      "markets": {
+        "BSE": 2,
+        "CI": 665,
+        "CNI": 1134,
+        "CSI": 9053,
+        "NH": 102,
+        "SSE": 208,
+        "SW": 950,
+        "SZSE": 485
+      },
+      "checks": [
+        [
+          "WARNING",
+          "index.optional_nulls",
+          "{\"base_date\": 126, \"base_point\": 128, \"list_date\": 124, \"weight_rule\": 320, \"desc\": 102}"
+        ]
+      ],
+      "source_candidate_canonical_equal": true
+    },
+    {
+      "label": "injected_empty",
+      "mode": "offline_fault_injection_no_http",
+      "result": {
+        "run_id": "3736fcbd-541c-4aba-b2e0-112b6875ec00",
+        "status": "FAILED",
+        "units": [
+          {
+            "unit_key": "SNAPSHOT",
+            "status": "FAILED",
+            "stage": "validation"
+          }
+        ],
+        "publications": [],
+        "error": null,
+        "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/index-basic-ingestion-validation-20261021T222359077676/landing/3736fcbd-541c-4aba-b2e0-112b6875ec00",
+        "artifact_status": "RETAINED",
+        "artifacts_complete": false,
+        "export_errors": []
+      },
+      "checks": [
+        [
+          "index.nonempty",
+          "validation"
+        ]
+      ],
+      "old_authoritative_state_preserved": true
+    },
+    {
+      "label": "injected_request_failure",
+      "mode": "offline_fault_injection_no_http",
+      "result": {
+        "run_id": "a1898d29-8ce1-4a95-8531-6d481d1b69fb",
+        "status": "FAILED",
+        "units": [
+          {
+            "unit_key": "SNAPSHOT",
+            "status": "FAILED",
+            "stage": "validation"
+          }
+        ],
+        "publications": [],
+        "error": null,
+        "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/index-basic-ingestion-validation-20261021T222359077676/landing/a1898d29-8ce1-4a95-8531-6d481d1b69fb",
+        "artifact_status": "RETAINED",
+        "artifacts_complete": false,
+        "export_errors": []
+      },
+      "checks": [
+        [
+          "source.request",
+          "fetch"
+        ]
+      ],
+      "old_authoritative_state_preserved": true
+    }
+  ],
+  "checked_manifest_files": 197,
+  "uses_default_database": false,
+  "completed": true,
+  "live_snapshots_equal": true,
+  "live_snapshot_row_counts": [
+    12599,
+    12599
+  ],
+  "regression": {
+    "command": "uv run --frozen python -m unittest discover -s tests -v",
+    "total": 76,
+    "passed": 75,
+    "skipped": 1,
+    "skip_reason": "existing stock_basic saved real snapshot is absent locally"
+  },
+  "dataset_tests": {
+    "command": "uv run --frozen python -m unittest tests.test_index_basic -v",
+    "total": 11,
+    "passed": 11,
+    "real_saved_snapshot_replay_executed": true,
+    "replayed_rows": 12599
+  },
+  "environment_smoke": {
+    "command": "uv run --frozen python scripts/check_environment.py",
+    "status": "PASS"
+  }
+}

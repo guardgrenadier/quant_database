@@ -15,11 +15,13 @@ from quant_data.datasets.stock_basic import StockBasicDataset
 from quant_data.datasets.trade_calendar import TradeCalendarDataset
 from quant_data.datasets.suspend_daily import SuspendDailyDataset
 from quant_data.datasets.stock_st import StockStDataset
+from quant_data.datasets.index_basic import IndexBasicDataset
 from quant_data.sources.tushare.client import TushareClient
 from quant_data.sources.tushare.stock_basic import TushareStockBasicAdapter
 from quant_data.sources.tushare.trade_calendar import TushareTradeCalendarAdapter
 from quant_data.sources.tushare.suspend_daily import TushareSuspendDailyAdapter
 from quant_data.sources.tushare.stock_st import TushareStockStAdapter
+from quant_data.sources.tushare.index_basic import TushareIndexBasicAdapter
 
 
 def main():
@@ -27,14 +29,14 @@ def main():
     parser = argparse.ArgumentParser(description="Personal quantitative database ingestion")
     commands = parser.add_subparsers(dest="command", required=True)
     ingest = commands.add_parser("ingest")
-    ingest.add_argument("dataset", choices=["stock_basic", "trade_calendar", "suspend_daily", "stock_st"])
+    ingest.add_argument("dataset", choices=["stock_basic", "trade_calendar", "suspend_daily", "stock_st", "index_basic"])
     ingest.add_argument("--db", type=Path, default=Path("data/warehouse.duckdb"))
     ingest.add_argument("--landing-dir", type=Path, default=Path("data/landing"))
     ingest.add_argument("--keep-artifacts", action="store_true", help="保留完整阶段产物供 walkthrough")
     ingest.add_argument("--start-date", help="trade_calendar / suspend_daily / stock_st 开始日期，YYYYMMDD")
     ingest.add_argument("--end-date", help="trade_calendar / suspend_daily / stock_st 结束日期，YYYYMMDD，包含当日")
     args = parser.parse_args()
-    # CLI 边界：按日期发布的数据必须显式给出完整区间，股票快照不能接受子集日期。
+    # CLI 边界：按日期发布的数据必须显式给出完整区间，完整快照不能接受子集日期。
     params = {}
     if args.dataset in ("trade_calendar", "suspend_daily", "stock_st"):
         # 业务检查：不猜测任何日集合的目标起止日期，必须同时给出区间两端。
@@ -43,8 +45,8 @@ def main():
         # 业务传递：原样交给 Dataset 校验日期及闭区间顺序，不在入口补默认边界或过滤休市日。
         params = {"start_date": args.start_date, "end_date": args.end_date}
     elif args.start_date is not None or args.end_date is not None:
-        # 业务检查：股票表只能整快照替换，禁止将带日期筛选的子集误作完整快照。
-        parser.error("stock_basic does not accept date filters")
+        # 业务检查：股票/指数只能整快照替换，禁止将日期子集误作完整快照。
+        parser.error(f"{args.dataset} does not accept date filters")
     # 凭据优先使用项目 .env，再取环境变量；仅交给 Client，输出错误和结果时再次脱敏。
     token = (dotenv_values(".env").get("TUSHARE_TOKEN") or os.environ.get("TUSHARE_TOKEN", "")).strip()
     if not token:
@@ -63,10 +65,14 @@ def main():
             # 业务装配：停复牌自行声明 SSE 日历依赖，不自动触发日历获取或借用当前股票表。
             dataset = SuspendDailyDataset()
             adapter = TushareSuspendDailyAdapter(TushareClient(token))
-        else:
+        elif args.dataset == "stock_st":
             # 业务装配：ST 日名单依赖成功 SSE 日历，零行由自身业务验收阻断。
             dataset = StockStDataset()
             adapter = TushareStockStAdapter(TushareClient(token))
+        else:
+            # 业务装配：指数快照无日历依赖；专属分页完成后统一验收并整表替换。
+            dataset = IndexBasicDataset()
+            adapter = TushareIndexBasicAdapter(TushareClient(token))
         with duckdb.connect(str(args.db)) as con:
             db.initialize(con, dataset)
             result = run(con, dataset, adapter, params, RunOptions(args.landing_dir, args.keep_artifacts))

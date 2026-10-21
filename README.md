@@ -1,6 +1,6 @@
 # quant_data
 
-个人量化数据库，已接入 `stock_basic` 完整快照、SSE `trade_calendar` 自然日日历、`suspend_daily` 停复牌日集合与 `stock_st` 每日 ST 名单：获取及证据 → 集中准备 Candidate → 统一验收 → Canonical 和 Meta 原子发布。
+个人量化数据库，已接入 `stock_basic` 完整快照、SSE `trade_calendar` 自然日日历、`suspend_daily` 停复牌日集合、`stock_st` 每日 ST 名单与 `index_basic` 全供应商指数当前快照：获取及证据 → 集中准备 Candidate → 统一验收 → Canonical 和 Meta 原子发布。
 
 | 阅读目的 | 文档 |
 |---|---|
@@ -41,7 +41,7 @@ uv run --frozen python scripts/capture_stock_basic_walkthrough.py
 
 产物目录的 README 提供阅读顺序；包含原始响应、Raw/Candidate Parquet、Schema、`preparation.json` 准备诊断、统一验收、发布和各阶段 Meta 快照。获取 COMPLETE 不等于转换或验收通过；零行结合获取证据、准备诊断和 Dataset 契约判断。诊断不完整以 `artifacts_complete=false` 和 `export_errors` 表达，成功发布状态独立保留。
 
-运行时保持串行访问：Ingestion、dbt 和外部研究进程应错开访问同一文件。未实现自动分页或恢复执行，尚未接入正式 Serving 模型。
+运行时保持串行访问：Ingestion、dbt 和外部研究进程应错开访问同一文件。index_basic 已有专属分页；尚无通用分页、恢复执行或正式 Serving 模型。
 
 ## trade_calendar Ingestion
 
@@ -87,6 +87,20 @@ uv run --frozen python -m quant_data ingest stock_st \
 
 独立契约与真实验收记录见 [stock_st 文档](docs/design/stock_st_ingestion_proposal.md)，通用设计准备见[新 Dataset 接入清单](docs/design/dataset_onboarding_checklist.md)。
 
+## index_basic Ingestion
+
+保存供应商不加业务过滤可取得的完整当前指数列表，包含全部返回市场、不同资产类别和已终止指数；保留 13 个字段，主键 `ts_code`。无日历或股票表依赖，不接受日期、市场或代码子集参数。
+
+```bash
+uv run --frozen python -m quant_data ingest index_basic \
+  --db data/probes/my-index-validation/warehouse.duckdb \
+  --landing-dir data/probes/my-index-validation/landing --keep-artifacts
+```
+
+按 1,000 行分页，短页且 has_more=false 后再取一个空验证页，最多 100 次逻辑请求。全部获取、准备及验收通过后，单 `SNAPSHOT` 整表原子替换；重跑生成新版本、不累加，消失代码从旧快照删除。零行、重复代码、坏字段/类型/日期、非有限基点和分页失败阻断并保护旧成功数据。
+
+market/category/index_type 为开放字符串；日期和基点允许 NULL，0 基点合法，负基点只告警，不要求基期早于发布日期。成功表示符合供应商交付及项目验收契约，不保证跨页同一时点或历史 PIT。完整规则与真实验收见 [index_basic 文档](docs/design/index_basic_ingestion_proposal.md)。
+
 ## 开发环境与接口探查
 
 使用 uv 管理 Python 3.13、`.venv` 和锁定依赖（Polars、DuckDB、Arrow/Parquet、dbt-duckdb、python-dotenv）。在仓库根目录执行：
@@ -113,7 +127,7 @@ uv run --frozen python scripts/probe_tushare.py --case stock_L --case suspend_20
 - [交易日历接口探查与正式契约](docs/research/tushare-official-trade-calendar-2026-10-16.md)
 - [停复牌正式 Schema](src/quant_data/datasets/suspend_daily.sql) 与[落地验证](docs/research/suspend-daily-ingestion-validation-2026-10-16.md)
 
-四个 Dataset 的正式 DDL 位于 [datasets](src/quant_data/datasets)。逐请求摘要由探查报告引用。早期 review、walkthrough 和探查原始产物已于 2026-10-16 清理，可按上述入口重新生成；交易日历、停复牌和 ST 名单的证据路径见各自文档。
+五个 Dataset 的正式 DDL 位于 [datasets](src/quant_data/datasets)。逐请求摘要由探查报告引用。早期 review、walkthrough 和探查原始产物已于 2026-10-16 清理，可按上述入口重新生成；交易日历、停复牌、ST 名单和指数快照的证据路径见各自文档。
 
 ## 数据商接口
 
