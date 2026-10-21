@@ -1,6 +1,6 @@
 # quant_data
 
-个人量化数据库，已接入 `stock_basic` 完整快照、SSE `trade_calendar` 自然日日历、`suspend_daily` 停复牌日集合、`stock_st` 每日 ST 名单与 `index_basic` 全供应商指数当前快照：获取及证据 → 集中准备 Candidate → 统一验收 → Canonical 和 Meta 原子发布。
+个人量化数据库，已接入 `stock_basic` 完整快照、SSE `trade_calendar` 自然日日历、`suspend_daily` 停复牌日集合、`stock_st` 每日 ST 名单与 `index_basic` 目标指数快照：获取及证据 → 集中准备 Candidate → 统一验收 → Canonical 和 Meta 原子发布。
 
 | 阅读目的 | 文档 |
 |---|---|
@@ -41,7 +41,7 @@ uv run --frozen python scripts/capture_stock_basic_walkthrough.py
 
 产物目录的 README 提供阅读顺序；包含原始响应、Raw/Candidate Parquet、Schema、`preparation.json` 准备诊断、统一验收、发布和各阶段 Meta 快照。获取 COMPLETE 不等于转换或验收通过；零行结合获取证据、准备诊断和 Dataset 契约判断。诊断不完整以 `artifacts_complete=false` 和 `export_errors` 表达，成功发布状态独立保留。
 
-运行时保持串行访问：Ingestion、dbt 和外部研究进程应错开访问同一文件。index_basic 已有专属分页；尚无通用分页、恢复执行或正式 Serving 模型。
+运行时保持串行访问：Ingestion、dbt 和外部研究进程应错开访问同一文件。各 Dataset 使用专属获取计划；尚无通用分页、恢复执行或正式 Serving 模型。
 
 ## trade_calendar Ingestion
 
@@ -89,7 +89,7 @@ uv run --frozen python -m quant_data ingest stock_st \
 
 ## index_basic Ingestion
 
-保存供应商不加业务过滤可取得的完整当前指数列表，包含全部返回市场、不同资产类别和已终止指数；保留 13 个字段，主键 `ts_code`。无日历或股票表依赖，不接受日期、市场或代码子集参数。
+保存两组目标：24 个常用宽基白名单，以及 category=行业指数、publisher=上海申银万国证券研究所有限公司对应的申万行业基础记录。暂不纳入国证系列；保留 13 字段及 ts_code 主键，无日历或股票表依赖，不接受任意子集参数。
 
 ```bash
 uv run --frozen python -m quant_data ingest index_basic \
@@ -97,7 +97,9 @@ uv run --frozen python -m quant_data ingest index_basic \
   --landing-dir data/probes/my-index-validation/landing --keep-artifacts
 ```
 
-按 1,000 行分页，短页且 has_more=false 后再取一个空验证页，最多 100 次逻辑请求。全部获取、准备及验收通过后，单 `SNAPSHOT` 整表原子替换；重跑生成新版本、不累加，消失代码从旧快照删除。零行、重复代码、坏字段/类型/日期、非有限基点和分页失败阻断并保护旧成功数据。
+每个宽基按代码单独请求，申万按上述类别与发布方一次过滤请求；只调用 index_basic，不获取全量、不查询 index_classify。每次显式 13 字段，has_more=false 且低于 8,000 行才确认交付完成，触顶阻断，不自动分页。Raw 仅多一个请求代码标签，用于核对返回范围。
+
+宽基缺记录、申万过滤结果零行或源交付／准备／验收失败均阻断并保护旧版。合格后单 SNAPSHOT 整表替换，重跑生成新版本、不累加，并删除非目标旧记录。申万保留历史／已终止记录，不再按 SW2021 或一二三级重建目标和检查各层完整性。
 
 market/category/index_type 为开放字符串；日期和基点允许 NULL，0 基点合法，负基点只告警，不要求基期早于发布日期。成功表示符合供应商交付及项目验收契约，不保证跨页同一时点或历史 PIT。完整规则与真实验收见 [index_basic 文档](docs/design/index_basic_ingestion_proposal.md)。
 

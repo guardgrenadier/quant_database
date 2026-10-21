@@ -1,6 +1,6 @@
 # 个人量化数据库核心架构 V3.2（统一验收修订）
 
-**更新：2026-10-21（补充 stock_st / index_basic 实现清单）｜状态：核心架构与 invariant 已确认**
+**更新：2026-10-22（更新 index_basic 目标范围清单）｜状态：核心架构与 invariant 已确认**
 
 本文定义项目的核心心智模型、职责与可靠性保证。当前五个切片采用“获取、集中标准化、统一验收、原子发布”的设计；当前接口与阶段见[技术设计与实现边界](ingestion_v3.2_implementation.md)。实现细节调整不改变本文的架构约束；约束变更需另行讨论确认。
 
@@ -8,7 +8,7 @@
 
 建设面向个人量化研究的数据平台，将供应商数据转为可追溯、可修订、可靠发布的标准业务事实，供研究与回测使用。
 
-当前已落地 `stock_basic` 完整快照、SSE `trade_calendar` 自然日日历、`suspend_daily` 停复牌日集合、`stock_st` 每日 ST 名单与 `index_basic` 全供应商指数当前快照 ingestion。多 Unit、部分成功、合法零行替换与上游版本复核已有正式切片及测试；其他 Dataset 与正式 Serving 尚未接入。stock_st 和 index_basic 的独立契约分别见[ST 文档](stock_st_ingestion_proposal.md)及[指数快照文档](index_basic_ingestion_proposal.md)。
+当前已落地 `stock_basic` 完整快照、SSE `trade_calendar` 自然日日历、`suspend_daily` 停复牌日集合、`stock_st` 每日 ST 名单与 `index_basic` 目标指数快照 ingestion。指数目标为宽基白名单及供应商按类别／发布方报告的申万行业集合。多 Unit、部分成功、合法零行替换与上游版本复核已有正式切片及测试；其他 Dataset 与正式 Serving 尚未接入。stock_st 和 index_basic 的独立契约分别见[ST 文档](stock_st_ingestion_proposal.md)及[指数快照文档](index_basic_ingestion_proposal.md)。
 
 ## 二、职责分工
 

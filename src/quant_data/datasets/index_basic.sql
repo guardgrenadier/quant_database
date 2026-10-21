@@ -1,6 +1,6 @@
 CREATE SCHEMA IF NOT EXISTS canonical;
 
--- 全供应商当前快照；不按市场/资产/终止状态过滤，不保存抓取时间为业务字段。
+-- 固定目标快照：宽基白名单及按类别/发布方获取的申万行业，不保存抓取时间为业务字段。
 CREATE TABLE IF NOT EXISTS canonical.index_basic (
     -- 业务约束：完整字符串代码为唯一键；五个必填文本由下方约束排除空白。
     ts_code VARCHAR PRIMARY KEY,

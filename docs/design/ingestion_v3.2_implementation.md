@@ -1,12 +1,12 @@
 # 个人量化数据库技术设计与实现边界 V3.2
 
-**更新：2026-10-21｜范围：统一验收内核与五个正式 Dataset**
+**更新：2026-10-22｜范围：统一验收内核与五个正式 Dataset**
 
 本文说明已落地的模型、接口、执行机制和能力边界，与[核心架构](core_design.md)配套。内容依据当前代码；不重新定义冻结的架构与 invariant，也不把规划中的 Dataset 或 Serving 写成已实现能力。后续实现变化时同步更新对应章节。
 
 ## 一、实现范围与代码地图
 
-正式入口已有 `stock_basic` 完整快照、SSE `trade_calendar` 自然日日历、`suspend_daily` 停复牌日集合、`stock_st` 每日 ST 名单与 `index_basic` 全供应商指数当前快照，均使用官方 Tushare。股票快照、日历和指数快照无上游依赖；停复牌与 ST 名单依赖成功 SSE 日历。ST 名单和指数快照首版阻断零行，停复牌允许合法零行；均复用既有统一验收和原子发布内核。
+正式入口已有 `stock_basic` 完整快照、SSE `trade_calendar` 自然日日历、`suspend_daily` 停复牌日集合、`stock_st` 每日 ST 名单与 `index_basic` 目标指数快照，均使用官方 Tushare。股票快照、日历和指数快照无已发布上游依赖；停复牌与 ST 名单依赖成功 SSE 日历。ST 名单和指数快照首版阻断零行，停复牌允许合法零行；均复用既有统一验收和原子发布内核。
 
 | 位置 | 职责与边界 |
 |---|---|
@@ -21,12 +21,12 @@
 | [`datasets/trade_calendar.py`](../../src/quant_data/datasets/trade_calendar.py)、[DDL](../../src/quant_data/datasets/trade_calendar.sql) | SSE 自然日范围、逐日唯一事实与前交易日约束 |
 | [`datasets/suspend_daily.py`](../../src/quant_data/datasets/suspend_daily.py)、[DDL](../../src/quant_data/datasets/suspend_daily.sql) | 固定 SSE 日历依赖、解析开闭市 Scope、停复牌稀疏日契约 |
 | [`datasets/stock_st.py`](../../src/quant_data/datasets/stock_st.py)、[DDL](../../src/quant_data/datasets/stock_st.sql) | ST 日名单、上海日期边界、非空政策及描述缺失告警 |
-| [`datasets/index_basic.py`](../../src/quant_data/datasets/index_basic.py)、[DDL](../../src/quant_data/datasets/index_basic.sql) | 全供应商指数当前快照、开放分类、可空属性与零行阻断 |
+| [`datasets/index_basic.py`](../../src/quant_data/datasets/index_basic.py)、[DDL](../../src/quant_data/datasets/index_basic.sql) | 宽基白名单、申万过滤集合非空及基础属性验收 |
 | [`sources/tushare/client.py`](../../src/quant_data/sources/tushare/client.py)、[`stock_basic.py`](../../src/quant_data/sources/tushare/stock_basic.py) | 通用供应商通信与股票专属交付适配 |
 | [`sources/tushare/trade_calendar.py`](../../src/quant_data/sources/tushare/trade_calendar.py) | 按年请求、逐日交付影响与日历类型标准化 |
 | [`sources/tushare/suspend_daily.py`](../../src/quant_data/sources/tushare/suspend_daily.py) | 逐交易日全市场获取，源日期归属与字符串标准化 |
 | [`sources/tushare/stock_st.py`](../../src/quant_data/sources/tushare/stock_st.py) | ST 全市场逐日获取、1,000 行交付边界与源日期隔离 |
-| [`sources/tushare/index_basic.py`](../../src/quant_data/sources/tushare/index_basic.py) | 指数专属 1,000 行分页、终止后空页验证、严格数值/文本解码与日期准备 |
+| [`sources/tushare/index_basic.py`](../../src/quant_data/sources/tushare/index_basic.py) | 宽基逐代码及申万按类别／发布方获取、请求身份核对与集中准备 |
 
 采用对象组合与普通函数。Protocol 表达现有接口，不要求具体类继承；没有 Dataset 注册框架、通用分页框架或规则 DSL。
 
@@ -208,9 +208,11 @@ prepare 清理文本后只计算一次日期匹配掩码，复用于诊断和安
 
 ### 5.7 index_basic 范围与语义
 
-正式 Schema、完整快照范围、分页交付、零行政策、验收规则及独立库验证记录集中维护于 [index_basic 文档](index_basic_ingestion_proposal.md)。保留全部 13 字段、所有返回市场与终止指数，主键 ts_code；无日历或股票表依赖，单 SNAPSHOT 整表原子替换，不接受子集参数。
+正式 Schema、目标范围、交付、验收及独立库记录集中维护于 [index_basic 文档](index_basic_ingestion_proposal.md)。保留 13 字段及 ts_code 主键；目标为 24 个白名单宽基，加 category=行业指数、publisher=上海申银万国证券研究所有限公司对应的申万集合。暂不纳入国证系列，无上游依赖，单 SNAPSHOT 整表替换，不接受任意子集参数。
 
-每页 1,000 行，仅满页 has_more=true 可继续，短页 has_more=false 后还需空验证页确认终止；最多 100 个逻辑请求，count 不参与判断。缺列/类型错误是准备诊断，不改写确已完成的获取；零行快照由 Dataset ERROR 阻断。0 基点合法，负值告警，非有限值阻断；三个日期可空，基期晚于发布日期不阻断。没有新增共享接口、Meta 或通用分页框架。
+每个宽基一次 ts_code 请求，申万一次 category/publisher 请求，均只调用 index_basic；删除分类辅助查询、全量分页、集合关联及选择审计。要求 has_more=false 且低于 8,000 行，触顶阻断，不自动分页，count 不参与判断。Raw 只有 13 个源字段及可信 `_requested_code` 标签；准备时核对请求身份后解析日期，不二次筛选。
+
+缺列／类型错误独立记准备诊断，不改写确已完成的获取。宽基缺代码、申万集合零行、非法日期和非有限基点阻断；零基点合法，负值告警，不约束基期早于发布日。申万包括历史／终止记录，不再检查 SW2021 各层完整性。无迁移或兼容模式，没有新增共享接口、Meta 或框架。
 
 ## 六、元数据与状态语义
 
@@ -297,7 +299,7 @@ trade_calendar / suspend_daily / stock_st 必须提供 `--start-date` / `--end-d
 
 正式日历 CLI 在独立验证库完成 2010-01-01–2026-12-31 的真实运行：17 个请求、6,209 条事实及同数量的成功 Publication / Coverage（开市 4,128 天、休市 2,081 天），无 ERROR，未来 76 日保留告警。产物完整，60 个清单文件的 SHA-256 与发布后 Canonical 快照核对通过。运行与库路径见[报告](../research/tushare-official-trade-calendar-2026-10-16.md)。
 
-2026-10-21 index_basic 接入：新增 11 项测试及 12,599 行真实快照重放通过；全套 76 项中 75 项通过，1 项既有股票真实样本缺失跳过，环境烟测通过。正式 CLI 在独立库两次各发布 12,599 行，重跑逐字段一致、产生新版本且不累加；离线零行/请求失败注入保护旧事实与成功指针，197 个产物文件哈希核对通过。数据库、请求、Coverage / Publication 与限制见 [index_basic 验收记录](index_basic_ingestion_proposal.md#42-独立库真实-cli-验收)。
+2026-10-22 index_basic 简化：7 项必要测试及真实源记录重放通过；全套 72 项中 71 项通过，1 项既有股票真实样本缺失跳过，环境烟测通过。正式 CLI 在独立库两次各发 25 个请求并发布 793 条事实（24 宽基＋769 申万），逐字段一致、不累加；宽基缺失、申万零行、请求失败三次离线注入均保护旧事实与成功指针，340 个产物文件哈希核对通过。生产代码减少 87 行，详见 [index_basic 验收记录](index_basic_ingestion_proposal.md#5-运行与验收)。
 
 ## 九、当前边界与后续接入
 

@@ -1,0 +1,123 @@
+{
+  "root": "data/probes/index-basic-simple-validation-20261022T001501794025",
+  "database": "data/probes/index-basic-simple-validation-20261022T001501794025/warehouse.duckdb",
+  "completed": true,
+  "default_database_written": false,
+  "manifest_files_verified": 340,
+  "runs": [
+    {
+      "label": "live_first",
+      "mode": "official_live_cli",
+      "run_id": "b4b9a045-6167-4375-9390-53585ddf1863",
+      "status": "SUCCESS",
+      "exit_code": 0,
+      "publication_id": 1,
+      "rows": 793,
+      "broad_rows": 24,
+      "sw_rows": 769,
+      "request_attempts": 25,
+      "artifacts_complete": true,
+      "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/index-basic-simple-validation-20261022T001501794025/landing/b4b9a045-6167-4375-9390-53585ddf1863",
+      "source_candidate_canonical_equal": true,
+      "checks": [
+        [
+          "WARNING",
+          "index.optional_nulls",
+          "{\"base_date\": 1, \"base_point\": 1, \"list_date\": 1}"
+        ]
+      ]
+    },
+    {
+      "label": "live_rerun",
+      "mode": "official_live_cli",
+      "run_id": "5d6c72cc-a51e-4f7c-8168-8e340210fa37",
+      "status": "SUCCESS",
+      "exit_code": 0,
+      "publication_id": 2,
+      "rows": 793,
+      "broad_rows": 24,
+      "sw_rows": 769,
+      "request_attempts": 25,
+      "artifacts_complete": true,
+      "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/index-basic-simple-validation-20261022T001501794025/landing/5d6c72cc-a51e-4f7c-8168-8e340210fa37",
+      "source_candidate_canonical_equal": true,
+      "checks": [
+        [
+          "WARNING",
+          "index.optional_nulls",
+          "{\"base_date\": 1, \"base_point\": 1, \"list_date\": 1}"
+        ]
+      ]
+    },
+    {
+      "label": "missing_broad",
+      "mode": "offline_fault_injection_no_http",
+      "run_id": "2e722f28-5c04-4a71-87fc-5daf41aba09a",
+      "status": "FAILED",
+      "old_data_coverage_publications_preserved": true,
+      "errors": [
+        [
+          "index.broad_missing",
+          "validation"
+        ]
+      ],
+      "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/index-basic-simple-validation-20261022T001501794025/landing/2e722f28-5c04-4a71-87fc-5daf41aba09a",
+      "artifacts_complete": false
+    },
+    {
+      "label": "empty_sw",
+      "mode": "offline_fault_injection_no_http",
+      "run_id": "a84e75c5-5177-4a0b-ac7f-31e9ed1f3dc3",
+      "status": "FAILED",
+      "old_data_coverage_publications_preserved": true,
+      "errors": [
+        [
+          "index.sw_nonempty",
+          "validation"
+        ]
+      ],
+      "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/index-basic-simple-validation-20261022T001501794025/landing/a84e75c5-5177-4a0b-ac7f-31e9ed1f3dc3",
+      "artifacts_complete": false
+    },
+    {
+      "label": "request_failure",
+      "mode": "offline_fault_injection_no_http",
+      "run_id": "49233afc-137c-4db9-a42e-83b096ae88ab",
+      "status": "FAILED",
+      "old_data_coverage_publications_preserved": true,
+      "errors": [
+        [
+          "source.request",
+          "fetch"
+        ]
+      ],
+      "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/index-basic-simple-validation-20261022T001501794025/landing/49233afc-137c-4db9-a42e-83b096ae88ab",
+      "artifacts_complete": false
+    }
+  ],
+  "live_snapshots_equal": true,
+  "regression": {
+    "tests": 72,
+    "passed": 71,
+    "skipped": 1,
+    "skip_reason": "existing stock_basic real response sample missing locally"
+  },
+  "dataset_tests": {
+    "tests": 7,
+    "passed": 7,
+    "real_source_filter_replay_executed": true
+  },
+  "environment_smoke": "PASS",
+  "code_lines": {
+    "before": {
+      "dataset": 129,
+      "adapter": 164,
+      "tests": 362
+    },
+    "after": {
+      "dataset": 96,
+      "adapter": 110,
+      "tests": 209
+    }
+  }
+}

@@ -1,4 +1,4 @@
-"""指数基础信息契约：全供应商当前快照，无上游依赖。"""
+"""目标指数基础快照：宽基白名单及供应商报告的申万行业集合。"""
 
 from pathlib import Path
 
@@ -6,6 +6,17 @@ import polars as pl
 
 from quant_data.core.models import Check, Scope
 from quant_data.db import identifier, relation
+
+
+# 业务清单：每个宽基选择一个已核对代码；不是供应商全量代码或测试样本路径。
+BROAD_CODES = (
+    "000001.SH", "399001.SZ", "000300.SH", "000905.SH", "000906.SH", "000852.SH",
+    "932000.CSI", "930050.CSI", "000903.SH", "000510.SH", "000985.CSI", "000016.SH",
+    "000010.SH", "000688.SH", "000698.SH", "000699.SH", "000680.SH", "399006.SZ",
+    "399673.SZ", "399102.SZ", "399850.SZ", "399330.SZ", "399009.SZ", "899050.BJ",
+)
+SW_CATEGORY = "行业指数"
+SW_PUBLISHER = "上海申银万国证券研究所有限公司"
 
 
 class IndexBasicDataset:
@@ -26,14 +37,14 @@ class IndexBasicDataset:
     ddl = Path(__file__).with_suffix(".sql").read_text()
 
     def dependencies(self, params):
-        """完整当前快照无依赖；拒绝会改变替换全集的任何参数。"""
+        """固定目标快照无已发布上游依赖；拒绝任意子集参数。"""
         # 业务检查：日期、市场或代码子集均不能冒充完整快照。
         if params:
-            raise ValueError("index_basic only supports a complete current snapshot; no subset parameters")
+            raise ValueError("index_basic only supports the complete target universe; no subset parameters")
         return ()
 
     def resolve_scope(self, params, pins, con):
-        """分页和市场均不是发布 Unit；全部记录属于一个快照。"""
+        """请求分片和过滤条件不作为发布 Unit；全部目标记录属于一个快照。"""
         return Scope((self.unit,))
 
     def unit_key_sql(self, alias):
@@ -61,15 +72,21 @@ class IndexBasicDataset:
             count = con.execute(f"SELECT count(*) FROM {table} WHERE {where}").fetchone()[0]
             if count:
                 checks.append(Check(level, rule, "validation", scope.units, {"rows": count}))
+        # 业务检查：每个白名单宽基必须有事实；缺失不能用其他记录或旧版补足。
+        missing = con.execute(f"SELECT unnest(?::VARCHAR[]) EXCEPT SELECT ts_code FROM {table}", [list(BROAD_CODES)]).fetchall()
+        if missing:
+            checks.append(Check("ERROR", "index.broad_missing", "validation", scope.units,
+                                {"codes": sorted(r[0] for r in missing)}))
+        # 业务检查：申万过滤集合零行无法确认覆盖，阻断而不是清除旧名单；不检查固定层级数量。
+        if con.execute(f"SELECT count(*) FROM {table} WHERE category=? AND publisher=?",
+                       [SW_CATEGORY, SW_PUBLISHER]).fetchone()[0] == 0:
+            checks.append(Check("ERROR", "index.sw_nonempty", "validation", scope.units))
         # 业务检查：重复或冲突都不能通过去重隐藏，ts_code 是全快照业务键。
         duplicate = con.execute(
             f"SELECT count(*) FROM (SELECT ts_code FROM {table} GROUP BY ts_code HAVING count(*)>1)"
         ).fetchone()[0]
         if duplicate:
             checks.append(Check("ERROR", "index.key_unique", "validation", scope.units, {"keys": duplicate}))
-        # 业务检查：完整零行也不能清空旧快照；获取 COMPLETE 与该业务阻断分别审计。
-        if con.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0:
-            checks.append(Check("ERROR", "index.nonempty", "validation", scope.units))
         # 业务告警：只汇总约定的可选属性；index_type/exp_date 的正常 NULL 不告警。
         optional = ("fullname", "base_date", "base_point", "list_date", "weight_rule", "desc")
         counts = con.execute(f"SELECT {','.join(f'count(*) FILTER (WHERE {identifier(c)} IS NULL)' for c in optional)} FROM {table}").fetchone()
