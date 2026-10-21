@@ -1,14 +1,14 @@
 # 个人量化数据库核心架构 V3.2（统一验收修订）
 
-**更新：2026-10-18｜状态：核心架构与 invariant 已确认**
+**更新：2026-10-21（补充 stock_st 实现清单）｜状态：核心架构与 invariant 已确认**
 
-本文定义项目的核心心智模型、职责与可靠性保证。本次修订确认“获取、集中标准化、统一验收、原子发布”的设计，三个切片已按此同步；当前接口与阶段见[技术设计与实现边界](ingestion_v3.2_implementation.md)。实现细节调整不改变本文的架构约束；约束变更需另行讨论确认。
+本文定义项目的核心心智模型、职责与可靠性保证。当前四个切片采用“获取、集中标准化、统一验收、原子发布”的设计；当前接口与阶段见[技术设计与实现边界](ingestion_v3.2_implementation.md)。实现细节调整不改变本文的架构约束；约束变更需另行讨论确认。
 
 ## 一、项目定位
 
 建设面向个人量化研究的数据平台，将供应商数据转为可追溯、可修订、可靠发布的标准业务事实，供研究与回测使用。
 
-当前已落地 `stock_basic` 完整快照、SSE `trade_calendar` 自然日日历与 `suspend_daily` 停复牌日集合 ingestion。多 Unit、部分成功、合法零行替换与上游版本复核已有正式切片及测试；其他 Dataset 与正式 Serving 尚未接入。
+当前已落地 `stock_basic` 完整快照、SSE `trade_calendar` 自然日日历、`suspend_daily` 停复牌日集合与 `stock_st` 每日 ST 名单 ingestion。多 Unit、部分成功、合法零行替换与上游版本复核已有正式切片及测试；其他 Dataset 与正式 Serving 尚未接入。stock_st 的独立契约见[对应文档](stock_st_ingestion_proposal.md)。
 
 ## 二、职责分工
 
@@ -42,7 +42,7 @@ Runner 管机制，Dataset 管业务语义，Adapter 管供应商交付与准备
 | Publication | 一次成功发布的版本与变更范围，包含合法零行替换和修订；不等于历史数据快照 |
 | Run Audit | 本次执行的请求、检查、成功或失败结果及所用上游版本 |
 
-`stock_basic` 的 Unit 是一个完整快照，`trade_calendar` 是一个交易所的一个自然日（包含休市日），`suspend_daily` 是一个经 SSE 日历确认的交易日。设计中的 `stock_1min` 以一只股票的一个交易日为 Unit，尚未正式实现。
+`stock_basic` 的 Unit 是一个完整快照，`trade_calendar` 是一个交易所的一个自然日（包含休市日），`suspend_daily` 和 `stock_st` 各以一个经 SSE 日历确认的交易日为 Unit。设计中的 `stock_1min` 以一只股票的一个交易日为 Unit，尚未正式实现。
 
 控制信息明确表达范围、交付状态、验收结论和版本；业务数据按列式批次处理。Unit 是业务粒度，与文件、表或分块组织独立，一份批次可以包含多个 Unit。
 

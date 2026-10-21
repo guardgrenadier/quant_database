@@ -1,6 +1,6 @@
 # quant_data
 
-个人量化数据库，已接入 `stock_basic` 完整快照、SSE `trade_calendar` 自然日日历与 `suspend_daily` 停复牌日集合：获取及证据 → 集中准备 Candidate → 统一验收 → Canonical 和 Meta 原子发布。
+个人量化数据库，已接入 `stock_basic` 完整快照、SSE `trade_calendar` 自然日日历、`suspend_daily` 停复牌日集合与 `stock_st` 每日 ST 名单：获取及证据 → 集中准备 Candidate → 统一验收 → Canonical 和 Meta 原子发布。
 
 | 阅读目的 | 文档 |
 |---|---|
@@ -70,6 +70,23 @@ uv run --frozen python -m quant_data ingest suspend_daily \
 
 按交易日原子替换，完整验收的零行日也发布版本并清除旧日集合。缺字段、坏值、重复业务键、请求失败或截断只阻断受影响日期，保护旧成功数据；触及 5,000 行或 has_more 风险时不自动分页。`suspend_timing` 保留完整字符串与 NULL，不拆分时段、不推导全天停牌或可交易状态，也不依赖当前 stock_basic。完整契约和证据见[停复牌落地验证](docs/research/suspend-daily-ingestion-validation-2026-10-16.md)。
 
+## stock_st Ingestion
+
+保存供应商逐交易日报告的全市场 ST 名单，主键 `(ts_code, trade_date)`，按交易日完整替换。先在同一库发布整个目标区间的 SSE 日历：
+
+```bash
+uv run --frozen python -m quant_data ingest trade_calendar \
+  --start-date 20261016 --end-date 20261019 --db data/warehouse_v3_2.duckdb
+uv run --frozen python -m quant_data ingest stock_st \
+  --start-date 20261016 --end-date 20261019 --db data/warehouse_v3_2.duckdb --keep-artifacts
+```
+
+每个开市日一次全市场请求；休市日排除，缺日历依赖在请求前阻断。首版仅接受 type=ST，保留历史名称和标签，name/type_name 可空并告警；不依赖当前 stock_basic，不从名称区分 ST/*ST 或生成风险变更事件。
+
+**开市日零行阻断，不清除旧名单，不发布空版本。** 请求确已完成时仍记 COMPLETE，业务非空规则独立验收。缺列、坏值、错日、重复键、请求失败、has_more 风险或触及 1,000 行只阻断相应日期；合格日期仍可发布，失败保护旧成功数据。拒绝未来日期，早于 2000-01-01 的开市日不请求、不发布；成功不保证历史绝无遗漏或当日已经终态。首版不自动分页。
+
+独立契约与真实验收记录见 [stock_st 文档](docs/design/stock_st_ingestion_proposal.md)，通用设计准备见[新 Dataset 接入清单](docs/design/dataset_onboarding_checklist.md)。
+
 ## 开发环境与接口探查
 
 使用 uv 管理 Python 3.13、`.venv` 和锁定依赖（Polars、DuckDB、Arrow/Parquet、dbt-duckdb、python-dotenv）。在仓库根目录执行：
@@ -96,7 +113,7 @@ uv run --frozen python scripts/probe_tushare.py --case stock_L --case suspend_20
 - [交易日历接口探查与正式契约](docs/research/tushare-official-trade-calendar-2026-10-16.md)
 - [停复牌正式 Schema](src/quant_data/datasets/suspend_daily.sql) 与[落地验证](docs/research/suspend-daily-ingestion-validation-2026-10-16.md)
 
-三个 Dataset 的正式 DDL 位于 [datasets](src/quant_data/datasets)。逐请求摘要由探查报告引用。早期 review、walkthrough 和探查原始产物已于 2026-10-16 清理，可按上述入口重新生成；本轮交易日历、停复牌证据路径见对应报告。
+四个 Dataset 的正式 DDL 位于 [datasets](src/quant_data/datasets)。逐请求摘要由探查报告引用。早期 review、walkthrough 和探查原始产物已于 2026-10-16 清理，可按上述入口重新生成；交易日历、停复牌和 ST 名单的证据路径见各自文档。
 
 ## 数据商接口
 

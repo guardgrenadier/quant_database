@@ -14,10 +14,12 @@ from quant_data.core.runner import run
 from quant_data.datasets.stock_basic import StockBasicDataset
 from quant_data.datasets.trade_calendar import TradeCalendarDataset
 from quant_data.datasets.suspend_daily import SuspendDailyDataset
+from quant_data.datasets.stock_st import StockStDataset
 from quant_data.sources.tushare.client import TushareClient
 from quant_data.sources.tushare.stock_basic import TushareStockBasicAdapter
 from quant_data.sources.tushare.trade_calendar import TushareTradeCalendarAdapter
 from quant_data.sources.tushare.suspend_daily import TushareSuspendDailyAdapter
+from quant_data.sources.tushare.stock_st import TushareStockStAdapter
 
 
 def main():
@@ -25,17 +27,17 @@ def main():
     parser = argparse.ArgumentParser(description="Personal quantitative database ingestion")
     commands = parser.add_subparsers(dest="command", required=True)
     ingest = commands.add_parser("ingest")
-    ingest.add_argument("dataset", choices=["stock_basic", "trade_calendar", "suspend_daily"])
+    ingest.add_argument("dataset", choices=["stock_basic", "trade_calendar", "suspend_daily", "stock_st"])
     ingest.add_argument("--db", type=Path, default=Path("data/warehouse.duckdb"))
     ingest.add_argument("--landing-dir", type=Path, default=Path("data/landing"))
     ingest.add_argument("--keep-artifacts", action="store_true", help="保留完整阶段产物供 walkthrough")
-    ingest.add_argument("--start-date", help="trade_calendar / suspend_daily 开始日期，YYYYMMDD")
-    ingest.add_argument("--end-date", help="trade_calendar / suspend_daily 结束日期，YYYYMMDD，包含当日")
+    ingest.add_argument("--start-date", help="trade_calendar / suspend_daily / stock_st 开始日期，YYYYMMDD")
+    ingest.add_argument("--end-date", help="trade_calendar / suspend_daily / stock_st 结束日期，YYYYMMDD，包含当日")
     args = parser.parse_args()
-    # CLI 边界：日历、停复牌必须显式给出完整区间，股票快照不能接受子集日期。
+    # CLI 边界：按日期发布的数据必须显式给出完整区间，股票快照不能接受子集日期。
     params = {}
-    if args.dataset in ("trade_calendar", "suspend_daily"):
-        # 业务检查：不猜测日历或停复牌目标起止日期，必须同时给出区间两端。
+    if args.dataset in ("trade_calendar", "suspend_daily", "stock_st"):
+        # 业务检查：不猜测任何日集合的目标起止日期，必须同时给出区间两端。
         if args.start_date is None or args.end_date is None:
             parser.error(f"{args.dataset} requires --start-date and --end-date")
         # 业务传递：原样交给 Dataset 校验日期及闭区间顺序，不在入口补默认边界或过滤休市日。
@@ -57,10 +59,14 @@ def main():
             # 业务装配：trade_calendar 固定采用 SSE 专属契约与适配器，不由用户参数改成其他市场。
             dataset = TradeCalendarDataset()
             adapter = TushareTradeCalendarAdapter(TushareClient(token))
-        else:
+        elif args.dataset == "suspend_daily":
             # 业务装配：停复牌自行声明 SSE 日历依赖，不自动触发日历获取或借用当前股票表。
             dataset = SuspendDailyDataset()
             adapter = TushareSuspendDailyAdapter(TushareClient(token))
+        else:
+            # 业务装配：ST 日名单依赖成功 SSE 日历，零行由自身业务验收阻断。
+            dataset = StockStDataset()
+            adapter = TushareStockStAdapter(TushareClient(token))
         with duckdb.connect(str(args.db)) as con:
             db.initialize(con, dataset)
             result = run(con, dataset, adapter, params, RunOptions(args.landing_dir, args.keep_artifacts))

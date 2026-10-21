@@ -1,12 +1,12 @@
 # 个人量化数据库技术设计与实现边界 V3.2
 
-**更新：2026-10-18｜范围：统一验收内核与三个正式 Dataset**
+**更新：2026-10-21｜范围：统一验收内核与四个正式 Dataset**
 
 本文说明已落地的模型、接口、执行机制和能力边界，与[核心架构](core_design.md)配套。内容依据当前代码；不重新定义冻结的架构与 invariant，也不把规划中的 Dataset 或 Serving 写成已实现能力。后续实现变化时同步更新对应章节。
 
 ## 一、实现范围与代码地图
 
-正式入口已有 `stock_basic` 完整快照、SSE `trade_calendar` 自然日日历与 `suspend_daily` 停复牌日集合，均使用官方 Tushare。前两者无上游依赖；停复牌依赖成功 SSE 日历，复用多 Unit、部分成功、合法零行替换和版本复核机制。
+正式入口已有 `stock_basic` 完整快照、SSE `trade_calendar` 自然日日历、`suspend_daily` 停复牌日集合与 `stock_st` 每日 ST 名单，均使用官方 Tushare。前两者无上游依赖；后两者依赖成功 SSE 日历。ST 名单首版阻断零行，停复牌允许合法零行；均复用既有多 Unit、部分成功和版本复核机制。
 
 | 位置 | 职责与边界 |
 |---|---|
@@ -20,9 +20,11 @@
 | [`datasets/stock_basic.py`](../../src/quant_data/datasets/stock_basic.py)、[DDL](../../src/quant_data/datasets/stock_basic.sql) | 股票业务契约、验收规则及数据库约束 |
 | [`datasets/trade_calendar.py`](../../src/quant_data/datasets/trade_calendar.py)、[DDL](../../src/quant_data/datasets/trade_calendar.sql) | SSE 自然日范围、逐日唯一事实与前交易日约束 |
 | [`datasets/suspend_daily.py`](../../src/quant_data/datasets/suspend_daily.py)、[DDL](../../src/quant_data/datasets/suspend_daily.sql) | 固定 SSE 日历依赖、解析开闭市 Scope、停复牌稀疏日契约 |
+| [`datasets/stock_st.py`](../../src/quant_data/datasets/stock_st.py)、[DDL](../../src/quant_data/datasets/stock_st.sql) | ST 日名单、上海日期边界、非空政策及描述缺失告警 |
 | [`sources/tushare/client.py`](../../src/quant_data/sources/tushare/client.py)、[`stock_basic.py`](../../src/quant_data/sources/tushare/stock_basic.py) | 通用供应商通信与股票专属交付适配 |
 | [`sources/tushare/trade_calendar.py`](../../src/quant_data/sources/tushare/trade_calendar.py) | 按年请求、逐日交付影响与日历类型标准化 |
 | [`sources/tushare/suspend_daily.py`](../../src/quant_data/sources/tushare/suspend_daily.py) | 逐交易日全市场获取，源日期归属与字符串标准化 |
+| [`sources/tushare/stock_st.py`](../../src/quant_data/sources/tushare/stock_st.py) | ST 全市场逐日获取、1,000 行交付边界与源日期隔离 |
 
 采用对象组合与普通函数。Protocol 表达现有接口，不要求具体类继承；没有 Dataset 注册框架、通用分页框架或规则 DSL。
 
@@ -198,6 +200,10 @@ prepare 清理文本后只计算一次日期匹配掩码，复用于诊断和安
 
 依赖审计包含休市日，因为排除决策同样使用了这些版本；发布前任何固定日历版本变化都阻断当前批次并要求重算 Scope。上游最近一次执行失败不阻止使用其仍有效的旧 PUBLISHED 数据。不自动触发日历或传播失效。原真实运行与限制见[落地记录](../research/suspend-daily-ingestion-validation-2026-10-16.md)；本轮只调整 Adapter 准备接口与统一验收，不改日期依赖或写入语义。
 
+### 5.6 stock_st 范围与语义
+
+正式实现、Schema、SSE 日历依赖、零行阻断、按日替换、获取/准备/验收规则及独立库验证记录集中维护于 [stock_st 文档](stock_st_ingestion_proposal.md)。沿用现有接口与 Meta，CLI 使用显式日期闭区间，未来日期拒绝；与停复牌的零行发布政策分别定义。
+
 ## 六、元数据与状态语义
 
 七张表的完整定义见 [`core/meta.sql`](../../src/quant_data/core/meta.sql)。
@@ -273,7 +279,7 @@ CLI 默认库路径仍为 `data/warehouse.duckdb`，landing_root 默认为 `data
 
 CLI 输出 RunResult JSON，业务 SUCCESS 返回 0，FAILED / PARTIAL 返回 1；诊断不完整独立表达，可能仍返回 0。walkthrough 脚本额外要求 `artifacts_complete=True`，否则返回非零。
 
-trade_calendar / suspend_daily 必须提供 `--start-date` / `--end-date`（ASCII YYYYMMDD）；stock_basic 拒绝这两个日期过滤。未接入其他交易所或股票/停复牌类型筛选参数，避免改变完整范围契约。
+trade_calendar / suspend_daily / stock_st 必须提供 `--start-date` / `--end-date`（ASCII YYYYMMDD）；stock_basic 拒绝这两个日期过滤。未接入其他交易所或股票/类型筛选参数，避免改变完整范围契约。
 
 2026-10-16 验证：47 项测试中 46 项通过，1 项因本地股票真实响应样本缺失跳过。新增 11 项停复牌场景覆盖跨 Dataset 日历依赖、休市排除、实际事实缺失 UNKNOWN、零行替换、错日隔离、键冲突、已排除日修订后的版本复核、回滚与 CLI。其余测试覆盖股票、日历、通用机制与诊断故障。100 / 5,000 Unit 的机制测试 SQL 调用数均为 28，后者处理约 120 万行；这不等同于正式分钟 ingestion 的性能验收。环境脚本的正式 DDL、Arrow/Parquet 和 dbt View 检查通过。
 
@@ -287,7 +293,7 @@ trade_calendar / suspend_daily 必须提供 `--start-date` / `--end-date`（ASCI
 
 | 方面 | 当前边界 |
 |---|---|
-| 正式 Dataset | stock_basic、SSE trade_calendar 与 suspend_daily；日频、分钟尚未接入 |
+| 正式 Dataset | stock_basic、SSE trade_calendar、suspend_daily 与 stock_st；行情日频、分钟尚未接入 |
 | 依赖管理 | 检查已有成功版本，发布前复核；不自动运行上游或传播失效 |
 | 执行与数据规模 | 单连接、单内存批次、串行请求；不支持断点恢复、超内存流式处理或分布式执行 |
 | 并发 | Ingestion、dbt、外部研究进程按运行约定错开访问同一文件；未实现锁协调服务 |
