@@ -1,0 +1,473 @@
+{
+  "root": "data/probes/daily-ingestion-validation-20261022T014518303442",
+  "database": "data/probes/daily-ingestion-validation-20261022T014518303442/warehouse.duckdb",
+  "default_database_written": false,
+  "completed": true,
+  "manifest_files_verified": 476,
+  "runs": [
+    {
+      "label": "calendar",
+      "dataset": "trade_calendar",
+      "mode": "official_live_cli",
+      "run_id": "2840995f-6005-4f7a-a002-f93aad5638b5",
+      "status": "SUCCESS",
+      "exit_code": 0,
+      "publications": [
+        {
+          "unit_key": "SSE:2026-10-17",
+          "publication_id": 1,
+          "row_count": 1
+        },
+        {
+          "unit_key": "SSE:2026-10-16",
+          "publication_id": 2,
+          "row_count": 1
+        },
+        {
+          "unit_key": "SSE:2026-10-18",
+          "publication_id": 3,
+          "row_count": 1
+        },
+        {
+          "unit_key": "SSE:2026-10-19",
+          "publication_id": 4,
+          "row_count": 1
+        }
+      ],
+      "request_attempts": 1,
+      "dependencies": [],
+      "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/daily-ingestion-validation-20261022T014518303442/landing/2840995f-6005-4f7a-a002-f93aad5638b5",
+      "artifacts_complete": true
+    },
+    {
+      "label": "universe",
+      "dataset": "index_basic",
+      "mode": "official_live_cli",
+      "run_id": "81b07a63-4466-4967-93bb-088be53b7250",
+      "status": "SUCCESS",
+      "exit_code": 0,
+      "publications": [
+        {
+          "unit_key": "SNAPSHOT",
+          "publication_id": 5,
+          "row_count": 793
+        }
+      ],
+      "request_attempts": 25,
+      "dependencies": [],
+      "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/daily-ingestion-validation-20261022T014518303442/landing/81b07a63-4466-4967-93bb-088be53b7250",
+      "artifacts_complete": true
+    },
+    {
+      "label": "stock_daily_first",
+      "dataset": "stock_daily",
+      "mode": "official_live_cli",
+      "run_id": "d77c6ae4-d09f-452c-8f01-4af0b9f68deb",
+      "status": "SUCCESS",
+      "exit_code": 0,
+      "publications": [
+        {
+          "unit_key": "2026-10-19",
+          "publication_id": 6,
+          "row_count": 5564
+        },
+        {
+          "unit_key": "2026-10-16",
+          "publication_id": 7,
+          "row_count": 5567
+        }
+      ],
+      "request_attempts": 2,
+      "dependencies": [
+        [
+          "trade_calendar",
+          "SSE:2026-10-16",
+          2
+        ],
+        [
+          "trade_calendar",
+          "SSE:2026-10-17",
+          1
+        ],
+        [
+          "trade_calendar",
+          "SSE:2026-10-18",
+          3
+        ],
+        [
+          "trade_calendar",
+          "SSE:2026-10-19",
+          4
+        ]
+      ],
+      "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/daily-ingestion-validation-20261022T014518303442/landing/d77c6ae4-d09f-452c-8f01-4af0b9f68deb",
+      "artifacts_complete": true,
+      "rows": 11131,
+      "zero_row_publications": 0,
+      "apis": [
+        "daily",
+        "daily"
+      ],
+      "source_candidate_canonical_equal": true,
+      "checks": []
+    },
+    {
+      "label": "stock_daily_rerun",
+      "dataset": "stock_daily",
+      "mode": "official_live_cli",
+      "run_id": "b56fb7e1-0f14-4c2c-9ac4-c8125047ac40",
+      "status": "SUCCESS",
+      "exit_code": 0,
+      "publications": [
+        {
+          "unit_key": "2026-10-19",
+          "publication_id": 8,
+          "row_count": 5564
+        },
+        {
+          "unit_key": "2026-10-16",
+          "publication_id": 9,
+          "row_count": 5567
+        }
+      ],
+      "request_attempts": 2,
+      "dependencies": [
+        [
+          "trade_calendar",
+          "SSE:2026-10-16",
+          2
+        ],
+        [
+          "trade_calendar",
+          "SSE:2026-10-17",
+          1
+        ],
+        [
+          "trade_calendar",
+          "SSE:2026-10-18",
+          3
+        ],
+        [
+          "trade_calendar",
+          "SSE:2026-10-19",
+          4
+        ]
+      ],
+      "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/daily-ingestion-validation-20261022T014518303442/landing/b56fb7e1-0f14-4c2c-9ac4-c8125047ac40",
+      "artifacts_complete": true,
+      "rows": 11131,
+      "zero_row_publications": 0,
+      "apis": [
+        "daily",
+        "daily"
+      ],
+      "source_candidate_canonical_equal": true,
+      "checks": [],
+      "equal_to_first": true
+    },
+    {
+      "label": "index_daily_first",
+      "dataset": "index_daily",
+      "mode": "official_live_cli",
+      "run_id": "a3d7e332-e835-4039-9887-a85e1e4da924",
+      "status": "SUCCESS",
+      "exit_code": 0,
+      "publications": [
+        {
+          "unit_key": "000300.SH:2026-10-19",
+          "publication_id": 10,
+          "row_count": 1
+        },
+        {
+          "unit_key": "000906.SH:2026-10-19",
+          "publication_id": 11,
+          "row_count": 1
+        },
+        {
+          "unit_key": "801010.SI:2026-10-19",
+          "publication_id": 12,
+          "row_count": 1
+        },
+        {
+          "unit_key": "000906.SH:2026-10-16",
+          "publication_id": 13,
+          "row_count": 1
+        },
+        {
+          "unit_key": "801010.SI:2026-10-16",
+          "publication_id": 14,
+          "row_count": 1
+        },
+        {
+          "unit_key": "000300.SH:2026-10-16",
+          "publication_id": 15,
+          "row_count": 1
+        },
+        {
+          "unit_key": "801013.SI:2026-10-19",
+          "publication_id": 16,
+          "row_count": 0
+        },
+        {
+          "unit_key": "801013.SI:2026-10-16",
+          "publication_id": 17,
+          "row_count": 0
+        }
+      ],
+      "request_attempts": 4,
+      "dependencies": [
+        [
+          "index_basic",
+          "SNAPSHOT",
+          5
+        ],
+        [
+          "trade_calendar",
+          "SSE:2026-10-16",
+          2
+        ],
+        [
+          "trade_calendar",
+          "SSE:2026-10-17",
+          1
+        ],
+        [
+          "trade_calendar",
+          "SSE:2026-10-18",
+          3
+        ],
+        [
+          "trade_calendar",
+          "SSE:2026-10-19",
+          4
+        ]
+      ],
+      "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/daily-ingestion-validation-20261022T014518303442/landing/a3d7e332-e835-4039-9887-a85e1e4da924",
+      "artifacts_complete": true,
+      "rows": 6,
+      "zero_row_publications": 2,
+      "apis": [
+        "index_daily",
+        "index_daily",
+        "sw_daily",
+        "sw_daily"
+      ],
+      "source_candidate_canonical_equal": true,
+      "checks": []
+    },
+    {
+      "label": "index_daily_rerun",
+      "dataset": "index_daily",
+      "mode": "official_live_cli",
+      "run_id": "2d16c94f-96ac-4a65-ab3a-f5a8f4db6366",
+      "status": "SUCCESS",
+      "exit_code": 0,
+      "publications": [
+        {
+          "unit_key": "000300.SH:2026-10-19",
+          "publication_id": 18,
+          "row_count": 1
+        },
+        {
+          "unit_key": "000906.SH:2026-10-19",
+          "publication_id": 19,
+          "row_count": 1
+        },
+        {
+          "unit_key": "801010.SI:2026-10-19",
+          "publication_id": 20,
+          "row_count": 1
+        },
+        {
+          "unit_key": "000906.SH:2026-10-16",
+          "publication_id": 21,
+          "row_count": 1
+        },
+        {
+          "unit_key": "801010.SI:2026-10-16",
+          "publication_id": 22,
+          "row_count": 1
+        },
+        {
+          "unit_key": "000300.SH:2026-10-16",
+          "publication_id": 23,
+          "row_count": 1
+        },
+        {
+          "unit_key": "801013.SI:2026-10-19",
+          "publication_id": 24,
+          "row_count": 0
+        },
+        {
+          "unit_key": "801013.SI:2026-10-16",
+          "publication_id": 25,
+          "row_count": 0
+        }
+      ],
+      "request_attempts": 4,
+      "dependencies": [
+        [
+          "index_basic",
+          "SNAPSHOT",
+          5
+        ],
+        [
+          "trade_calendar",
+          "SSE:2026-10-16",
+          2
+        ],
+        [
+          "trade_calendar",
+          "SSE:2026-10-17",
+          1
+        ],
+        [
+          "trade_calendar",
+          "SSE:2026-10-18",
+          3
+        ],
+        [
+          "trade_calendar",
+          "SSE:2026-10-19",
+          4
+        ]
+      ],
+      "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/daily-ingestion-validation-20261022T014518303442/landing/2d16c94f-96ac-4a65-ab3a-f5a8f4db6366",
+      "artifacts_complete": true,
+      "rows": 6,
+      "zero_row_publications": 2,
+      "apis": [
+        "index_daily",
+        "index_daily",
+        "sw_daily",
+        "sw_daily"
+      ],
+      "source_candidate_canonical_equal": true,
+      "checks": [],
+      "equal_to_first": true
+    },
+    {
+      "label": "calendar_history",
+      "dataset": "trade_calendar",
+      "mode": "official_live_cli",
+      "run_id": "ea44bf83-ad71-4193-93db-e34d501256d4",
+      "status": "SUCCESS",
+      "exit_code": 0,
+      "publications": [
+        {
+          "unit_key": "SSE:2002-01-04",
+          "publication_id": 26,
+          "row_count": 1
+        }
+      ],
+      "request_attempts": 1,
+      "dependencies": [],
+      "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/daily-ingestion-validation-20261022T014518303442/landing/ea44bf83-ad71-4193-93db-e34d501256d4",
+      "artifacts_complete": true
+    },
+    {
+      "label": "index_history",
+      "dataset": "index_daily",
+      "mode": "official_live_cli",
+      "run_id": "7a1860c7-b190-4b15-9cd5-e708df52a301",
+      "status": "SUCCESS",
+      "exit_code": 0,
+      "publications": [
+        {
+          "unit_key": "000300.SH:2002-01-04",
+          "publication_id": 27,
+          "row_count": 1
+        }
+      ],
+      "request_attempts": 1,
+      "dependencies": [
+        [
+          "index_basic",
+          "SNAPSHOT",
+          5
+        ],
+        [
+          "trade_calendar",
+          "SSE:2002-01-04",
+          26
+        ]
+      ],
+      "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/daily-ingestion-validation-20261022T014518303442/landing/7a1860c7-b190-4b15-9cd5-e708df52a301",
+      "artifacts_complete": true,
+      "rows": 1,
+      "zero_row_publications": 0,
+      "apis": [
+        "index_daily"
+      ],
+      "source_candidate_canonical_equal": true,
+      "checks": []
+    },
+    {
+      "label": "outside_universe",
+      "dataset": "index_daily",
+      "mode": "official_live_cli",
+      "run_id": "1354eecf-e5ff-4029-b09b-6ca09ee53f77",
+      "status": "FAILED",
+      "exit_code": 1,
+      "publications": [],
+      "request_attempts": 0,
+      "dependencies": [],
+      "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/daily-ingestion-validation-20261022T014518303442/landing/1354eecf-e5ff-4029-b09b-6ca09ee53f77",
+      "artifacts_complete": false,
+      "old_data_coverage_publications_preserved": true
+    },
+    {
+      "label": "injected_stock_daily",
+      "dataset": "stock_daily",
+      "mode": "offline_fault_injection_no_http",
+      "run_id": "72a4a563-5d03-4ef7-869d-97d363bc0fdc",
+      "status": "FAILED",
+      "checks": [
+        [
+          "stock_daily.nonempty",
+          "validation"
+        ]
+      ],
+      "old_data_coverage_publications_preserved": true,
+      "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/daily-ingestion-validation-20261022T014518303442/landing/72a4a563-5d03-4ef7-869d-97d363bc0fdc",
+      "artifacts_complete": false
+    },
+    {
+      "label": "injected_index_daily",
+      "dataset": "index_daily",
+      "mode": "offline_fault_injection_no_http",
+      "run_id": "50cdc863-b1ed-4d2f-98db-739df2084c5d",
+      "status": "FAILED",
+      "checks": [
+        [
+          "source.request",
+          "fetch"
+        ]
+      ],
+      "old_data_coverage_publications_preserved": true,
+      "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/daily-ingestion-validation-20261022T014518303442/landing/50cdc863-b1ed-4d2f-98db-739df2084c5d",
+      "artifacts_complete": false
+    }
+  ],
+  "index_selected_codes": [
+    "000300.SH",
+    "000906.SH",
+    "801010.SI",
+    "801013.SI"
+  ],
+  "full_index_universe_count": 793,
+  "index_validation_is_subset": true,
+  "history_before_list_date_verified": true,
+  "dataset_tests": {
+    "total": 10,
+    "passed": 10,
+    "real_saved_responses_replayed": true
+  },
+  "regression": {
+    "total": 82,
+    "passed": 81,
+    "skipped": 1,
+    "skip_reason": "existing stock_basic saved real response sample missing locally"
+  },
+  "environment_smoke": "PASS"
+}

@@ -1,6 +1,6 @@
 # quant_data
 
-个人量化数据库，已接入 `stock_basic` 完整快照、SSE `trade_calendar` 自然日日历、`suspend_daily` 停复牌日集合、`stock_st` 每日 ST 名单与 `index_basic` 目标指数快照：获取及证据 → 集中准备 Candidate → 统一验收 → Canonical 和 Meta 原子发布。
+个人量化数据库，已接入 `stock_basic` 完整快照、SSE `trade_calendar`、`suspend_daily` 停复牌、`stock_st` 名单、`index_basic` 目标指数快照，以及 `stock_daily` 未复权股票日线和 `index_daily` universe 内指数日线：获取及证据 → 集中准备 Candidate → 统一验收 → Canonical 和 Meta 原子发布。
 
 | 阅读目的 | 文档 |
 |---|---|
@@ -103,6 +103,31 @@ uv run --frozen python -m quant_data ingest index_basic \
 
 market/category/index_type 为开放字符串；日期和基点允许 NULL，0 基点合法，负基点只告警，不要求基期早于发布日期。成功表示符合供应商交付及项目验收契约，不保证跨页同一时点或历史 PIT。完整规则与真实验收见 [index_basic 文档](docs/design/index_basic_ingestion_proposal.md)。
 
+## 股票与指数日线
+
+两者均采用官方 Tushare，先在同一库发布所需自然日区间的 SSE 日历。股票逐交易日获取全市场未复权11列，不按当前股票名单删历史证券；开市日整日零行阻断，停牌个股不补行。
+
+```bash
+uv run --frozen python -m quant_data ingest trade_calendar \
+  --start-date 20261016 --end-date 20261019 --db data/probes/my-daily/warehouse.duckdb
+uv run --frozen python -m quant_data ingest stock_daily \
+  --start-date 20261016 --end-date 20261019 --db data/probes/my-daily/warehouse.duckdb \
+  --landing-dir data/probes/my-daily/landing --keep-artifacts
+```
+
+指数还依赖同库已发布的 index_basic / SNAPSHOT；不传代码时获取当前完整 universe，也可重复 `--ts-code` 选取其中代码。宽基按代码自然年请求 index_daily，申万每天一次 sw_daily(trade_date)。默认单日为1次申万＋24次宽基；申万 Raw 可含范围外代码，保留 Raw 和排除行数审计，仅发布固定 scope 内行情。按代码日完整替换；完整零行可清除该代码日旧行情并生成成功版本，含义仅为本次供应商没有报告。不会按 list_date 或 exp_date 裁历史。
+
+```bash
+uv run --frozen python -m quant_data ingest index_basic --db data/probes/my-daily/warehouse.duckdb
+uv run --frozen python -m quant_data ingest index_daily \
+  --start-date 20261016 --end-date 20261019 --ts-code 000300.SH --ts-code 801010.SI \
+  --db data/probes/my-daily/warehouse.duckdb --landing-dir data/probes/my-daily/landing --keep-artifacts
+```
+
+两类 Canonical 量额均为手／千元；申万源万股／万元在准备时分别乘100／10，pct_change 映射到 pct_chg，缺源能力的 pre_close 保留NULL。指数允许合法数值NULL，四价齐全才检查区间；股票九个数值必填。请求／转换／验收失败保护旧数据及版本，上游版本变化时提交前阻断。未实现复权因子、盘后量额、PIT 或自动调度。
+
+契约和真实独立库验收见[股票日线](docs/design/stock_daily_ingestion_proposal.md)、[指数日线](docs/design/index_daily_ingestion_proposal.md)。
+
 ## 开发环境与接口探查
 
 使用 uv 管理 Python 3.13、`.venv` 和锁定依赖（Polars、DuckDB、Arrow/Parquet、dbt-duckdb、python-dotenv）。在仓库根目录执行：
@@ -128,8 +153,9 @@ uv run --frozen python scripts/probe_tushare.py --case stock_L --case suspend_20
 - [日频与指数接口探查报告](docs/research/tushare-official-daily-index-2026-10-14.md)
 - [交易日历接口探查与正式契约](docs/research/tushare-official-trade-calendar-2026-10-16.md)
 - [停复牌正式 Schema](src/quant_data/datasets/suspend_daily.sql) 与[落地验证](docs/research/suspend-daily-ingestion-validation-2026-10-16.md)
+- [银河 vs Tushare 日线质量对照与接入建议](docs/research/galaxy-vs-tushare-daily-quality-2026-10-22.md)（银河接口系列探查见同目录 galaxy-* 报告）
 
-五个 Dataset 的正式 DDL 位于 [datasets](src/quant_data/datasets)。逐请求摘要由探查报告引用。早期 review、walkthrough 和探查原始产物已于 2026-10-16 清理，可按上述入口重新生成；交易日历、停复牌、ST 名单和指数快照的证据路径见各自文档。
+七个 Dataset 的正式 DDL 位于 [datasets](src/quant_data/datasets)。逐请求摘要由探查报告引用。早期 review、walkthrough 和探查原始产物已于 2026-10-16 清理，可按上述入口重新生成；当前正式切片的证据路径见各自文档。
 
 ## 数据商接口
 

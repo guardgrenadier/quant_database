@@ -16,12 +16,16 @@ from quant_data.datasets.trade_calendar import TradeCalendarDataset
 from quant_data.datasets.suspend_daily import SuspendDailyDataset
 from quant_data.datasets.stock_st import StockStDataset
 from quant_data.datasets.index_basic import IndexBasicDataset
+from quant_data.datasets.stock_daily import StockDailyDataset
+from quant_data.datasets.index_daily import IndexDailyDataset
 from quant_data.sources.tushare.client import TushareClient
 from quant_data.sources.tushare.stock_basic import TushareStockBasicAdapter
 from quant_data.sources.tushare.trade_calendar import TushareTradeCalendarAdapter
 from quant_data.sources.tushare.suspend_daily import TushareSuspendDailyAdapter
 from quant_data.sources.tushare.stock_st import TushareStockStAdapter
 from quant_data.sources.tushare.index_basic import TushareIndexBasicAdapter
+from quant_data.sources.tushare.stock_daily import TushareStockDailyAdapter
+from quant_data.sources.tushare.index_daily import TushareIndexDailyAdapter
 
 
 def main():
@@ -29,16 +33,17 @@ def main():
     parser = argparse.ArgumentParser(description="Personal quantitative database ingestion")
     commands = parser.add_subparsers(dest="command", required=True)
     ingest = commands.add_parser("ingest")
-    ingest.add_argument("dataset", choices=["stock_basic", "trade_calendar", "suspend_daily", "stock_st", "index_basic"])
+    ingest.add_argument("dataset", choices=["stock_basic", "trade_calendar", "suspend_daily", "stock_st", "index_basic", "stock_daily", "index_daily"])
     ingest.add_argument("--db", type=Path, default=Path("data/warehouse.duckdb"))
     ingest.add_argument("--landing-dir", type=Path, default=Path("data/landing"))
     ingest.add_argument("--keep-artifacts", action="store_true", help="保留完整阶段产物供 walkthrough")
-    ingest.add_argument("--start-date", help="trade_calendar / suspend_daily / stock_st 开始日期，YYYYMMDD")
-    ingest.add_argument("--end-date", help="trade_calendar / suspend_daily / stock_st 结束日期，YYYYMMDD，包含当日")
+    ingest.add_argument("--start-date", help="日期型 Dataset 开始日期，YYYYMMDD")
+    ingest.add_argument("--end-date", help="日期型 Dataset 结束日期，YYYYMMDD，包含当日")
+    ingest.add_argument("--ts-code", action="append", help="仅 index_daily：选择已发布 universe 内代码，可重复")
     args = parser.parse_args()
     # CLI 边界：按日期发布的数据必须显式给出完整区间，完整快照不能接受子集日期。
     params = {}
-    if args.dataset in ("trade_calendar", "suspend_daily", "stock_st"):
+    if args.dataset in ("trade_calendar", "suspend_daily", "stock_st", "stock_daily", "index_daily"):
         # 业务检查：不猜测任何日集合的目标起止日期，必须同时给出区间两端。
         if args.start_date is None or args.end_date is None:
             parser.error(f"{args.dataset} requires --start-date and --end-date")
@@ -47,6 +52,11 @@ def main():
     elif args.start_date is not None or args.end_date is not None:
         # 业务检查：股票/指数只能整快照替换，禁止将日期子集误作完整快照。
         parser.error(f"{args.dataset} does not accept date filters")
+    # 业务边界：指数子集不能改变其他 Dataset 的完整日/快照政策；成员由 Dataset 同快照核对。
+    if args.ts_code is not None:
+        if args.dataset != "index_daily":
+            parser.error("--ts-code is only supported for index_daily")
+        params["ts_codes"] = args.ts_code
     # 凭据优先使用项目 .env，再取环境变量；仅交给 Client，输出错误和结果时再次脱敏。
     token = (dotenv_values(".env").get("TUSHARE_TOKEN") or os.environ.get("TUSHARE_TOKEN", "")).strip()
     if not token:
@@ -69,10 +79,16 @@ def main():
             # 业务装配：ST 日名单依赖成功 SSE 日历，零行由自身业务验收阻断。
             dataset = StockStDataset()
             adapter = TushareStockStAdapter(TushareClient(token))
-        else:
-            # 业务装配：指数快照无日历依赖；专属分页完成后统一验收并整表替换。
+        elif args.dataset == "index_basic":
+            # 业务装配：指数快照无日历依赖，固定白名单及申万过滤后整表替换。
             dataset = IndexBasicDataset()
             adapter = TushareIndexBasicAdapter(TushareClient(token))
+        elif args.dataset == "stock_daily":
+            dataset = StockDailyDataset()
+            adapter = TushareStockDailyAdapter(TushareClient(token))
+        else:
+            dataset = IndexDailyDataset()
+            adapter = TushareIndexDailyAdapter(TushareClient(token))
         with duckdb.connect(str(args.db)) as con:
             db.initialize(con, dataset)
             result = run(con, dataset, adapter, params, RunOptions(args.landing_dir, args.keep_artifacts))

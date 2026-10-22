@@ -1,12 +1,12 @@
 # 个人量化数据库技术设计与实现边界 V3.2
 
-**更新：2026-10-22｜范围：统一验收内核与五个正式 Dataset**
+**更新：2026-10-22｜范围：统一验收内核与七个正式 Dataset**
 
 本文说明已落地的模型、接口、执行机制和能力边界，与[核心架构](core_design.md)配套。内容依据当前代码；不重新定义冻结的架构与 invariant，也不把规划中的 Dataset 或 Serving 写成已实现能力。后续实现变化时同步更新对应章节。
 
 ## 一、实现范围与代码地图
 
-正式入口已有 `stock_basic` 完整快照、SSE `trade_calendar` 自然日日历、`suspend_daily` 停复牌日集合、`stock_st` 每日 ST 名单与 `index_basic` 目标指数快照，均使用官方 Tushare。股票快照、日历和指数快照无已发布上游依赖；停复牌与 ST 名单依赖成功 SSE 日历。ST 名单和指数快照首版阻断零行，停复牌允许合法零行；均复用既有统一验收和原子发布内核。
+正式入口已有 `stock_basic` 完整快照、SSE `trade_calendar`、`suspend_daily` 停复牌、`stock_st` 名单、`index_basic` 目标指数快照，以及 `stock_daily` 未复权股票日线和 `index_daily` universe 内指数日线，均使用官方 Tushare。快照与日历无已发布上游依赖；三个日集合依赖成功 SSE 日历，指数日线另固定 index_basic 快照。零行由各 Dataset 自己定义，均复用既有统一验收和原子发布内核。
 
 | 位置 | 职责与边界 |
 |---|---|
@@ -22,11 +22,16 @@
 | [`datasets/suspend_daily.py`](../../src/quant_data/datasets/suspend_daily.py)、[DDL](../../src/quant_data/datasets/suspend_daily.sql) | 固定 SSE 日历依赖、解析开闭市 Scope、停复牌稀疏日契约 |
 | [`datasets/stock_st.py`](../../src/quant_data/datasets/stock_st.py)、[DDL](../../src/quant_data/datasets/stock_st.sql) | ST 日名单、上海日期边界、非空政策及描述缺失告警 |
 | [`datasets/index_basic.py`](../../src/quant_data/datasets/index_basic.py)、[DDL](../../src/quant_data/datasets/index_basic.sql) | 宽基白名单、申万过滤集合非空及基础属性验收 |
+| [`datasets/stock_daily.py`](../../src/quant_data/datasets/stock_daily.py)、[DDL](../../src/quant_data/datasets/stock_daily.sql) | 股票全市场交易日、未复权11列、开市日非空 |
+| [`datasets/index_daily.py`](../../src/quant_data/datasets/index_daily.py)、[DDL](../../src/quant_data/datasets/index_daily.sql) | 固定 universe 代码日、受限子集、合法零行 |
+| [`datasets/daily.py`](../../src/quant_data/datasets/daily.py) | 两种日线共用字段、日期／日历读取、数值规则的普通函数 |
 | [`sources/tushare/client.py`](../../src/quant_data/sources/tushare/client.py)、[`stock_basic.py`](../../src/quant_data/sources/tushare/stock_basic.py) | 通用供应商通信与股票专属交付适配 |
 | [`sources/tushare/trade_calendar.py`](../../src/quant_data/sources/tushare/trade_calendar.py) | 按年请求、逐日交付影响与日历类型标准化 |
 | [`sources/tushare/suspend_daily.py`](../../src/quant_data/sources/tushare/suspend_daily.py) | 逐交易日全市场获取，源日期归属与字符串标准化 |
 | [`sources/tushare/stock_st.py`](../../src/quant_data/sources/tushare/stock_st.py) | ST 全市场逐日获取、1,000 行交付边界与源日期隔离 |
 | [`sources/tushare/index_basic.py`](../../src/quant_data/sources/tushare/index_basic.py) | 宽基逐代码及申万按类别／发布方获取、请求身份核对与集中准备 |
+| [`sources/tushare/stock_daily.py`](../../src/quant_data/sources/tushare/stock_daily.py)、[`index_daily.py`](../../src/quant_data/sources/tushare/index_daily.py) | 股票逐日、宽基逐代码年片、申万逐日获取，可信范围核对、申万 scope 筛选及字段／单位映射 |
+| [`sources/tushare/daily.py`](../../src/quant_data/sources/tushare/daily.py) | 日线严格字符串及 JSON 数值解码普通函数 |
 
 采用对象组合与普通函数。Protocol 表达现有接口，不要求具体类继承；没有 Dataset 注册框架、通用分页框架或规则 DSL。
 
@@ -214,6 +219,14 @@ prepare 清理文本后只计算一次日期匹配掩码，复用于诊断和安
 
 缺列／类型错误独立记准备诊断，不改写确已完成的获取。宽基缺代码、申万集合零行、非法日期和非有限基点阻断；零基点合法，负值告警，不约束基期早于发布日。申万包括历史／终止记录，不再检查 SW2021 各层完整性。无迁移或兼容模式，没有新增共享接口、Meta 或框架。
 
+### 5.8 stock_daily 与 index_daily
+
+两个 Dataset 的键均为 (ts_code,trade_date)，11列 Schema；股票九数值必填，指数允许部分NULL。量额统一手／千元，申万 pct_change→pct_chg、vol×100、amount×10，pre_close 明确保留NULL，不从其他事实派生。共享普通字段／日历／数值规则和解码函数，没有新增框架或控制模型。
+
+stock_daily 逐开市日请求 daily 全市场，低于6,000行且 false 标记才获取完成；整日零行阻断，不借当前股票表或停牌集裁历史。index_daily 固定 index_basic / SNAPSHOT 及全部日历版本，以代码日为 Unit；宽基按代码自然年请求 index_daily，申万每天一次 sw_daily(trade_date)，默认单日25个逻辑请求。允许 universe 内 --ts-code 子集；申万 Raw 超集按固定 scope 筛选并记录 source.scope_excluded，范围外原值仍留证。无效代码参数仍在获取前拒绝，不按 list_date/exp_date 裁历史。完整零行可替换旧代码日并形成成功版本，只表示本次供应商未报告行情。
+
+错日／错代码按可信请求范围隔离，源字段／类型／转换问题与 COMPLETE 分别表达；四价齐全才检查 OHLC。申万日请求失败／截断／范围错误阻断当日所有目标申万 Unit，宽基及其他日仍可验收发布；合法范围外申万行不构成 ERROR。缺依赖在获取前阻断，提交前复核 universe 和日历（含排除日）。详见[股票日线契约](stock_daily_ingestion_proposal.md)和[指数日线契约](index_daily_ingestion_proposal.md)。
+
 ## 六、元数据与状态语义
 
 七张表的完整定义见 [`core/meta.sql`](../../src/quant_data/core/meta.sql)。
@@ -289,7 +302,7 @@ CLI 默认库路径仍为 `data/warehouse.duckdb`，landing_root 默认为 `data
 
 CLI 输出 RunResult JSON，业务 SUCCESS 返回 0，FAILED / PARTIAL 返回 1；诊断不完整独立表达，可能仍返回 0。walkthrough 脚本额外要求 `artifacts_complete=True`，否则返回非零。
 
-trade_calendar / suspend_daily / stock_st 必须提供 `--start-date` / `--end-date`（ASCII YYYYMMDD）；stock_basic / index_basic 拒绝这两个日期过滤。未接入其他交易所日历或股票/类型筛选参数，避免改变完整范围契约。
+trade_calendar / suspend_daily / stock_st / stock_daily / index_daily 必须提供 `--start-date` / `--end-date`（ASCII YYYYMMDD）；stock_basic / index_basic 拒绝日期过滤。--ts-code 仅用于 index_daily、可重复且只能选择已发布 universe 内代码；不改变股票全市场日集合政策。
 
 2026-10-16 验证：47 项测试中 46 项通过，1 项因本地股票真实响应样本缺失跳过。新增 11 项停复牌场景覆盖跨 Dataset 日历依赖、休市排除、实际事实缺失 UNKNOWN、零行替换、错日隔离、键冲突、已排除日修订后的版本复核、回滚与 CLI。其余测试覆盖股票、日历、通用机制与诊断故障。100 / 5,000 Unit 的机制测试 SQL 调用数均为 28，后者处理约 120 万行；这不等同于正式分钟 ingestion 的性能验收。环境脚本的正式 DDL、Arrow/Parquet 和 dbt View 检查通过。
 
@@ -301,11 +314,15 @@ trade_calendar / suspend_daily / stock_st 必须提供 `--start-date` / `--end-d
 
 2026-10-22 index_basic 简化：7 项必要测试及真实源记录重放通过；全套 72 项中 71 项通过，1 项既有股票真实样本缺失跳过，环境烟测通过。正式 CLI 在独立库两次各发 25 个请求并发布 793 条事实（24 宽基＋769 申万），逐字段一致、不累加；宽基缺失、申万零行、请求失败三次离线注入均保护旧事实与成功指针，340 个产物文件哈希核对通过。生产代码减少 87 行，详见 [index_basic 验收记录](index_basic_ingestion_proposal.md#5-运行与验收)。
 
+2026-10-22 日线接入：新增10项链路测试通过，全套82项中81通过、1项既有股票样本缺失跳过，环境烟测通过。独立库正式 CLI 股票两日11,131行、指数四代码两日6行及2个零行版本，重跑一致不累加；沪深300在2002年的发布前回填成功。越界代码0请求，两次明确离线注入保护旧版，476个产物文件哈希核对通过。指数实时验收为 universe 内子集，未声称793代码全部实时下载；见[验收摘要](../research/daily-ingestion-summary-2026-10-22.json)。
+
+2026-10-22 申万批量修订：默认单日完整793代码 universe 已真实验证为24次宽基＋1次申万请求，Raw463行、发布438行及355个零行版本、明确排除25行；重跑一致。申万日失败注入保护769个申万Unit旧版，24宽基仍可发布。全套84项中83通过、1项旧样本缺失跳过，环境烟测通过，316个清单文件哈希通过；见[批量验收摘要](../research/index-daily-batch-summary-2026-10-22.json)。此前四代码子集记录为首次逐代码策略的历史验收。
+
 ## 九、当前边界与后续接入
 
 | 方面 | 当前边界 |
 |---|---|
-| 正式 Dataset | stock_basic、SSE trade_calendar、suspend_daily、stock_st 与 index_basic；行情日频、分钟尚未接入 |
+| 正式 Dataset | stock_basic、SSE trade_calendar、suspend_daily、stock_st、index_basic、stock_daily 与 index_daily；分钟尚未接入 |
 | 依赖管理 | 检查已有成功版本，发布前复核；不自动运行上游或传播失效 |
 | 执行与数据规模 | 单连接、单内存批次、串行请求；不支持断点恢复、超内存流式处理或分布式执行 |
 | 并发 | Ingestion、dbt、外部研究进程按运行约定错开访问同一文件；未实现锁协调服务 |
