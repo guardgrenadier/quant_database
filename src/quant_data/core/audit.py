@@ -6,7 +6,7 @@ from uuid import uuid4
 import polars as pl
 
 from quant_data.core.models import Publication, RunResult, UnitResult, control_data
-from quant_data.db import registered, strings_frame
+from quant_data.db import registered, strings_frame, transaction
 
 
 def encode(value):
@@ -147,3 +147,35 @@ def record_artifacts(con, run_id, artifacts):
     """记录清理或留存结果，不改已提交的业务结局。"""
     con.execute("UPDATE meta.run SET artifact_status=?,artifacts_complete=?,export_errors=? WHERE run_id=?",
                 [artifacts.status, artifacts.complete, encode(artifacts.errors), run_id])
+
+
+def reconcile(con):
+    """独立 CLI 取得读写连接后收尾旧 Run；不得在活动 Runner 内调用。
+
+    发布事务的已提交记录是唯一依据。一次 Run 一个事务，重复调用仅处理仍为
+    RUNNING 的记录；未入库的请求和检查不从 Landing 重建。
+    """
+    runs = con.execute("SELECT run_id FROM meta.run WHERE status='RUNNING' ORDER BY started_at").fetchall()
+    results = []
+    error = "ExecutionInterrupted: previous execution ended without finalizing its audit"
+    for run_id, in runs:
+        with transaction(con):
+            # 仅关闭遗留 PENDING 覆盖。已成功、已有失败/未知结局及更新运行的覆盖不回退。
+            con.execute("""
+                UPDATE meta.coverage AS c SET status='FAILED',note=?,updated_at=current_timestamp
+                FROM meta.run_unit u JOIN meta.run r ON r.run_id=u.run_id
+                WHERE u.run_id=? AND u.status='PENDING' AND c.status='PENDING'
+                  AND c.dataset=u.dataset AND c.unit_key=u.unit_key
+                  AND NOT EXISTS (
+                      SELECT 1 FROM meta.run_unit newer JOIN meta.run nr ON nr.run_id=newer.run_id
+                      WHERE newer.dataset=u.dataset AND newer.unit_key=u.unit_key
+                        AND newer.scope_decision<>'OUT_OF_SCOPE' AND nr.started_at>r.started_at
+                  )
+            """, [error, run_id])
+            # 保留最后已记录阶段；中断不能覆盖已有业务错误、Scope 决策或成功 Unit。
+            con.execute("UPDATE meta.run_unit SET status='FAILED',error=? WHERE run_id=? AND status='PENDING'",
+                        [error, run_id])
+            result = finish(con, run_id, error)
+            con.execute("UPDATE meta.run SET reconciled_at=current_timestamp WHERE run_id=?", [run_id])
+        results.append({"run_id": run_id, "status": result.status})
+    return results

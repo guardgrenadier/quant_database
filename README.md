@@ -150,6 +150,22 @@ uv run --frozen python -m quant_data ingest stock_1min \
 
 默认并行 2，可选 4；worker 进程隔离、请求超时、熔断及当前 Run 证据恢复沿用正式执行层。特殊交易时段、复权因子和全历史自动回补不在首版范围。完整契约见[分钟提案](docs/design/stock_1min_ingestion_proposal.md)与[映射提案](docs/design/bse_mapping_ingestion_proposal.md)。
 
+## Meta 审计维护
+
+独立 ingestion CLI 在登记新 Run 前自动收尾遗留 RUNNING：仅将 PENDING Unit 标为执行中断，保留已提交发布及原有错误。已有成功 Unit 的中断 Run 为 PARTIAL，否则 FAILED；`reconciled_at` 表示收尾时间，不是准确的进程死亡时间。程序内直接调用 Runner 不触发收尾。
+
+也可独立收尾，或预览／应用历史明细留存；这些命令不需要供应商凭据：
+
+```bash
+uv run --frozen python -m quant_data meta reconcile --db data/warehouse_audit.duckdb
+uv run --frozen python -m quant_data meta retain --db data/warehouse_audit.duckdb
+uv run --frozen python -m quant_data meta retain --db data/warehouse_audit.duckdb --apply
+```
+
+`run_unit`、`request_attempt`、`validation_check` 结束满 60 天后按 Run 整体归档为 Parquet，满 365 天后允许过期；其他四张 Meta 表长期保留。默认归档目录为数据库同目录的 `<库名>.audit/`，可用 `--archive-dir` 指定。运行中的记录不清理，ingestion 不自动执行历史归档或删除，Landing 留存政策保持原样。
+
+本轮 Meta 增加 `reconciled_at`、`audit_state`、`audit_archive_path`；已有缺少这些列的 V3.2 验证库会明确报不兼容，不自动迁移或清空，请使用新库路径。详细规则与验证边界见 [Meta 审计 Spec](docs/design/meta_audit_lifecycle_spec.md)。
+
 ## 开发环境与接口探查
 
 使用 uv 管理 Python 3.13、`.venv` 和锁定依赖（Polars、DuckDB、Arrow/Parquet、dbt-duckdb、python-dotenv）。在仓库根目录执行：

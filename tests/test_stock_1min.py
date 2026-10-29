@@ -12,7 +12,7 @@ from unittest.mock import patch
 import duckdb
 
 from quant_data import db
-from quant_data.core import runner
+from quant_data.core import audit, runner
 from quant_data.core.models import RunOptions
 from quant_data.datasets.bse_mapping import BseMappingDataset
 from quant_data.datasets.stock_1min import Stock1MinDataset
@@ -189,8 +189,9 @@ class Stock1MinTest(unittest.TestCase):
             return response
         result = self.ingest(MinuteClient(missing))
         self.assertEqual(result.status, "PARTIAL", result)
-        self.assertIn("snapshot.missing", {r[0] for r in self.con.execute(
-            "SELECT rule FROM meta.validation_check WHERE level='ERROR'").fetchall()})
+        rules = {r[0] for r in self.con.execute(
+            "SELECT rule FROM meta.validation_check WHERE run_id=? AND level='ERROR'", [result.run_id]).fetchall()}
+        self.assertEqual(rules, {"source.request"})
 
         def unavailable(request, response):
             if request.kind == "snapshot":
@@ -232,6 +233,61 @@ class Stock1MinTest(unittest.TestCase):
             "SELECT * FROM canonical.stock_1min ORDER BY ts_code,trade_date,bar_time").fetchall())
         self.assertIn("source.request", {r[0] for r in self.con.execute(
             "SELECT rule FROM meta.validation_check WHERE level='ERROR'").fetchall()})
+        rules = {r[0] for r in self.con.execute(
+            "SELECT rule FROM meta.validation_check WHERE run_id=? AND level='ERROR'", [result.run_id]).fetchall()}
+        self.assertEqual(rules, {"source.request"})
+
+    def test_complete_empty_kline_still_reports_real_conflict(self):
+        """完整空交付具备比较前提，不能随失败获取一起抑制真实冲突。"""
+        def empty(request, response):
+            """只清空成功 K 线，保留真实交付状态。"""
+            return GalaxyResponse(request, "COMPLETE", (), None, 0) if request.kind == "kline" else response
+        result = self.ingest(MinuteClient(empty))
+        rules = {r[0] for r in self.con.execute(
+            "SELECT rule FROM meta.validation_check WHERE run_id=?", [result.run_id]).fetchall()}
+        self.assertEqual(result.status, "PARTIAL")
+        self.assertIn("source.daily_conflict", rules)
+        self.assertIn("auction.conservation", rules)
+
+    def test_input_failure_does_not_hide_independent_checks(self):
+        """快照失败仍检查 K 线坏槽；快照解析失败不制造零竞价告警。"""
+        def invalid(request, response):
+            """独立制造 K 线坏槽与快照类型问题。"""
+            if request.kind == "kline":
+                rows = tuple({**r, "kline_time": r["kline_time"] // 10000 * 10000 + 1600} for r in response.rows)
+            else:
+                rows = tuple({**r, "volume": "invalid"} for r in response.rows)
+            return GalaxyResponse(request, "COMPLETE", rows, None, 0)
+        result = self.ingest(MinuteClient(invalid))
+        rules = {r[0] for r in self.con.execute(
+            "SELECT rule FROM meta.validation_check WHERE run_id=?", [result.run_id]).fetchall()}
+        self.assertEqual(result.status, "PARTIAL")
+        self.assertIn("source.time_slot", rules)
+        self.assertIn("snapshot.types", rules)
+        self.assertFalse(rules & {"snapshot.zero_auction", "source.daily_conflict", "auction.conservation"})
+
+        def failed(request, response):
+            """改为快照通信失败，K 线独立坏槽仍须保留。"""
+            if request.kind == "snapshot":
+                return GalaxyResponse(request, "FAILED", (), "network failure", -1)
+            return invalid(request, response)
+        result = self.ingest(MinuteClient(failed))
+        rules = {r[0] for r in self.con.execute(
+            "SELECT rule FROM meta.validation_check WHERE run_id=?", [result.run_id]).fetchall()}
+        self.assertEqual(rules, {"source.request", "source.time_slot"})
+
+    def test_kline_parse_failure_keeps_root_cause(self):
+        """K 线不能解析时保留类型错误，不派生空交付和竞价冲突。"""
+        def invalid(request, response):
+            """只损坏 K 线字段，快照正常返回。"""
+            if request.kind == "kline":
+                return GalaxyResponse(request, "COMPLETE", tuple({**r, "kline_time": "invalid"} for r in response.rows), None, 0)
+            return response
+        result = self.ingest(MinuteClient(invalid))
+        rules = {r[0] for r in self.con.execute(
+            "SELECT rule FROM meta.validation_check WHERE run_id=? AND level='ERROR'", [result.run_id]).fetchall()}
+        self.assertEqual(result.status, "FAILED")
+        self.assertEqual(rules, {"source.types"})
 
     def test_invalid_raw_slot_and_snapshot_time_are_errors(self):
         def bad_slot(request, response):
@@ -367,7 +423,9 @@ class Stock1MinTest(unittest.TestCase):
         self.assertEqual({r.codes[0] for r in self.client.requests if r.kind == "kline"}, {"832000.BJ", "920000.BJ"})
 
     def test_cli_assembles_galaxy_and_parallel(self):
+        """CLI 装配前收尾旧 Run，并在结果中明确报告；新执行保持正常发布。"""
         from quant_data.__main__ import main
+        interrupted, _ = audit.begin(self.con, "stock_1min", {}, self.root / "old-landing")
         argv = ["quant_data", "ingest", "stock_1min", "--db", str(self.root / "warehouse.duckdb"),
                 "--landing-dir", str(self.root / "cli-landing"), "--start-date", "20200312",
                 "--end-date", "20200314", "--parallel", "4"]
@@ -379,6 +437,7 @@ class Stock1MinTest(unittest.TestCase):
             self.assertEqual(main(), 0)
         factory.assert_called_once_with(parallel=4)
         self.assertEqual(json.loads(output.getvalue())["status"], "SUCCESS")
+        self.assertEqual(json.loads(output.getvalue())["reconciled_runs"], [{"run_id": interrupted, "status": "FAILED"}])
 
 
 if __name__ == "__main__":

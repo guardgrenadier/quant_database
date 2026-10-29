@@ -10,7 +10,12 @@ CREATE TABLE IF NOT EXISTS meta.run (
     status VARCHAR NOT NULL CHECK (status IN ('RUNNING','SUCCESS','PARTIAL','FAILED')),
     summary JSON NOT NULL DEFAULT '{}', error VARCHAR, failed_stage VARCHAR,
     artifact_dir VARCHAR NOT NULL, artifact_status VARCHAR NOT NULL DEFAULT 'ACTIVE',
-    artifacts_complete BOOLEAN, export_errors JSON NOT NULL DEFAULT '[]'
+    artifacts_complete BOOLEAN, export_errors JSON NOT NULL DEFAULT '[]',
+    -- 中断收尾时间不是进程死亡时间；审计明细生命周期与业务结局、Landing 状态独立。
+    reconciled_at TIMESTAMPTZ,
+    audit_state VARCHAR NOT NULL DEFAULT 'ONLINE' CHECK (audit_state IN ('ONLINE','ARCHIVED','EXPIRED')),
+    audit_archive_path VARCHAR,
+    CHECK (audit_state='ONLINE' OR audit_archive_path IS NOT NULL)
 );
 -- 一行一个本次 Unit，Scope 决策独立于后续交付与执行状态。
 CREATE TABLE IF NOT EXISTS meta.run_unit (

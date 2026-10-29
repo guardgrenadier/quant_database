@@ -7,7 +7,7 @@ import duckdb
 import polars as pl
 
 META_COLUMNS = {
-    "run": "run_id dataset params started_at finished_at status summary error failed_stage artifact_dir artifact_status artifacts_complete export_errors",
+    "run": "run_id dataset params started_at finished_at status summary error failed_stage artifact_dir artifact_status artifacts_complete export_errors reconciled_at audit_state audit_archive_path",
     "run_unit": "run_id dataset unit_key scope_decision reason status stage delivery_state request_ids check_ids publication_id row_count error",
     "run_dependency": "run_id upstream_dataset upstream_unit publication_id",
     "request_attempt": "run_id request_id attempt api_name params fields requested_at elapsed_seconds http_status provider_code returned_fields row_count has_more error evidence_path",
@@ -58,8 +58,8 @@ def strings_frame(rows, names):
     return pl.DataFrame(rows, schema={name: pl.String for name in names}, orient="row")
 
 
-def initialize(con, dataset):
-    """初始化新版 Meta 和业务表；旧 Meta 明确报错，事务内不迁移或删除旧数据。"""
+def check_meta(con):
+    """检查已有 Meta 布局并返回是否存在；供初始化与独立维护共用。"""
     # 兼容性检查先于建表：已有 Meta 的表/字段布局必须完全匹配本版，不改写旧库。
     actual_meta = {}
     for table, column in con.execute(
@@ -68,7 +68,13 @@ def initialize(con, dataset):
     ).fetchall():
         actual_meta.setdefault(table, []).append(column)
     if actual_meta and actual_meta != {name: value.split() for name, value in META_COLUMNS.items()}:
-        raise ValueError("Meta schema is incompatible with V3.2; use a new --db path (no automatic migration)")
+        raise ValueError("Meta schema is incompatible with the current audit schema; use a new --db path (no automatic migration)")
+    return bool(actual_meta)
+
+
+def initialize(con, dataset):
+    """初始化新版 Meta 和业务表；旧 Meta 明确报错，事务内不迁移或删除旧数据。"""
+    check_meta(con)
     # 业务时间：审计时间展示和 SQL current_date 使用上海时区，未来日期告警也以此为基准。
     con.execute("SET TimeZone = 'Asia/Shanghai'")
     with transaction(con):

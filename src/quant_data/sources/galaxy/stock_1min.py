@@ -9,6 +9,7 @@ import polars as pl
 
 from quant_data.core import deps
 from quant_data.core.models import Check, Delivery, UnitDelivery
+from quant_data.core.validation import blocked_units
 from quant_data.datasets.stock_1min import Stock1MinDataset
 from quant_data.db import registered, transaction
 from quant_data.sources.galaxy.client import GalaxyRequest
@@ -163,16 +164,23 @@ class GalaxyStock1MinAdapter:
         checks.extend(interval_errors)
         kline, auction, raw_checks = self._raw_frames(delivery, scope)
         checks.extend(raw_checks)
-        requested = scope.units if scope.request_units is None else scope.request_units
-        # 快照覆盖按股票日判断；历史不可得与当前批次缺席不能混用。
-        snapshot_presence = self._snapshot_presence()
-        auction_keys = set(auction["unit_key"].to_list()) if auction is not None else set()
-        for unit in requested:
-            history_missing = any(r.request.kind == "snapshot" and unit in self._owners[r.request.request_id]
-                                  and r.provider_code == -76 for r in self._responses.values())
-            if unit not in snapshot_presence and not history_missing:
-                checks.append(Check("ERROR", "snapshot.missing", "prepare", (unit,)))
-            elif unit not in snapshot_presence:
+        # 两类输入分别确认前提：一类获取失败不能停止另一类已返回记录的独立检查。
+        ready = {"kline": set(), "snapshot": set()}
+        history_unavailable = set()
+        for response in self._responses.values():
+            if response.state == "COMPLETE":
+                affected = self._owners[response.request.request_id]
+                ready[response.request.kind].update(affected)
+                if response.request.kind == "snapshot" and response.provider_code == -76:
+                    history_unavailable.update(affected)
+        for kind, prefix in (("kline", "source."), ("snapshot", "snapshot.")):
+            # Raw 解析仅产生 source.* 或 snapshot.* 诊断；排除对应输入的解析失败范围。
+            errors = tuple(c for c in raw_checks if c.rule.startswith(prefix))
+            ready[kind].difference_update(blocked_units(scope.units, errors))
+        # 快照缺失由获取阶段的 source.request 表达；完整输入才解释零竞价或历史不可得。
+        auction_keys = set(auction["unit_key"].to_list())
+        for unit in sorted(ready["snapshot"]):
+            if unit in history_unavailable:
                 checks.append(Check("WARNING", "snapshot.history_unavailable", "prepare", (unit,)))
             elif unit not in auction_keys:
                 checks.append(Check("WARNING", "snapshot.zero_auction", "prepare", (unit,)))
@@ -183,7 +191,7 @@ class GalaxyStock1MinAdapter:
             con.execute(f"CREATE OR REPLACE TEMP TABLE _minute_kline AS SELECT * FROM {kline_relation}")
             con.execute(f"CREATE OR REPLACE TEMP TABLE _minute_auction AS SELECT * FROM {auction_relation}")
             con.execute(f"CREATE OR REPLACE TEMP TABLE _minute_intervals AS SELECT * FROM {interval_relation}")
-        checks.extend(self._source_checks(con, scope, daily_map))
+        checks.extend(self._source_checks(con, scope, daily_map, ready))
         candidate = self._candidate(con, full_suspended)
         return candidate, tuple(checks)
 
@@ -244,14 +252,21 @@ class GalaxyStock1MinAdapter:
             required = {"kline_time", "open_price", "high_price", "low_price", "close_price", "volume_trade", "value_trade"}
             missing = sorted(required - set(kline.columns))
             if missing:
-                return empty_kline, empty_auction, (Check("ERROR", "source.fields", "prepare", None, {"missing": missing}),)
-            kline = kline.with_columns(
-                (pl.col("_code") + ":" + pl.col("kline_time").cast(pl.String).str.slice(0, 4) + "-" +
-                 pl.col("kline_time").cast(pl.String).str.slice(4, 2) + "-" +
-                 pl.col("kline_time").cast(pl.String).str.slice(6, 2)).alias("unit_key")
-            ).select("unit_key", "kline_time", "open_price", "high_price", "low_price", "close_price",
-                     "volume_trade", "value_trade", "_request_id", "_start", "_end")
-            kline = kline.cast({c: pl.Int64 for c in kline.columns if c not in ("unit_key", "_request_id")})
+                checks.append(Check("ERROR", "source.fields", "prepare", None, {"missing": missing}))
+                kline = empty_kline
+            else:
+                # 转换失败保留明确根因，继续解析独立的快照输入，不用空 K 线制造跨源冲突。
+                try:
+                    kline = kline.with_columns(
+                        (pl.col("_code") + ":" + pl.col("kline_time").cast(pl.String).str.slice(0, 4) + "-" +
+                         pl.col("kline_time").cast(pl.String).str.slice(4, 2) + "-" +
+                         pl.col("kline_time").cast(pl.String).str.slice(6, 2)).alias("unit_key")
+                    ).select("unit_key", "kline_time", "open_price", "high_price", "low_price", "close_price",
+                             "volume_trade", "value_trade", "_request_id", "_start", "_end")
+                    kline = kline.cast({c: pl.Int64 for c in kline.columns if c not in ("unit_key", "_request_id")})
+                except pl.exceptions.PolarsError as exc:
+                    checks.append(Check("ERROR", "source.types", "prepare", None, {"error": str(exc)}))
+                    kline = empty_kline
         else:
             kline = empty_kline
         snapshots = delivery.frame.filter(pl.col("_kind") == "snapshot")
@@ -260,7 +275,8 @@ class GalaxyStock1MinAdapter:
             required = {"ts_code", "trade_time", "open", "high", "low", "last", "volume", "amount"}
             missing = sorted(required - set(snapshots.columns))
             if missing:
-                return kline, empty_auction, (Check("ERROR", "snapshot.fields", "prepare", None, {"missing": missing}),)
+                checks.append(Check("ERROR", "snapshot.fields", "prepare", None, {"missing": missing}))
+                return kline, empty_auction, tuple(checks)
             by_unit = {}
             requested_units = scope.units if scope.request_units is None else scope.request_units
             for row in snapshots.iter_rows(named=True):
@@ -296,15 +312,7 @@ class GalaxyStock1MinAdapter:
         auction = pl.DataFrame(anchors, schema=empty_auction.schema) if anchors else empty_auction
         return kline, auction, tuple(checks)
 
-    def _snapshot_presence(self):
-        # COMPLETE 表示批次中所有 code/date 均已交付；空 DataFrame 是合法零竞价，不等于缺席。
-        present = set()
-        for response in self._responses.values():
-            if response.request.kind == "snapshot" and response.state == "COMPLETE" and response.provider_code != -76:
-                present.update(self._owners[response.request.request_id])
-        return present
-
-    def _source_checks(self, con, scope, daily_map):
+    def _source_checks(self, con, scope, daily_map, ready):
         """在网格构造前拒绝无法归属、非法槽位及跨源冲突的交付。
 
         除请求闭区间外，还检查实际 code×date 和市场分钟模板，防止错行在 join
@@ -346,23 +354,28 @@ class GalaxyStock1MinAdapter:
         """).fetchall()
         if bad_scale:
             checks.append(Check("ERROR", "source.volume_scale", "prepare", tuple(r[0] for r in bad_scale)))
+        # 独立源检查仍完整执行；只有有效、完整的两类输入才参与竞价跨源比较。
+        kline_ready = ready["kline"] - blocked_units(scope.units, checks)
+        auction_ready = sorted(kline_ready & ready["snapshot"])
         auction_conservation = con.execute("""
             SELECT a.unit_key FROM _minute_auction a
             LEFT JOIN _minute_kline k ON k.unit_key=a.unit_key AND k.kline_time%10000=930
-            WHERE k.unit_key IS NULL OR a.volume_trade>k.volume_trade OR a.value_trade>k.value_trade
-               OR a.close_price<k.low_price OR a.close_price>k.high_price
-        """).fetchall()
+            WHERE a.unit_key IN (SELECT unnest(?::VARCHAR[]))
+              AND (k.unit_key IS NULL OR a.volume_trade>k.volume_trade OR a.value_trade>k.value_trade
+                   OR a.close_price<k.low_price OR a.close_price>k.high_price)
+        """, [auction_ready]).fetchall()
         if auction_conservation:
             checks.append(Check("ERROR", "auction.conservation", "prepare", tuple(r[0] for r in auction_conservation)))
         remainder = con.execute("""
             SELECT k.unit_key FROM _minute_kline k JOIN _minute_auction a USING(unit_key)
-            WHERE k.kline_time%10000=930 AND ((k.volume_trade-a.volume_trade=0)<>(k.value_trade-a.value_trade=0))
-        """).fetchall()
+            WHERE k.unit_key IN (SELECT unnest(?::VARCHAR[]))
+              AND k.kline_time%10000=930 AND ((k.volume_trade-a.volume_trade=0)<>(k.value_trade-a.value_trade=0))
+        """, [auction_ready]).fetchall()
         if remainder:
             checks.append(Check("ERROR", "auction.remainder", "prepare", tuple(r[0] for r in remainder)))
         delivered = {r[0] for r in con.execute("SELECT DISTINCT unit_key FROM _minute_kline").fetchall()}
-        requested = scope.units if scope.request_units is None else scope.request_units
-        for unit in requested:
+        # 完整空交付仍参与业务冲突判断；获取/解析失败造成的空数据不参与。
+        for unit in sorted(kline_ready):
             code, day_text = unit.rsplit(":", 1)
             daily = daily_map.get((code, date.fromisoformat(day_text)))
             positive = daily is not None and daily[1] > 0

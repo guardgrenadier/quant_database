@@ -107,7 +107,7 @@ Validator 与 Publisher 复用同次运行创建的 `candidate` / `_scope_units`
 
 ### 4.1 正常路径
 
-1. **初始化与登记**：检查已有 Meta 布局，建表并核对 Canonical 列名、顺序和类型；登记 Run 与唯一产物路径。连接时区设为 `Asia/Shanghai`。
+1. **初始化与登记**：检查已有 Meta 布局，建表并核对 Canonical 列名、顺序和类型；独立 CLI 在取得读写连接后收尾遗留 RUNNING，再登记新 Run 与唯一产物路径。普通 Runner 调用不触发收尾。连接时区设为 `Asia/Shanghai`。
 2. **依赖与 Scope**：同一读取事务内检查所需范围已有 PUBLISHED Coverage，固定版本、解析 Scope，并记录范围决策和依赖。缺少依赖时不请求供应商；没有 IN_SCOPE Unit 时跳过获取与发布。
 3. **获取**：Adapter 调用 Client；每次尝试即时写证据。fetch 返回后，Runner 批量写请求与获取审计，拒绝重复或越界的 Unit，保留 Raw 与诊断。
 4. **集中准备**：只调用一次 prepare，输出 Candidate 与准备诊断；即使全部转换失败或没有 Candidate 也送入统一验收，不按行数提前放行。准备产物同时展示 Raw 解码时已发现的 prepare 诊断。
@@ -135,7 +135,9 @@ Scope 外的发布许可被拒绝；没有合格 Unit 时不修改业务数据�
 
 整个 Run 不处于一个大事务中：范围、交付、检查与失败审计分阶段保存，成功数据及成功元数据由发布事务保护。Runner 捕获普通执行异常，标记本次未发布的 IN_SCOPE Unit 并汇总结果；已提交成功 Unit 不反写成失败。
 
-Raw/Candidate 在验收、发布提交或回滚期间保持可访问，正常收尾时在诊断导出之后释放连接级临时关系。进程强制退出、审计写入故障等不提供完整自动恢复保证，可能留下 RUNNING / PENDING 审计或暂存目录；这不能据以推断存在成功发布。
+Raw/Candidate 在验收、发布提交或回滚期间保持可访问，正常收尾时在诊断导出之后释放连接级临时关系。进程强制退出可能留下 RUNNING / PENDING；下一次独立 CLI 或 `meta reconcile` 按已提交审计收尾，不依据业务行或暂存文件猜测成功，也不自动续跑。每个 Run 一次事务，只将 PENDING Unit 转为失败，保留最后已记录阶段、既有错误、范围决策与成功发布，旧 Run 不覆盖更新的 Coverage。中断构成 Run 级错误，有成功 Unit 即为 PARTIAL，否则 FAILED；全部已发布但未汇总也为 PARTIAL。
+
+`reconciled_at` 和此时的 `finished_at` 表示收尾关闭时间，不是准确的进程死亡时间。未入库的请求与检查不补造，遗留证据不在收尾时删除，孤儿 worker 治理不包含在此能力中。
 
 ## 五、正式 Dataset 契约
 
@@ -238,7 +240,7 @@ stock_daily 逐开市日请求 daily 全市场，低于6,000行且 false 标记�
 
 | 表 / 主键 | 内容与用途 |
 |---|---|
-| `meta.run` / run_id | 参数、起止时间、Run 状态、计数摘要、全局错误与失败阶段、产物状态 |
+| `meta.run` / run_id | 参数、起止时间、Run 状态、计数摘要、全局错误与失败阶段、产物状态；reconciled_at、audit_state、audit_archive_path 描述中断收尾和明细生命周期 |
 | `meta.run_unit` / run_id + dataset + unit_key | 本次 Scope 决策与原因、交付状态、执行状态与阶段、请求/检查引用、成功行数与版本 |
 | `meta.run_dependency` / run_id + upstream_dataset + upstream_unit | Scope 实际使用的上游成功版本 |
 | `meta.request_attempt` / run_id + request_id + attempt | 每次 HTTP 尝试的控制信息与原始证据路径，重试各占一行 |
@@ -262,6 +264,10 @@ stock_daily 逐开市日请求 daily 全市场，低于6,000行且 false 标记�
 Run 初始为 RUNNING；结束时，有失败、未知、待处理 Unit 或全局异常，且已有成功 Unit，则为 PARTIAL，否则 FAILED；没有上述问题为 SUCCESS。OUT_OF_SCOPE 不算失败，因此 SUCCESS 本身不保证发布了数据：全部排除或空 Scope 可以成功且无 Publication。
 
 Publication 记录的是成功变更范围，Canonical 仅保留当前事实；没有历史行镜像、按 publication_id 查询旧数据或通用 CDC 能力。
+
+Run、Publication、Coverage 和 Run Dependency 长期保留；Run Unit、Request Attempt、Validation Check 在线保留 60 天，之后按 Run 整体归档为 Parquet，Run 结束满 365 天允许过期。独立 `meta retain --db ...` 默认预览，`--apply` 才执行；RUNNING 排除，不改变历史 summary。归档先校验文件，再事务删除在线明细并切换 ARCHIVED；过期先标 EXPIRED，再删除文件，路径保留以便失败重试。`audit_state` 独立于业务结局和 Landing 状态。详见 [Meta 审计 Spec](meta_audit_lifecycle_spec.md)。
+
+分钟 Adapter 分别确定 K 线、快照的完整交付与解析成功范围，再执行依赖它们的比较。获取失败不再追加快照缺失、日线冲突或竞价守恒等连带错误；另一输入上可独立执行的源检查保留，完整空交付的真实冲突仍阻断。没有新增共享检查模型或 SKIPPED 日志。
 
 ## 七、证据、诊断产物与清理
 

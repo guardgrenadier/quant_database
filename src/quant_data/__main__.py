@@ -9,6 +9,7 @@ import duckdb
 from dotenv import dotenv_values
 
 from quant_data import db
+from quant_data.core import audit, maintenance
 from quant_data.core.models import RunOptions, control_data
 from quant_data.core.runner import run
 from quant_data.datasets.stock_basic import StockBasicDataset
@@ -33,8 +34,31 @@ from quant_data.sources.galaxy.client import GalaxyClient
 from quant_data.sources.galaxy.stock_1min import GalaxyStock1MinAdapter
 
 
+def _maintain(args):
+    """维护现有库，不加载供应商凭据、不创建业务表，也不自动迁移 Meta。"""
+    try:
+        # 维护必须指向已有文件，防止路径笔误生成一个空数据库。
+        if not args.db.is_file():
+            raise ValueError(f"Database does not exist: {args.db}")
+        with duckdb.connect(str(args.db)) as con:
+            if not db.check_meta(con):
+                raise ValueError("Database has no Meta schema")
+            con.execute("SET TimeZone = 'Asia/Shanghai'")
+            # 独立进程取得写连接后才允许收尾；留存预览不隐式修改遗留 Run。
+            if args.meta_command == "reconcile":
+                result = {"reconciled_runs": audit.reconcile(con)}
+            else:
+                root = args.archive_dir or args.db.resolve().with_suffix(".audit")
+                result = maintenance.retain(con, root, apply=args.apply)
+        print(json.dumps(result, ensure_ascii=False))
+        return 0
+    except (ValueError, OSError, duckdb.Error) as exc:
+        print(json.dumps({"status": "FAILED", "error": str(exc)}, ensure_ascii=False))
+        return 1
+
+
 def main():
-    """加载私有凭据并运行已选择的 Dataset，成功返回 0，失败或部分成功返回 1。"""
+    """装配 ingestion 或独立 Meta 维护；失败返回非零，留存默认只预览。"""
     parser = argparse.ArgumentParser(description="Personal quantitative database ingestion")
     commands = parser.add_subparsers(dest="command", required=True)
     ingest = commands.add_parser("ingest")
@@ -46,7 +70,17 @@ def main():
     ingest.add_argument("--end-date", help="日期型 Dataset 结束日期，YYYYMMDD，包含当日")
     ingest.add_argument("--ts-code", action="append", help="仅 index_daily：选择已发布 universe 内代码，可重复")
     ingest.add_argument("--parallel", type=int, choices=(2, 4), help="仅 stock_1min：银河单会话请求并行度")
+    meta = commands.add_parser("meta", help="独立审计收尾与留存维护")
+    maintenance_commands = meta.add_subparsers(dest="meta_command", required=True)
+    reconcile = maintenance_commands.add_parser("reconcile", help="收尾遗留 RUNNING，不重新获取或发布")
+    reconcile.add_argument("--db", type=Path, required=True)
+    retain = maintenance_commands.add_parser("retain", help="预览 60 天归档／365 天过期")
+    retain.add_argument("--db", type=Path, required=True)
+    retain.add_argument("--archive-dir", type=Path, help="默认使用数据库同目录的 <库名>.audit")
+    retain.add_argument("--apply", action="store_true", help="实际执行归档、过期及删除重试")
     args = parser.parse_args()
+    if args.command == "meta":
+        return _maintain(args)
     # CLI 边界：按日期发布的数据必须显式给出完整区间，完整快照不能接受子集日期。
     params = {}
     if args.dataset in ("trade_calendar", "suspend_daily", "stock_st", "stock_daily", "index_daily", "stock_1min"):
@@ -114,6 +148,8 @@ def main():
             adapter = TushareIndexDailyAdapter(TushareClient(token))
         with duckdb.connect(str(args.db)) as con:
             db.initialize(con, dataset)
+            # 只在独立 CLI 启动、登记新 Run 前收尾；Runner 的普通调用不扫描活动运行。
+            reconciled = audit.reconcile(con)
             result = run(con, dataset, adapter, params, RunOptions(args.landing_dir, args.keep_artifacts))
     except (ValueError, OSError, duckdb.Error) as exc:
         message = str(exc)
@@ -122,7 +158,10 @@ def main():
                 message = message.replace(secret, "<redacted>")
         print(json.dumps({"status": "FAILED", "error": message}, ensure_ascii=False))
         return 1
-    output = json.dumps(control_data(result), ensure_ascii=False)
+    output_data = control_data(result)
+    if reconciled:
+        output_data["reconciled_runs"] = reconciled
+    output = json.dumps(output_data, ensure_ascii=False)
     for secret in (token, ad_password):
         if secret:
             output = output.replace(secret, "<redacted>")

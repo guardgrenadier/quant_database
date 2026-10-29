@@ -14,5 +14,6 @@ data/probes/
 data/landing/
 *.duckdb
 *.duckdb.wal
+*.audit/
 dbt/target/
 dbt/logs/
