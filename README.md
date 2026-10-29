@@ -1,6 +1,6 @@
 # quant_data
 
-个人量化数据库，已接入 `stock_basic` 完整快照、SSE `trade_calendar`、`suspend_daily` 停复牌、`stock_st` 名单、`index_basic` 目标指数快照，以及 `stock_daily` 未复权股票日线和 `index_daily` universe 内指数日线：获取及证据 → 集中准备 Candidate → 统一验收 → Canonical 和 Meta 原子发布。
+个人量化数据库，已接入 `stock_basic` 完整快照、SSE `trade_calendar`、`suspend_daily` 停复牌、`stock_st` 名单、`index_basic` 目标指数快照、`stock_daily` 未复权股票日线、`index_daily` universe 内指数日线、`bse_mapping` 北交所代码映射，以及 `stock_1min` 完整分钟研究网格：获取及证据 → 集中准备 Candidate → 统一验收 → Canonical 和 Meta 原子发布。
 
 | 阅读目的 | 文档 |
 |---|---|
@@ -128,6 +128,28 @@ uv run --frozen python -m quant_data ingest index_daily \
 
 契约和真实独立库验收见[股票日线](docs/design/stock_daily_ingestion_proposal.md)、[指数日线](docs/design/index_daily_ingestion_proposal.md)。
 
+## 北交所代码映射与股票一分钟
+
+`bse_mapping` 保存官方北交所新旧代码完整快照，用于分钟历史的时代代码路由。单次全量请求，四字段，`o_code` 主键、`n_code` 唯一，整快照替换，失败保护旧版：
+
+```bash
+uv run --frozen python -m quant_data ingest bse_mapping \
+  --db data/probes/my-minute/warehouse.duckdb --keep-artifacts
+```
+
+`stock_1min` 使用银河分钟 K 线和开盘竞价快照，落地单一物化完整研究网格，而不是稀疏源行副本。`status` 区分 `TRADED / NO_TRADE / SUSPENDED`；`reference_price` 从当日 `stock_daily.pre_close` 初始化并在当日内前向继承，无当日日线行时初始为 NULL。全天停牌保存完整网格但不请求银河；09:30 OHLC 保留银河混合口径，量额扣除开盘竞价。量额为股／元，价格为元，时间为 `TIME_NS`。
+
+先在同库发布上游依赖，再在 `.env` 配置 `AD_USERNAME/AD_PASSWORD` 后运行：
+
+```bash
+uv run --frozen python -m quant_data ingest stock_1min \
+  --start-date 20260903 --end-date 20260903 --parallel 2 \
+  --db data/probes/my-minute/warehouse.duckdb \
+  --landing-dir data/probes/my-minute/landing --keep-artifacts
+```
+
+默认并行 2，可选 4；worker 进程隔离、请求超时、熔断及当前 Run 证据恢复沿用正式执行层。特殊交易时段、复权因子和全历史自动回补不在首版范围。完整契约见[分钟提案](docs/design/stock_1min_ingestion_proposal.md)与[映射提案](docs/design/bse_mapping_ingestion_proposal.md)。
+
 ## 开发环境与接口探查
 
 使用 uv 管理 Python 3.13、`.venv` 和锁定依赖（Polars、DuckDB、Arrow/Parquet、dbt-duckdb、python-dotenv）。在仓库根目录执行：
@@ -155,7 +177,7 @@ uv run --frozen python scripts/probe_tushare.py --case stock_L --case suspend_20
 - [停复牌正式 Schema](src/quant_data/datasets/suspend_daily.sql) 与[落地验证](docs/research/suspend-daily-ingestion-validation-2026-10-16.md)
 - [银河 vs Tushare 日线质量对照与接入建议](docs/research/galaxy-vs-tushare-daily-quality-2026-10-22.md)（银河接口系列探查见同目录 galaxy-* 报告）
 
-七个 Dataset 的正式 DDL 位于 [datasets](src/quant_data/datasets)。逐请求摘要由探查报告引用。早期 review、walkthrough 和探查原始产物已于 2026-10-16 清理，可按上述入口重新生成；当前正式切片的证据路径见各自文档。
+九个 Dataset 的正式 DDL 位于 [datasets](src/quant_data/datasets)。逐请求摘要由探查报告引用。早期 review、walkthrough 和探查原始产物已于 2026-10-16 清理，可按上述入口重新生成；当前正式切片的证据路径见各自文档。
 
 ## 数据商接口
 

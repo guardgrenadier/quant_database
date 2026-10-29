@@ -36,7 +36,7 @@ class IndexBasicDataset:
     })
     ddl = Path(__file__).with_suffix(".sql").read_text()
 
-    def dependencies(self, params):
+    def dependencies(self, params, con):
         """固定目标快照无已发布上游依赖；拒绝任意子集参数。"""
         # 业务检查：日期、市场或代码子集均不能冒充完整快照。
         if params:

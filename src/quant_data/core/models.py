@@ -17,10 +17,11 @@ class ScopeReason:
 
 @dataclass(frozen=True, slots=True)
 class Scope:
-    """统一业务范围；各决策集合互斥，Unit 标识唯一且非空。"""
+    """统一发布范围及可选请求子集；各决策集合互斥，Unit 标识唯一且非空。"""
     units: tuple[str, ...]
     out_of_scope: tuple[ScopeReason, ...] = ()
     unknown: tuple[ScopeReason, ...] = ()
+    request_units: tuple[str, ...] | None = None
 
     def __post_init__(self):
         """在构造处检查范围结构，避免请求和验收消费冲突决策。"""
@@ -29,6 +30,10 @@ class Scope:
         names = self.units + tuple(x.unit_key for x in self.out_of_scope + self.unknown)
         if any(not isinstance(x, str) or not x.strip() for x in names) or len(names) != len(set(names)):
             raise ValueError("Scope units must be nonempty strings with disjoint decisions")
+        # 请求子集只改变获取计划，不扩大发布范围；None 沿用全部 IN_SCOPE，空 tuple 表示全部本地交付。
+        if self.request_units is not None:
+            if len(self.request_units) != len(set(self.request_units)) or not set(self.request_units) <= set(self.units):
+                raise ValueError("Scope request_units must be a unique subset of units")
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,8 +155,8 @@ class Dataset(Protocol):
     ddl: str
     record_key: tuple[str, ...]
 
-    def dependencies(self, params: dict) -> tuple[DependencyRef, ...]:
-        """声明本次目标需要的上游成功范围。"""
+    def dependencies(self, params: dict, con: Any) -> tuple[DependencyRef, ...]:
+        """在同一事务内声明本次目标需要的上游成功范围。"""
         ...
 
     def resolve_scope(self, params: dict, pins: tuple[DependencyPin, ...], con: Any) -> Scope:
@@ -173,8 +178,9 @@ class SourceAdapter(Protocol):
         """组织供应商请求，交付原始列式批次与独立控制结果。"""
         ...
 
-    def prepare(self, delivery: Delivery, scope: Scope) -> tuple[pl.DataFrame | None, tuple[Check, ...]]:
-        """集中核对源记录并标准化；返回 Candidate 与诊断，不产生发布许可。"""
+    def prepare(self, delivery: Delivery, scope: Scope, con: Any,
+                pins: tuple[DependencyPin, ...]) -> tuple[pl.DataFrame | None, tuple[Check, ...]]:
+        """集中核对源记录并标准化；需要时按固定版本读取上游，不产生发布许可。"""
         ...
 
 

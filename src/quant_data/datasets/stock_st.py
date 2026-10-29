@@ -22,7 +22,7 @@ class StockStDataset:
                         "type": pl.String, "type_name": pl.String})
     ddl = Path(__file__).with_suffix(".sql").read_text()
 
-    def dependencies(self, params):
+    def dependencies(self, params, con):
         """验证显式日期闭区间，并要求每个自然日的成功 SSE 日历版本。"""
         # 业务边界：只接受完整日名单区间，拒绝证券、类型或交易所子集替换。
         if set(params) != {"start_date", "end_date"}:

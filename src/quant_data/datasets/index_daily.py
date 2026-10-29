@@ -13,7 +13,7 @@ class IndexDailyDataset:
     schema = SCHEMA
     ddl = Path(__file__).with_suffix(".sql").read_text()
 
-    def dependencies(self, params):
+    def dependencies(self, params, con):
         # 业务边界：代码子集不能绕过已发布 universe；先验证输入结构，成员检查在同快照读取时完成。
         if not {"start_date", "end_date"} <= set(params) <= {"start_date", "end_date", "ts_codes"}:
             raise ValueError("index_daily requires start_date/end_date and optional ts_codes")

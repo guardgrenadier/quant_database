@@ -25,7 +25,7 @@ class StockBasicDataset:
     })
     ddl = Path(__file__).with_suffix(".sql").read_text()
 
-    def dependencies(self, params):
+    def dependencies(self, params, con):
         """拒绝子集参数，声明完整当前快照无上游依赖。"""
         # 业务检查：带筛选条件的子集不能替换整个当前快照，因此直接拒绝参数。
         if params:

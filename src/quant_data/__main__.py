@@ -18,6 +18,8 @@ from quant_data.datasets.stock_st import StockStDataset
 from quant_data.datasets.index_basic import IndexBasicDataset
 from quant_data.datasets.stock_daily import StockDailyDataset
 from quant_data.datasets.index_daily import IndexDailyDataset
+from quant_data.datasets.bse_mapping import BseMappingDataset
+from quant_data.datasets.stock_1min import Stock1MinDataset
 from quant_data.sources.tushare.client import TushareClient
 from quant_data.sources.tushare.stock_basic import TushareStockBasicAdapter
 from quant_data.sources.tushare.trade_calendar import TushareTradeCalendarAdapter
@@ -26,6 +28,9 @@ from quant_data.sources.tushare.stock_st import TushareStockStAdapter
 from quant_data.sources.tushare.index_basic import TushareIndexBasicAdapter
 from quant_data.sources.tushare.stock_daily import TushareStockDailyAdapter
 from quant_data.sources.tushare.index_daily import TushareIndexDailyAdapter
+from quant_data.sources.tushare.bse_mapping import TushareBseMappingAdapter
+from quant_data.sources.galaxy.client import GalaxyClient
+from quant_data.sources.galaxy.stock_1min import GalaxyStock1MinAdapter
 
 
 def main():
@@ -33,33 +38,45 @@ def main():
     parser = argparse.ArgumentParser(description="Personal quantitative database ingestion")
     commands = parser.add_subparsers(dest="command", required=True)
     ingest = commands.add_parser("ingest")
-    ingest.add_argument("dataset", choices=["stock_basic", "trade_calendar", "suspend_daily", "stock_st", "index_basic", "stock_daily", "index_daily"])
+    ingest.add_argument("dataset", choices=["stock_basic", "trade_calendar", "suspend_daily", "stock_st", "index_basic", "stock_daily", "index_daily", "bse_mapping", "stock_1min"])
     ingest.add_argument("--db", type=Path, default=Path("data/warehouse.duckdb"))
     ingest.add_argument("--landing-dir", type=Path, default=Path("data/landing"))
     ingest.add_argument("--keep-artifacts", action="store_true", help="保留完整阶段产物供 walkthrough")
     ingest.add_argument("--start-date", help="日期型 Dataset 开始日期，YYYYMMDD")
     ingest.add_argument("--end-date", help="日期型 Dataset 结束日期，YYYYMMDD，包含当日")
     ingest.add_argument("--ts-code", action="append", help="仅 index_daily：选择已发布 universe 内代码，可重复")
+    ingest.add_argument("--parallel", type=int, choices=(2, 4), help="仅 stock_1min：银河单会话请求并行度")
     args = parser.parse_args()
     # CLI 边界：按日期发布的数据必须显式给出完整区间，完整快照不能接受子集日期。
     params = {}
-    if args.dataset in ("trade_calendar", "suspend_daily", "stock_st", "stock_daily", "index_daily"):
+    if args.dataset in ("trade_calendar", "suspend_daily", "stock_st", "stock_daily", "index_daily", "stock_1min"):
         # 业务检查：不猜测任何日集合的目标起止日期，必须同时给出区间两端。
         if args.start_date is None or args.end_date is None:
             parser.error(f"{args.dataset} requires --start-date and --end-date")
         # 业务传递：原样交给 Dataset 校验日期及闭区间顺序，不在入口补默认边界或过滤休市日。
         params = {"start_date": args.start_date, "end_date": args.end_date}
     elif args.start_date is not None or args.end_date is not None:
-        # 业务检查：股票/指数只能整快照替换，禁止将日期子集误作完整快照。
+        # 业务检查：快照只能整表替换，禁止将日期子集误作完整快照。
         parser.error(f"{args.dataset} does not accept date filters")
     # 业务边界：指数子集不能改变其他 Dataset 的完整日/快照政策；成员由 Dataset 同快照核对。
     if args.ts_code is not None:
         if args.dataset != "index_daily":
             parser.error("--ts-code is only supported for index_daily")
         params["ts_codes"] = args.ts_code
+    if args.parallel is not None and args.dataset != "stock_1min":
+        parser.error("--parallel is only supported for stock_1min")
+    if args.dataset == "stock_1min":
+        params["parallel"] = args.parallel or 2
     # 凭据优先使用项目 .env，再取环境变量；仅交给 Client，输出错误和结果时再次脱敏。
-    token = (dotenv_values(".env").get("TUSHARE_TOKEN") or os.environ.get("TUSHARE_TOKEN", "")).strip()
-    if not token:
+    values = dotenv_values(".env")
+    token = (values.get("TUSHARE_TOKEN") or os.environ.get("TUSHARE_TOKEN", "")).strip()
+    ad_username = (values.get("AD_USERNAME") or os.environ.get("AD_USERNAME", "")).strip()
+    ad_password = (values.get("AD_PASSWORD") or os.environ.get("AD_PASSWORD", "")).strip()
+    if args.dataset == "stock_1min":
+        if not ad_username or not ad_password:
+            parser.error("Set AD_USERNAME and AD_PASSWORD in the project .env or environment")
+        os.environ["AD_USERNAME"], os.environ["AD_PASSWORD"] = ad_username, ad_password
+    elif not token:
         parser.error("Set TUSHARE_TOKEN in the project .env or environment")
     args.db.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -86,6 +103,12 @@ def main():
         elif args.dataset == "stock_daily":
             dataset = StockDailyDataset()
             adapter = TushareStockDailyAdapter(TushareClient(token))
+        elif args.dataset == "bse_mapping":
+            dataset = BseMappingDataset()
+            adapter = TushareBseMappingAdapter(TushareClient(token))
+        elif args.dataset == "stock_1min":
+            dataset = Stock1MinDataset()
+            adapter = GalaxyStock1MinAdapter(GalaxyClient(parallel=params["parallel"]))
         else:
             dataset = IndexDailyDataset()
             adapter = TushareIndexDailyAdapter(TushareClient(token))
@@ -93,9 +116,17 @@ def main():
             db.initialize(con, dataset)
             result = run(con, dataset, adapter, params, RunOptions(args.landing_dir, args.keep_artifacts))
     except (ValueError, OSError, duckdb.Error) as exc:
-        print(json.dumps({"status": "FAILED", "error": str(exc).replace(token, "<redacted>")}, ensure_ascii=False))
+        message = str(exc)
+        for secret in (token, ad_password):
+            if secret:
+                message = message.replace(secret, "<redacted>")
+        print(json.dumps({"status": "FAILED", "error": message}, ensure_ascii=False))
         return 1
-    print(json.dumps(control_data(result), ensure_ascii=False).replace(token, "<redacted>"))
+    output = json.dumps(control_data(result), ensure_ascii=False)
+    for secret in (token, ad_password):
+        if secret:
+            output = output.replace(secret, "<redacted>")
+    print(output)
     # CLI 结局：仅业务 SUCCESS 返回 0；PARTIAL 也返回非零，诊断状态在结果中独立表达。
     return 0 if result.status == "SUCCESS" else 1
 

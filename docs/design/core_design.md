@@ -1,14 +1,14 @@
 # 个人量化数据库核心架构 V3.2（统一验收修订）
 
-**更新：2026-10-22（补充股票／指数日线实现清单）｜状态：核心架构与 invariant 已确认**
+**更新：2026-10-27（新增 BJ 映射与完整分钟网格）｜状态：核心架构与 invariant 已确认**
 
-本文定义项目的核心心智模型、职责与可靠性保证。当前七个切片采用“获取、集中标准化、统一验收、原子发布”的设计；当前接口与阶段见[技术设计与实现边界](ingestion_v3.2_implementation.md)。实现细节调整不改变本文的架构约束；约束变更需另行讨论确认。
+本文定义项目的核心心智模型、职责与可靠性保证。当前九个切片采用“获取、集中标准化、统一验收、原子发布”的设计；当前接口与阶段见[技术设计与实现边界](ingestion_v3.2_implementation.md)。实现细节调整不改变本文的架构约束；约束变更需另行讨论确认。
 
 ## 一、项目定位
 
 建设面向个人量化研究的数据平台，将供应商数据转为可追溯、可修订、可靠发布的标准业务事实，供研究与回测使用。
 
-当前已落地 `stock_basic` 完整快照、SSE `trade_calendar` 自然日日历、`suspend_daily` 停复牌、`stock_st` 每日名单、`index_basic` 目标指数快照，以及 `stock_daily` 未复权股票日线和 `index_daily` universe 内指数日线。指数目标为宽基白名单及供应商按类别／发布方报告的申万行业集合。多 Unit、部分成功、合法零行替换与上游版本复核已有正式切片及测试；其他 Dataset 与正式 Serving 尚未接入。专属契约见[ST](stock_st_ingestion_proposal.md)、[指数快照](index_basic_ingestion_proposal.md)、[股票日线](stock_daily_ingestion_proposal.md)及[指数日线](index_daily_ingestion_proposal.md)。
+当前已落地 `stock_basic` 完整快照、SSE `trade_calendar` 自然日日历、`suspend_daily` 停复牌、`stock_st` 每日名单、`index_basic` 目标指数快照、`stock_daily` 未复权股票日线、`index_daily` universe 内指数日线、`bse_mapping` 北交所代码映射和 `stock_1min` 完整分钟研究网格。指数目标为宽基白名单及供应商按类别／发布方报告的申万行业集合。多 Unit、部分成功、合法零行替换、上游版本复核与分钟派生网格已有正式切片及测试；正式 Serving 尚未接入。专属契约见[ST](stock_st_ingestion_proposal.md)、[指数快照](index_basic_ingestion_proposal.md)、[股票日线](stock_daily_ingestion_proposal.md)、[指数日线](index_daily_ingestion_proposal.md)、[BJ 映射](bse_mapping_ingestion_proposal.md)及[股票分钟](stock_1min_ingestion_proposal.md)。
 
 ## 二、职责分工
 
@@ -30,7 +30,7 @@ Runner 管机制，Dataset 管业务语义，Adapter 管供应商交付与准备
 
 | 概念 | 含义 |
 |---|---|
-| Scope | 本次获取与验收的统一业务范围；区分应获取、合理排除与无法确定 |
+| Scope | 本次验收与发布的统一业务范围，以及可选供应商请求子集；区分应获取、合理排除与无法确定 |
 | Publication Unit | 可以独立完整验收、原子替换的最小业务范围 |
 | Landing / Raw | 供应商数据的暂存阶段与原始业务批次，保留源表示及必要请求标签 |
 | 获取结果 | 请求、分片、分页、返回情况、获取状态及交付证据，独立于业务数据是否有行 |
@@ -42,7 +42,7 @@ Runner 管机制，Dataset 管业务语义，Adapter 管供应商交付与准备
 | Publication | 一次成功发布的版本与变更范围，包含合法零行替换和修订；不等于历史数据快照 |
 | Run Audit | 本次执行的请求、检查、成功或失败结果及所用上游版本 |
 
-`stock_basic` 和 `index_basic` 的 Unit 各是一个完整快照，`trade_calendar` 是一个交易所的一个自然日（包含休市日），`suspend_daily`、`stock_st` 和 `stock_daily` 各以一个经 SSE 日历确认的交易日为 Unit；`index_daily` 是固定 universe 内一个代码的一个交易日。设计中的 `stock_1min` 以一只股票的一个交易日为 Unit，尚未正式实现。
+`stock_basic`、`index_basic` 和 `bse_mapping` 的 Unit 各是一个完整快照，`trade_calendar` 是一个交易所的一个自然日（包含休市日），`suspend_daily`、`stock_st` 和 `stock_daily` 各以一个经 SSE 日历确认的交易日为 Unit；`index_daily` 是固定 universe 内一个代码的一个交易日；`stock_1min` 以一只股票的一个交易日为 Unit。Scope.units 始终表示发布范围，Scope.request_units 只表示其中的供应商请求子集；全天停牌分钟因此可以本地交付并发布，而不必请求银河。
 
 控制信息明确表达范围、交付状态、验收结论和版本；业务数据按列式批次处理。Unit 是业务粒度，与文件、表或分块组织独立，一份批次可以包含多个 Unit。
 
@@ -87,8 +87,8 @@ Runner 管机制，Dataset 管业务语义，Adapter 管供应商交付与准备
 2. **统一验收许可**：只有应处理、获取完成、无阻断性转换错误且满足 Dataset 规则的 Unit 可以发布。ERROR 阻断受影响范围，WARNING 留审计并允许继续；按可信信息定位影响 Unit，无法定位时全局阻断。检查未执行不能默认成通过，最终许可只能由统一验收产生。
 3. **原子发布与旧版保护**：按 Unit 完整替换，数据、Coverage、成功 Publication 与成功 Unit 审计同事务更新，发布状态以提交成功为准。失败保留旧成功数据及其版本指针；重跑不无意产生重复记录。一个 Run 可以部分成功，一次事务可以发布多个合格 Unit。
 4. **空集合语义明确**：零行不自动成功或失败，须结合 Scope、获取证据、转换诊断及 Dataset 契约判断。完整验收的零记录 Unit 可以替换旧范围并发布成功版本，空表须有明确 Schema；没有 Candidate 不能冒充合法空集合。股票快照要求有正常上市股票，日历每个自然日要求一行，停复牌开市日允许完整零行；合理排除不发布零行版本。发布目标独立于数据行。
-5. **事实与派生分工清楚**：Canonical 保存 Dataset 自身的标准业务事实，Serving 提供跨 Dataset 的组合与派生。稀疏 Dataset 只保存供应商报告的记录，消费时结合成功 Coverage 解释缺失。
-6. **完整性与转换边界明确**：成功发布表示符合约定的供应商交付与验收契约，不独立保证真实业务绝无遗漏或当日数据终态。每条源记录须形成 Candidate 或关联明确问题，不得静默去重、丢行、补造事实或将非法值转成 NULL 掩盖错误。字段缺失、合法空值与转换失败须明确区分，错误不得因转换而失去归属或污染其他合格 Unit。
+5. **事实与派生分工清楚**：Canonical 保存 Dataset 自身的标准业务事实，Serving 提供跨 Dataset 的组合与派生。稀疏 Dataset 只保存供应商报告的记录，消费时结合成功 Coverage 解释缺失。`stock_1min` 是用户单独确认的例外：其 Canonical 是结合源行情、停牌与日线事实构造的完整研究网格，构造规则集中在该 Dataset，不自动扩展到其他 Dataset。
+6. **完整性与转换边界明确**：成功发布表示符合约定的供应商交付与验收契约，不独立保证真实业务绝无遗漏或当日数据终态。每条源记录须形成 Candidate 或关联明确问题，不得静默去重、丢行或将非法值转成 NULL 掩盖错误；除 `stock_1min` 明确验收的派生网格外，不得补造事实。字段缺失、合法空值与转换失败须明确区分，错误不得因转换而失去归属或污染其他合格 Unit。
 7. **版本与过程可追溯**：Scope 所用上游版本对应实际读取的数据，包括用于排除范围的版本，提交前复核一致性；获取、准备、验收、执行结局及成功变更范围可追溯。Raw 与 Candidate 在验收、提交或回滚期间持续可访问。原始证据保存失败在发布前阻断，可选诊断导出或清理失败独立报告，不撤销已提交发布；追溯不要求全面保存历史行版本。
 
 **文档分工：** 本文维护架构与 invariant；[技术设计与实现边界](ingestion_v3.2_implementation.md)维护当前落地方式和限制；[V3.1.1 归档](archive/core_design_v3.1.1.md)保留设计历史及原 20 条 invariant 的对应关系。

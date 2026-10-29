@@ -57,7 +57,7 @@ class TushareStockDailyAdapter:
             units.append(UnitDelivery(unit, state, (request_id,)))
         return Delivery(pl.concat(frames) if frames else None, tuple(units), tuple(attempts), tuple(checks))
 
-    def prepare(self, delivery, scope):
+    def prepare(self, delivery, scope, con, pins):
         if delivery.frame is None:
             return None, ()
         # 业务转换：文本只清理一次，Raw 不改写；日期匹配同时保证格式、历法与可信归属。

@@ -292,7 +292,7 @@ class StockStTest(unittest.TestCase):
         # 上海日期基准：UTC 尚为前一天时仍允许上海当天，不取主机本地 date.today。
         with patch("quant_data.datasets.stock_st.datetime") as clock:
             clock.now.return_value = datetime(2026, 10, 21, 0, 30, tzinfo=ZoneInfo("Asia/Shanghai"))
-            self.assertEqual(len(self.dataset.dependencies({"start_date": "20261021", "end_date": "20261021"})), 1)
+            self.assertEqual(len(self.dataset.dependencies({"start_date": "20261021", "end_date": "20261021"}, self.con)), 1)
         client = ProviderClient(st_rows())
         delivery = TushareStockStAdapter(client).fetch(Scope(("1999-12-30", "2026-10-16")), Artifacts(self.root / "history", False))
         self.assertEqual([u.state for u in delivery.units], ["INCOMPLETE", "COMPLETE"])

@@ -22,7 +22,7 @@ class TradeCalendarDataset:
                         "is_open": pl.Boolean, "pretrade_date": pl.Date})
     ddl = Path(__file__).with_suffix(".sql").read_text()
 
-    def dependencies(self, params):
+    def dependencies(self, params, con):
         """日历是独立供应商事实，不依赖股票或停复牌数据。"""
         return ()
 

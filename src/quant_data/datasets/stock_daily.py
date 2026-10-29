@@ -13,7 +13,7 @@ class StockDailyDataset:
     schema = SCHEMA
     ddl = Path(__file__).with_suffix(".sql").read_text()
 
-    def dependencies(self, params):
+    def dependencies(self, params, con):
         # 业务边界：首版全市场逐日获取，不接受股票、交易所或状态子集。
         if set(params) != {"start_date", "end_date"}:
             raise ValueError("stock_daily requires only start_date and end_date")

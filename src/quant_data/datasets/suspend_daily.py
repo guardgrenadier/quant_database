@@ -22,7 +22,7 @@ class SuspendDailyDataset:
                         "suspend_type": pl.String, "suspend_timing": pl.String})
     ddl = Path(__file__).with_suffix(".sql").read_text()
 
-    def dependencies(self, params):
+    def dependencies(self, params, con):
         """要求闭区间内每个自然日都有成功 SSE 日历，缺任一依赖时不请求供应商。"""
         # 业务检查：只允许完整日集合的起止日期，禁止股票、停复牌类型或其他子集筛选。
         if set(params) != {"start_date", "end_date"}:

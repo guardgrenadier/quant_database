@@ -70,7 +70,7 @@ class FixtureDataset:
         self.ddl = "CREATE SCHEMA IF NOT EXISTS canonical; CREATE TABLE canonical.fixture(unit_key VARCHAR," + (
             "seq BIGINT,value BIGINT,PRIMARY KEY(unit_key,seq))" if large else "value BIGINT,PRIMARY KEY(unit_key))")
 
-    def dependencies(self, params):
+    def dependencies(self, params, con):
         """允许测试缺失与版本变化的依赖要求。"""
         return self.required
 
@@ -99,7 +99,7 @@ class FixtureAdapter:
         self.called = True
         return Delivery(self.frame, tuple(UnitDelivery(u, "COMPLETE") for u in scope.units), checks=self.checks)
 
-    def prepare(self, delivery, scope):
+    def prepare(self, delivery, scope, con, pins):
         """返回已按契约构造的测试业务表。"""
         return delivery.frame, ()
 
@@ -446,6 +446,13 @@ class MechanismTest(unittest.TestCase):
             control_data(self.frame)
         with self.assertRaises(ValueError):
             Check("ERROR", "ambiguous", "validation", ())
+        # 请求子集只服务获取计划；None 保持旧行为，空 tuple 是合法的纯本地交付范围。
+        self.assertIsNone(Scope(("a",)).request_units)
+        self.assertEqual(Scope(("a",), request_units=()).request_units, ())
+        with self.assertRaises(ValueError):
+            Scope(("a",), request_units=("b",))
+        with self.assertRaises(ValueError):
+            Scope(("a",), request_units=("a", "a"))
 
     def test_explicit_empty_schema(self):
         """空关系仍需匹配 Canonical Schema，不能由零行推断列类型。"""

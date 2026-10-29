@@ -70,7 +70,7 @@ class TushareIndexDailyAdapter:
             units.extend(UnitDelivery(unit, state, (request_id,)) for unit in affected)
         return Delivery(pl.concat(frames, how="diagonal") if frames else None, tuple(units), tuple(attempts), tuple(checks))
 
-    def prepare(self, delivery, scope):
+    def prepare(self, delivery, scope, con, pins):
         if delivery.frame is None:
             return None, ()
         clean = delivery.frame.with_columns(pl.col(c).str.strip_chars().replace("", None) for c in ("ts_code", "trade_date"))

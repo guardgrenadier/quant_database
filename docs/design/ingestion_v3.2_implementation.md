@@ -1,12 +1,12 @@
 # 个人量化数据库技术设计与实现边界 V3.2
 
-**更新：2026-10-22｜范围：统一验收内核与七个正式 Dataset**
+**更新：2026-10-27｜范围：统一验收内核与九个正式 Dataset**
 
 本文说明已落地的模型、接口、执行机制和能力边界，与[核心架构](core_design.md)配套。内容依据当前代码；不重新定义冻结的架构与 invariant，也不把规划中的 Dataset 或 Serving 写成已实现能力。后续实现变化时同步更新对应章节。
 
 ## 一、实现范围与代码地图
 
-正式入口已有 `stock_basic` 完整快照、SSE `trade_calendar`、`suspend_daily` 停复牌、`stock_st` 名单、`index_basic` 目标指数快照，以及 `stock_daily` 未复权股票日线和 `index_daily` universe 内指数日线，均使用官方 Tushare。快照与日历无已发布上游依赖；三个日集合依赖成功 SSE 日历，指数日线另固定 index_basic 快照。零行由各 Dataset 自己定义，均复用既有统一验收和原子发布内核。
+正式入口已有 `stock_basic` 完整快照、SSE `trade_calendar`、`suspend_daily` 停复牌、`stock_st` 名单、`index_basic` 目标指数快照、`stock_daily` 未复权股票日线、`index_daily` universe 内指数日线及 `bse_mapping` 北交所代码映射，均使用官方 Tushare；`stock_1min` 使用银河 K 线与快照并构造完整研究网格。快照与日历无已发布上游依赖；日集合依赖成功 SSE 日历，指数日线另固定 index_basic，分钟另固定 suspend_daily、stock_daily、stock_basic 与 bse_mapping。零行由各 Dataset 自己定义，均复用统一验收和原子发布内核。
 
 | 位置 | 职责与边界 |
 |---|---|
@@ -25,6 +25,8 @@
 | [`datasets/stock_daily.py`](../../src/quant_data/datasets/stock_daily.py)、[DDL](../../src/quant_data/datasets/stock_daily.sql) | 股票全市场交易日、未复权11列、开市日非空 |
 | [`datasets/index_daily.py`](../../src/quant_data/datasets/index_daily.py)、[DDL](../../src/quant_data/datasets/index_daily.sql) | 固定 universe 代码日、受限子集、合法零行 |
 | [`datasets/daily.py`](../../src/quant_data/datasets/daily.py) | 两种日线共用字段、日期／日历读取、数值规则的普通函数 |
+| [`datasets/bse_mapping.py`](../../src/quant_data/datasets/bse_mapping.py)、[DDL](../../src/quant_data/datasets/bse_mapping.sql) | BJ 新旧代码完整快照、双键唯一与非空契约 |
+| [`datasets/stock_1min.py`](../../src/quant_data/datasets/stock_1min.py)、[DDL](../../src/quant_data/datasets/stock_1min.sql) | 发布/请求 Scope、完整槽位、状态及参考价验收 |
 | [`sources/tushare/client.py`](../../src/quant_data/sources/tushare/client.py)、[`stock_basic.py`](../../src/quant_data/sources/tushare/stock_basic.py) | 通用供应商通信与股票专属交付适配 |
 | [`sources/tushare/trade_calendar.py`](../../src/quant_data/sources/tushare/trade_calendar.py) | 按年请求、逐日交付影响与日历类型标准化 |
 | [`sources/tushare/suspend_daily.py`](../../src/quant_data/sources/tushare/suspend_daily.py) | 逐交易日全市场获取，源日期归属与字符串标准化 |
@@ -32,6 +34,9 @@
 | [`sources/tushare/index_basic.py`](../../src/quant_data/sources/tushare/index_basic.py) | 宽基逐代码及申万按类别／发布方获取、请求身份核对与集中准备 |
 | [`sources/tushare/stock_daily.py`](../../src/quant_data/sources/tushare/stock_daily.py)、[`index_daily.py`](../../src/quant_data/sources/tushare/index_daily.py) | 股票逐日、宽基逐代码年片、申万逐日获取，可信范围核对、申万 scope 筛选及字段／单位映射 |
 | [`sources/tushare/daily.py`](../../src/quant_data/sources/tushare/daily.py) | 日线严格字符串及 JSON 数值解码普通函数 |
+| [`sources/tushare/bse_mapping.py`](../../src/quant_data/sources/tushare/bse_mapping.py) | 单次完整映射请求、严格字符串与日期标准化 |
+| [`sources/galaxy/client.py`](../../src/quant_data/sources/galaxy/client.py)、[`worker.py`](../../src/quant_data/sources/galaxy/worker.py) | 银河单会话 worker、并发/超时/熔断及当前 Run 证据恢复 |
+| [`sources/galaxy/stock_1min.py`](../../src/quant_data/sources/galaxy/stock_1min.py) | 分钟/快照交付、930 扣减、完整网格、停牌与参考价构造 |
 
 采用对象组合与普通函数。Protocol 表达现有接口，不要求具体类继承；没有 Dataset 注册框架、通用分页框架或规则 DSL。
 
@@ -43,7 +48,7 @@
 
 | 模型 | 主要内容与语义 |
 |---|---|
-| `Scope` / `ScopeReason` | `units` 为 IN_SCOPE，`out_of_scope` / `unknown` 保存 Unit 与原因；三集合互斥，标识唯一且非空 |
+| `Scope` / `ScopeReason` | `units` 为发布 IN_SCOPE，`request_units` 为可选供应商请求子集；`out_of_scope` / `unknown` 保存 Unit 与原因。请求子集默认等于发布范围，不得越出 `units` |
 | `DependencyRef` / `DependencyPin` | 上游 `(dataset, unit_key)` 及本次实际使用的 `publication_id` |
 | `RequestAttempt` | 一个逻辑请求的一次 HTTP 尝试：参数、字段、时间、返回标记、错误及证据路径，不含业务行 |
 | `UnitDelivery` | Unit 的 `COMPLETE` / `FAILED` / `INCOMPLETE` 获取状态及关联请求 ID；不表示转换或验收成功 |
@@ -68,9 +73,9 @@
                                                 SQL 验收与事务发布
 ```
 
-Landing 是暂存阶段：当前处理对象是 `Delivery.frame` 中的内存 Raw 表；每次尝试另存 JSON 证据，主流程不读取这些文件组表。
+Landing 是暂存阶段：当前处理对象是 `Delivery.frame` 中的内存 Raw 表；每次尝试另存 JSON 证据，主流程不读取这些文件组表。银河 worker 因会话故障更换进程时，Adapter 内部必须从本 Run 证据恢复已完成响应与 Unit 归因，这是明确的受控例外。
 
-一个批次可含多个 Unit。`Dataset.unit_key_sql(alias)` 根据业务字段或表达式映射 Unit，不要求 Candidate 增加物理 `unit_id` 列。Scope 形成 `_scope_units` 临时关系，验收与发布通过 JOIN 判断归属。
+一个批次可含多个 Unit。`Dataset.unit_key_sql(alias)` 根据业务字段或表达式映射 Unit，不要求 Candidate 增加物理 `unit_id` 列。Scope.units 形成 `_scope_units` 临时关系，验收与发布通过 JOIN 判断归属；request_units 只用于获取计划，不缩小发布范围。全天停牌 Unit 可以 `request_ids=()` 的 COMPLETE 本地交付。
 
 空表必须有明确 Schema；`None` 表示没有可处理表，不能替代合法零行 Candidate。当前每个 Run 使用单个内存 Raw/Candidate 批次，尚无分块或超内存执行。
 
@@ -81,12 +86,12 @@ Landing 是暂存阶段：当前处理对象是 `Delivery.frame` 中的内存 Ra
 | 接口 | 输入 → 输出 / 责任 |
 |---|---|
 | `Dataset` 属性 | `name`、`table`、Polars `schema`、`ddl`、`record_key` |
-| `dependencies(params)` | 参数 → 所需上游范围 `tuple[DependencyRef, ...]` |
-| `resolve_scope(params, pins, con)` | 参数、固定版本及同快照连接 → `Scope` |
+| `dependencies(params, con)` | 参数及同一事务连接 → 所需上游范围 `tuple[DependencyRef, ...]`；可按已发布日历派生开市日依赖 |
+| `resolve_scope(params, pins, con)` | 参数、固定版本及同快照连接 → `Scope`，包含发布 Unit 与可选请求子集 |
 | `unit_key_sql(alias)` | SQL 表别名 → 记录所属 Unit 的 SQL 表达式 |
 | `validate_candidate(con, candidate_relation, scope)` | 标准化关系及 Scope → 业务 `Check` tuple |
-| `Adapter.fetch(scope, artifacts)` | 统一 Scope 及证据写入对象 → `Delivery` |
-| `Adapter.prepare(delivery, scope)` | 原始交付 → `(Candidate 或 None, 准备诊断 tuple)`；集中清理、范围匹配、解析并复用临时结果 |
+| `Adapter.fetch(scope, artifacts)` | 发布 Scope、请求子集及证据写入对象 → `Delivery` |
+| `Adapter.prepare(delivery, scope, con, pins)` | 原始交付、固定版本及同连接 → `(Candidate 或 None, 准备诊断 tuple)`；需要时先复核 pins 再读取上游 |
 | `validation.validate(con, dataset, scope, delivery, candidate, preparation_checks)` | Scope、获取证据、Candidate、准备诊断及 Dataset 规则 → 唯一的 `ValidationResult` 发布许可 |
 | `Client.query(api_name, params, fields, *, request_id, on_attempt)` | 请求与逐次回调 → 完整信封；终态失败抛异常 |
 | `runner.run(con, dataset, adapter, params, options)` | 同一连接及显式实例 → `RunResult` |
@@ -318,13 +323,15 @@ trade_calendar / suspend_daily / stock_st / stock_daily / index_daily 必须提�
 
 2026-10-22 申万批量修订：默认单日完整793代码 universe 已真实验证为24次宽基＋1次申万请求，Raw463行、发布438行及355个零行版本、明确排除25行；重跑一致。申万日失败注入保护769个申万Unit旧版，24宽基仍可发布。全套84项中83通过、1项旧样本缺失跳过，环境烟测通过，316个清单文件哈希通过；见[批量验收摘要](../research/index-daily-batch-summary-2026-10-22.json)。此前四代码子集记录为首次逐代码策略的历史验收。
 
+2026-10-27 BJ 映射与分钟接入：新增 bse_mapping 完整快照、银河 worker 与 stock_1min 完整研究网格，并扩展 request_units、dependencies(params,con) 和 prepare(con/pins)。全套 122 项测试中 121 项通过、1 项既有股票真实样本缺失跳过，环境烟测通过。bse_mapping 两次真实发布均为 248 条且重跑不累加。2026-09-03 全市场分钟 Pilot 在独立库以并行 2 和 4 各成功一次：每次 5,555 个 Unit、1,339,379 行、0 ERROR，50 个正常竞价零成交 WARNING；两次 Canonical SHA-256 一致。全部日线 Unit 的分钟成交量一致，成交额在日线舍入精度内一致。真实库位于 `data/probes/minute-ingestion-validation-20261027T013030/`，未写默认权威库；stock_basic 因两次 SSL EOF 改用既有已发布快照夹具，其余上游均由正式 CLI 获取。
+
 ## 九、当前边界与后续接入
 
 | 方面 | 当前边界 |
 |---|---|
-| 正式 Dataset | stock_basic、SSE trade_calendar、suspend_daily、stock_st、index_basic、stock_daily 与 index_daily；分钟尚未接入 |
-| 依赖管理 | 检查已有成功版本，发布前复核；不自动运行上游或传播失效 |
-| 执行与数据规模 | 单连接、单内存批次、串行请求；不支持断点恢复、超内存流式处理或分布式执行 |
+| 正式 Dataset | stock_basic、SSE trade_calendar、suspend_daily、stock_st、index_basic、stock_daily、index_daily、bse_mapping 与 stock_1min |
+| 依赖管理 | 检查已有成功版本，准备和发布前复核；不自动运行上游或传播失效 |
+| 执行与数据规模 | 单连接、单内存批次；Tushare 串行请求，银河单会话 worker 并行 2/4；仅支持当前 Run 的证据恢复，不支持通用跨 Run 恢复、超内存流式处理或分布式执行 |
 | 并发 | Ingestion、dbt、外部研究进程按运行约定错开访问同一文件；未实现锁协调服务 |
 | Serving | dbt 默认 View 是已确认路线；环境脚本验证过 dbt View，但尚无正式 Serving/Mart 模型 |
 | 历史与运维 | 未实现 PIT、全面历史版本、自动备份恢复、调度、补数规划或增量修订重算 |

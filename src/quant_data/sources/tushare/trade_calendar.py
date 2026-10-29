@@ -101,7 +101,7 @@ class TushareTradeCalendarAdapter:
         raw = pl.concat(frames) if frames else None
         return Delivery(raw, tuple(deliveries), tuple(attempts), tuple(checks))
 
-    def prepare(self, delivery, scope):
+    def prepare(self, delivery, scope, con, pins):
         """集中清理、解析与定位错误；缺日/重复日只由 Dataset 的一日一行规则验收。"""
         # 业务输入：无可处理批次不能当成合法空日历，原因与获取状态保留在 Delivery 中。
         if delivery.frame is None:

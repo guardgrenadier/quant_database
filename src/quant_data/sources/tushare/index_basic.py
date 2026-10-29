@@ -83,7 +83,7 @@ class TushareIndexBasicAdapter:
         return Delivery(pl.concat(frames) if frames else None,
                         (UnitDelivery(IndexBasicDataset.unit, state, tuple(request_ids)),), tuple(attempts), tuple(checks))
 
-    def prepare(self, delivery, scope):
+    def prepare(self, delivery, scope, con, pins):
         """一次清理、核对请求身份及日期解析；只删除可信请求标签，不二次筛选或去重。"""
         if delivery.frame is None:
             return None, ()

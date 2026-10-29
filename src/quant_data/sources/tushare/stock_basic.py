@@ -96,7 +96,7 @@ class TushareStockBasicAdapter:
         return Delivery(frame, (UnitDelivery(scope.units[0], state, tuple(request_ids)),),
                         tuple(attempts), tuple(checks))
 
-    def prepare(self, delivery, scope):
+    def prepare(self, delivery, scope, con, pins):
         """一次清理、核对请求范围并解析日期，返回 Candidate 和明确诊断。"""
         # 业务输入：无 Raw 不补造空 Candidate，获取或解码问题由 Delivery 送入统一验收。
         if delivery.frame is None:

@@ -21,7 +21,7 @@ def run(con, dataset: Dataset, adapter: SourceAdapter, params: dict, options: Ru
         artifacts = Artifacts(landing, options.keep_artifacts)
         # 在同一个读取事务中固定上游成功版本并解析 Scope，保证范围决策基于一致快照。
         with transaction(con):
-            pins = deps.check(con, dataset.dependencies(params))
+            pins = deps.check(con, dataset.dependencies(params, con))
             stage = "scope"
             scope = dataset.resolve_scope(params, pins, con)
             audit.scope(con, run_id, dataset.name, scope, pins)
@@ -46,7 +46,7 @@ def run(con, dataset: Dataset, adapter: SourceAdapter, params: dict, options: Ru
             stage = "prepare"
             # 业务流程：准备只产生标准化数据及诊断，不从获取状态或非空行数提前决定发布许可。
             # 即使没有 Candidate 或全部行转换失败，也必须把获取证据送入统一验收。
-            candidate, preparation_checks = adapter.prepare(delivery, scope)
+            candidate, preparation_checks = adapter.prepare(delivery, scope, con, pins)
             # 业务审计：Raw 解码时发现的准备错误也集中展示；最终 Meta 中每项仍只保存一次。
             artifacts.capture("preparation", tuple(c for c in delivery.checks if c.stage == "prepare") + preparation_checks)
             if candidate is not None:

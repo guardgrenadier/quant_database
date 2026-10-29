@@ -86,7 +86,7 @@ class TushareStockStAdapter:
         raw = pl.concat(frames) if frames else None
         return Delivery(raw, tuple(deliveries), tuple(attempts), tuple(checks))
 
-    def prepare(self, delivery, scope):
+    def prepare(self, delivery, scope, con, pins):
         """一次清理与日期匹配，保留历史名称和标签正文，集中返回标准化事实和诊断。"""
         # 业务输入：没有 Raw 与完整空响应不同，不以新建空表抹掉请求或解码失败。
         if delivery.frame is None:
