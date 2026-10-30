@@ -1,12 +1,12 @@
 # 个人量化数据库技术设计与实现边界 V3.2
 
-**更新：2026-10-29｜范围：统一验收内核与十个正式 Dataset**
+**更新：2026-10-30｜范围：统一验收内核与十一个正式 Dataset**
 
 本文说明已落地的模型、接口、执行机制和能力边界，与[核心架构](core_design.md)配套。内容依据当前代码；不重新定义冻结的架构与 invariant，也不把规划中的 Dataset 或 Serving 写成已实现能力。后续实现变化时同步更新对应章节。
 
 ## 一、实现范围与代码地图
 
-正式入口已有 `stock_basic` 完整快照、SSE `trade_calendar`、`suspend_daily` 停复牌、`stock_st` 名单、`index_basic` 目标指数快照、`stock_daily` 未复权股票日线、`index_daily` universe 内指数日线、`stk_limit` 每日涨跌停价格及 `bse_mapping` 北交所代码映射，均使用官方 Tushare；`stock_1min` 使用银河 K 线与快照并构造完整研究网格。快照与日历无已发布上游依赖；日集合依赖成功 SSE 日历，指数日线另固定 index_basic，分钟另固定 suspend_daily、stock_daily、stock_basic 与 bse_mapping。零行由各 Dataset 自己定义，均复用统一验收和原子发布内核。
+正式入口已有 `stock_basic` 完整快照、SSE `trade_calendar`、`suspend_daily` 停复牌、`stock_st` 名单、`index_basic` 目标指数快照、`stock_daily` 未复权股票日线、`daily_basic` 每日指标、`index_daily` universe 内指数日线、`stk_limit` 每日涨跌停价格及 `bse_mapping` 北交所代码映射，均使用官方 Tushare；`stock_1min` 使用银河 K 线与快照并构造完整研究网格。快照与日历无已发布上游依赖；日集合依赖成功 SSE 日历，指数日线另固定 index_basic，分钟另固定 suspend_daily、stock_daily、stock_basic 与 bse_mapping。零行由各 Dataset 自己定义，均复用统一验收和原子发布内核。
 
 | 位置 | 职责与边界 |
 |---|---|
@@ -23,6 +23,7 @@
 | [`datasets/stock_st.py`](../../src/quant_data/datasets/stock_st.py)、[DDL](../../src/quant_data/datasets/stock_st.sql) | ST 日名单、上海日期边界、非空政策及描述缺失告警 |
 | [`datasets/index_basic.py`](../../src/quant_data/datasets/index_basic.py)、[DDL](../../src/quant_data/datasets/index_basic.sql) | 宽基白名单、申万过滤集合非空及基础属性验收 |
 | [`datasets/stock_daily.py`](../../src/quant_data/datasets/stock_daily.py)、[DDL](../../src/quant_data/datasets/stock_daily.sql) | 股票全市场交易日、未复权11列、开市日非空 |
+| [`datasets/daily_basic.py`](../../src/quant_data/datasets/daily_basic.py)、[DDL](../../src/quant_data/datasets/daily_basic.sql) | 默认18字段每日指标、合法 NULL/有符号估值、股本与市值关系告警 |
 | [`datasets/stk_limit.py`](../../src/quant_data/datasets/stk_limit.py)、[DDL](../../src/quant_data/datasets/stk_limit.sql) | 全市场日涨跌停价格七字段、源昨收 NULL/0、开市日非空 |
 | [`datasets/index_daily.py`](../../src/quant_data/datasets/index_daily.py)、[DDL](../../src/quant_data/datasets/index_daily.sql) | 固定 universe 代码日、受限子集、合法零行 |
 | [`datasets/daily.py`](../../src/quant_data/datasets/daily.py) | 两种日线共用字段、日期／日历读取、数值规则的普通函数 |
@@ -35,6 +36,7 @@
 | [`sources/tushare/index_basic.py`](../../src/quant_data/sources/tushare/index_basic.py) | 宽基逐代码及申万按类别／发布方获取、请求身份核对与集中准备 |
 | [`sources/tushare/stock_daily.py`](../../src/quant_data/sources/tushare/stock_daily.py)、[`index_daily.py`](../../src/quant_data/sources/tushare/index_daily.py) | 股票逐日、宽基逐代码年片、申万逐日获取，可信范围核对、申万 scope 筛选及字段／单位映射 |
 | [`sources/tushare/daily.py`](../../src/quant_data/sources/tushare/daily.py) | 日线严格字符串及 JSON 数值解码普通函数 |
+| [`sources/tushare/daily_basic.py`](../../src/quant_data/sources/tushare/daily_basic.py) | 每日指标专属分页、可信请求日归属，复用已有严格解码 |
 | [`sources/tushare/stk_limit.py`](../../src/quant_data/sources/tushare/stk_limit.py) | 逐日专属分页、终止/进度证据、请求日隔离与严格七字段准备 |
 | [`sources/tushare/bse_mapping.py`](../../src/quant_data/sources/tushare/bse_mapping.py) | 单次完整映射请求、严格字符串与日期标准化 |
 | [`sources/galaxy/client.py`](../../src/quant_data/sources/galaxy/client.py)、[`worker.py`](../../src/quant_data/sources/galaxy/worker.py) | 银河单会话 worker、并发/超时/熔断及当前 Run 证据恢复 |
@@ -244,6 +246,12 @@ Adapter 每日以 limit=3000、offset=0 开始分页。短页且 has_more=false 
 
 开市日整日零行阻断并保护旧版；休市排除。故障只影响可信请求日，合格日期复用现有一次事务发布。没有新共享控制模型或通用分页框架。完整契约与验收见 [stk_limit 提案](stk_limit_ingestion_proposal.md)。
 
+### 5.10 daily_basic 每日指标
+
+默认18字段、主键 `(ts_code,trade_date)`、全市场按交易日完整替换，仅依赖 SSE 日历；不通过当前股票名单或其他表补造、筛选历史事实。close 必填有限且为正，其余15个指标允许合法 NULL；估值保留有符号有限值，换手/量比/股息率/股本/市值为非负。股本万股、市值万元、百分数均保留源口径，不重算、不填零或前向继承。free_share>float_share、float_share>total_share、circ_mv>total_mv 按日及关系计数告警，NULL 不参与比较。
+
+逐日 limit=3000 专属分页，与 stk_limit 使用相同终止/进度政策；获取状态和准备诊断分开表达。源数值解码复用现有 daily.raw_frame，Raw 保留请求日与 offset；错日按可信请求日隔离。开市日整日零行阻断，失败保护旧事实与版本，合格日复用原有原子发布。非默认 limit_status 因历史语义冲突暂缓接入，无财务 PIT 保证。共享 Protocol、内核及 Meta 未变。完整契约见 [daily_basic 文档](daily_basic_ingestion_proposal.md)。
+
 ## 六、元数据与状态语义
 
 七张表的完整定义见 [`core/meta.sql`](../../src/quant_data/core/meta.sql)。
@@ -323,7 +331,7 @@ CLI 默认库路径仍为 `data/warehouse.duckdb`，landing_root 默认为 `data
 
 CLI 输出 RunResult JSON，业务 SUCCESS 返回 0，FAILED / PARTIAL 返回 1；诊断不完整独立表达，可能仍返回 0。walkthrough 脚本额外要求 `artifacts_complete=True`，否则返回非零。
 
-trade_calendar / suspend_daily / stock_st / stock_daily / index_daily 必须提供 `--start-date` / `--end-date`（ASCII YYYYMMDD）；stock_basic / index_basic 拒绝日期过滤。--ts-code 仅用于 index_daily、可重复且只能选择已发布 universe 内代码；不改变股票全市场日集合政策。
+trade_calendar / suspend_daily / stock_st / stock_daily / daily_basic / index_daily / stk_limit / stock_1min 必须提供 `--start-date` / `--end-date`（ASCII YYYYMMDD）；stock_basic / index_basic / bse_mapping 拒绝日期过滤。--ts-code 仅用于 index_daily、可重复且只能选择已发布 universe 内代码；不改变股票全市场日集合政策。
 
 2026-10-16 验证：47 项测试中 46 项通过，1 项因本地股票真实响应样本缺失跳过。新增 11 项停复牌场景覆盖跨 Dataset 日历依赖、休市排除、实际事实缺失 UNKNOWN、零行替换、错日隔离、键冲突、已排除日修订后的版本复核、回滚与 CLI。其余测试覆盖股票、日历、通用机制与诊断故障。100 / 5,000 Unit 的机制测试 SQL 调用数均为 28，后者处理约 120 万行；这不等同于正式分钟 ingestion 的性能验收。环境脚本的正式 DDL、Arrow/Parquet 和 dbt View 检查通过。
 
@@ -343,11 +351,13 @@ trade_calendar / suspend_daily / stock_st / stock_daily / index_daily 必须提�
 
 2026-10-29 stk_limit 接入：新增全市场七字段、逐日专属分页、零下限保留告警，复用已有共享接口和内核。初版全套 141 项中 140 通过、1 项旧样本缺失跳过；用户确认零下限修订后，9 项专属链路测试再次全部通过。最终独立库真实 CLI 在 2026-10-23–26 两次各发布 11,308 行，重跑一致，每次零下限告警 1 项、无 ERROR；源/Raw/Candidate/Canonical 与 138 个产物哈希核对通过。完整零行离线注入保护旧事实及版本。详见 [stk_limit 验收记录](stk_limit_ingestion_proposal.md#6-验收记录)。
 
+2026-10-30 daily_basic 接入：默认18字段、专属逐日分页、合法 NULL/有符号估值保留，股本及市值关系按日告警；复用日历和严格解码函数，共享接口及内核未变。新增9项通过，全套150项中149通过、1项旧样本缺失跳过，环境检查通过。独立库真实 CLI 在2026-10-28–29 两次各发布11,140行，重跑一致、无 ERROR、每个日期各3条股本关系异常源行计入告警。源/Raw/Candidate/Canonical 及230个产物哈希核对通过，完整零行和第二页失败的明确离线注入验证旧版保护与部分成功。详见 [daily_basic 验收记录](daily_basic_ingestion_proposal.md#8-实现验收记录)。
+
 ## 九、当前边界与后续接入
 
 | 方面 | 当前边界 |
 |---|---|
-| 正式 Dataset | stock_basic、SSE trade_calendar、suspend_daily、stock_st、index_basic、stock_daily、index_daily、stk_limit、bse_mapping 与 stock_1min |
+| 正式 Dataset | stock_basic、SSE trade_calendar、suspend_daily、stock_st、index_basic、stock_daily、daily_basic、index_daily、stk_limit、bse_mapping 与 stock_1min |
 | 依赖管理 | 检查已有成功版本，准备和发布前复核；不自动运行上游或传播失效 |
 | 执行与数据规模 | 单连接、单内存批次；Tushare 串行请求，银河单会话 worker 并行 2/4；仅支持当前 Run 的证据恢复，不支持通用跨 Run 恢复、超内存流式处理或分布式执行 |
 | 并发 | Ingestion、dbt、外部研究进程按运行约定错开访问同一文件；未实现锁协调服务 |

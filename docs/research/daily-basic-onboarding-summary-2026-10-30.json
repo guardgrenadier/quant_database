@@ -1,0 +1,781 @@
+{
+  "date": "2026-10-30",
+  "status": "probe_complete_contract_accepted",
+  "official_document": "https://tushare.pro/document/2?doc_id=32",
+  "evidence_root": "data/probes/daily-basic-onboarding-20261030T081207214252",
+  "database_modified": false,
+  "production_code_changed": false,
+  "request_attempts": 15,
+  "all_requests_successful": true,
+  "proposed_canonical_fields": [
+    "ts_code",
+    "trade_date",
+    "close",
+    "turnover_rate",
+    "turnover_rate_f",
+    "volume_ratio",
+    "pe",
+    "pe_ttm",
+    "pb",
+    "ps",
+    "ps_ttm",
+    "dv_ratio",
+    "dv_ttm",
+    "total_share",
+    "float_share",
+    "free_share",
+    "total_mv",
+    "circ_mv"
+  ],
+  "proposed_field_count": 18,
+  "optional_field_deferred": "limit_status: 882 historical zero codes conflict with nonzero same-day daily.change",
+  "comparisons": {
+    "pagination": {
+      "rows": 5570,
+      "equal_sorted_rows": true,
+      "duplicate_keys": 0
+    },
+    "stock_daily": {
+      "daily_basic_rows": 5570,
+      "daily_rows": 5570,
+      "only_daily_basic": 0,
+      "only_daily": 0,
+      "different_close": 0
+    }
+  },
+  "explicit_base18_check": {
+    "rows": 5570,
+    "fields": [
+      "ts_code",
+      "trade_date",
+      "close",
+      "turnover_rate",
+      "turnover_rate_f",
+      "volume_ratio",
+      "pe",
+      "pe_ttm",
+      "pb",
+      "ps",
+      "ps_ttm",
+      "dv_ratio",
+      "dv_ttm",
+      "total_share",
+      "float_share",
+      "free_share",
+      "total_mv",
+      "circ_mv"
+    ],
+    "has_more": false,
+    "equals_19_field_projection": true
+  },
+  "historical_status_check": {
+    "date": "2000-01-04",
+    "daily_rows": 913,
+    "daily_has_more": false,
+    "status_zero_with_nonzero_daily_change": 882,
+    "samples": [
+      {
+        "ts_code": "600860.SH",
+        "trade_date": "20000104",
+        "close": 6.79,
+        "change": 0.22,
+        "limit_status": 0
+      },
+      {
+        "ts_code": "600701.SH",
+        "trade_date": "20000104",
+        "close": 11.67,
+        "change": 0.44,
+        "limit_status": 0
+      },
+      {
+        "ts_code": "000001.SZ",
+        "trade_date": "20000104",
+        "close": 18.29,
+        "change": 0.84,
+        "limit_status": 0
+      },
+      {
+        "ts_code": "000002.SZ",
+        "trade_date": "20000104",
+        "close": 10.3,
+        "change": 0.55,
+        "limit_status": 0
+      },
+      {
+        "ts_code": "000088.SZ",
+        "trade_date": "20000104",
+        "close": 8.28,
+        "change": 0.26,
+        "limit_status": 0
+      }
+    ]
+  },
+  "proposed_row_rule_review": [
+    {
+      "case": "recent",
+      "rows": 5570,
+      "proposed_row_rule_errors": 0,
+      "relation_warning_rows": 3
+    },
+    {
+      "case": "historic_2000",
+      "rows": 913,
+      "proposed_row_rule_errors": 0,
+      "relation_warning_rows": 0
+    },
+    {
+      "case": "historic_2010",
+      "rows": 1632,
+      "proposed_row_rule_errors": 0,
+      "relation_warning_rows": 0
+    },
+    {
+      "case": "ipo_star",
+      "rows": 7,
+      "proposed_row_rule_errors": 0,
+      "relation_warning_rows": 0
+    },
+    {
+      "case": "bse_zero_limit_day",
+      "rows": 2,
+      "proposed_row_rule_errors": 0,
+      "relation_warning_rows": 0
+    }
+  ],
+  "share_relation_samples": [
+    {
+      "ts_code": "300077.SZ",
+      "trade_date": "20261029",
+      "total_share": 67812.67,
+      "float_share": 55750.8075,
+      "free_share": 57047.0475,
+      "total_mv": 1063980.7923,
+      "circ_mv": 874730.2089,
+      "relations": [
+        "free_share>float_share"
+      ]
+    },
+    {
+      "ts_code": "300142.SZ",
+      "trade_date": "20261029",
+      "total_share": 159934.8541,
+      "float_share": 157692.0555,
+      "free_share": 157785.0555,
+      "total_mv": 1840850.2386,
+      "circ_mv": 1815035.6106,
+      "relations": [
+        "free_share>float_share"
+      ]
+    },
+    {
+      "ts_code": "301630.SZ",
+      "trade_date": "20261029",
+      "total_share": 5600.0,
+      "float_share": 1637.419,
+      "free_share": 2097.97,
+      "total_mv": 954016.0,
+      "circ_mv": 278950.8712,
+      "relations": [
+        "free_share>float_share"
+      ]
+    }
+  ],
+  "negative_valuation_samples": [
+    {
+      "ts_code": "002769.SZ",
+      "trade_date": "20261029",
+      "pe": 66.5909,
+      "pe_ttm": 258.8851,
+      "pb": 1.8491,
+      "ps": 9.7026,
+      "ps_ttm": -17.3858
+    },
+    {
+      "ts_code": "002977.SZ",
+      "trade_date": "20261029",
+      "pe": null,
+      "pe_ttm": null,
+      "pb": 2.5304,
+      "ps": -12.564,
+      "ps_ttm": -10.4521
+    },
+    {
+      "ts_code": "301030.SZ",
+      "trade_date": "20261029",
+      "pe": null,
+      "pe_ttm": null,
+      "pb": null,
+      "ps": 1.1199,
+      "ps_ttm": -1.8627
+    }
+  ],
+  "cases": [
+    {
+      "case": "recent",
+      "api": "daily_basic",
+      "params": {
+        "trade_date": "20261029"
+      },
+      "rows": 5570,
+      "has_more": false,
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "returned_field_count": 19,
+      "nonnull_source_types": {
+        "ts_code": {
+          "str": 5570
+        },
+        "trade_date": {
+          "str": 5570
+        },
+        "limit_status": {
+          "int": 5570
+        }
+      },
+      "null_counts_nonzero": {
+        "volume_ratio": 2,
+        "pe": 1456,
+        "pe_ttm": 1693,
+        "pb": 57,
+        "ps": 2,
+        "ps_ttm": 3,
+        "dv_ratio": 1812,
+        "dv_ttm": 1837
+      },
+      "limit_status_values": {
+        "1": 742,
+        "4": 4676,
+        "5": 52,
+        "2": 35,
+        "0": 61,
+        "3": 4
+      },
+      "negative_counts_nonzero": {
+        "ps": 1,
+        "ps_ttm": 3
+      },
+      "evidence": [
+        {
+          "path": "data/probes/daily-basic-onboarding-20261030T081207214252/requests/recent-attempt-01.json",
+          "sha256": "0778f3a85958a506cbd7c3a4ef804ed342e600cf5ccf721b5320c94402a79cdc",
+          "requested_at": "2026-10-30T00:12:07.216156+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "page0",
+      "api": "daily_basic",
+      "params": {
+        "trade_date": "20261029",
+        "limit": 3000,
+        "offset": 0
+      },
+      "rows": 3000,
+      "has_more": true,
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "returned_field_count": 19,
+      "nonnull_source_types": {
+        "ts_code": {
+          "str": 3000
+        },
+        "trade_date": {
+          "str": 3000
+        },
+        "limit_status": {
+          "int": 3000
+        }
+      },
+      "null_counts_nonzero": {
+        "pe": 837,
+        "pe_ttm": 997,
+        "pb": 40,
+        "ps_ttm": 1,
+        "dv_ratio": 1017,
+        "dv_ttm": 1050
+      },
+      "limit_status_values": {
+        "1": 359,
+        "4": 2571,
+        "5": 26,
+        "2": 17,
+        "0": 24,
+        "3": 3
+      },
+      "negative_counts_nonzero": {
+        "ps": 1,
+        "ps_ttm": 3
+      },
+      "evidence": [
+        {
+          "path": "data/probes/daily-basic-onboarding-20261030T081207214252/requests/page0-attempt-01.json",
+          "sha256": "4a1bc897b63a6e7bdddbcca10532d5b31e909552f8b86c7d39417bb3544e0faf",
+          "requested_at": "2026-10-30T00:12:09.360345+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "page1",
+      "api": "daily_basic",
+      "params": {
+        "trade_date": "20261029",
+        "limit": 3000,
+        "offset": 3000
+      },
+      "rows": 2570,
+      "has_more": false,
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "returned_field_count": 19,
+      "nonnull_source_types": {
+        "ts_code": {
+          "str": 2570
+        },
+        "trade_date": {
+          "str": 2570
+        },
+        "limit_status": {
+          "int": 2570
+        }
+      },
+      "null_counts_nonzero": {
+        "volume_ratio": 2,
+        "pe": 619,
+        "pe_ttm": 696,
+        "pb": 17,
+        "ps": 2,
+        "ps_ttm": 2,
+        "dv_ratio": 795,
+        "dv_ttm": 787
+      },
+      "limit_status_values": {
+        "1": 383,
+        "4": 2105,
+        "0": 37,
+        "5": 26,
+        "2": 18,
+        "3": 1
+      },
+      "negative_counts_nonzero": {},
+      "evidence": [
+        {
+          "path": "data/probes/daily-basic-onboarding-20261030T081207214252/requests/page1-attempt-01.json",
+          "sha256": "23f51e9ba96fd4a17b205c9c4c01135c1c1efcde7078a3c24134f89d1070d8a4",
+          "requested_at": "2026-10-30T00:12:11.246128+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "tail",
+      "api": "daily_basic",
+      "params": {
+        "trade_date": "20261029",
+        "limit": 3000,
+        "offset": 6000
+      },
+      "rows": 0,
+      "has_more": false,
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "returned_field_count": 19,
+      "nonnull_source_types": {
+        "ts_code": {},
+        "trade_date": {},
+        "limit_status": {}
+      },
+      "null_counts_nonzero": {},
+      "limit_status_values": {},
+      "negative_counts_nonzero": {},
+      "evidence": [
+        {
+          "path": "data/probes/daily-basic-onboarding-20261030T081207214252/requests/tail-attempt-01.json",
+          "sha256": "923e2d666529d4c64fa29e127d1204526ca51e0e0bfe462e6877c0d86364adf8",
+          "requested_at": "2026-10-30T00:12:13.153651+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "historic_2000",
+      "api": "daily_basic",
+      "params": {
+        "trade_date": "20000104"
+      },
+      "rows": 913,
+      "has_more": false,
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "returned_field_count": 19,
+      "nonnull_source_types": {
+        "ts_code": {
+          "str": 913
+        },
+        "trade_date": {
+          "str": 913
+        },
+        "limit_status": {
+          "int": 913
+        }
+      },
+      "null_counts_nonzero": {
+        "turnover_rate_f": 3,
+        "pe": 81,
+        "pe_ttm": 117,
+        "pb": 5,
+        "ps": 2,
+        "ps_ttm": 6,
+        "dv_ratio": 90,
+        "dv_ttm": 651,
+        "free_share": 2
+      },
+      "limit_status_values": {
+        "0": 887,
+        "1": 26
+      },
+      "negative_counts_nonzero": {},
+      "evidence": [
+        {
+          "path": "data/probes/daily-basic-onboarding-20261030T081207214252/requests/historic_2000-attempt-01.json",
+          "sha256": "5a9f170ff8c05a5ee369b2a2ba37c7a38c73c6e76e57277dbe70d4e9782b182b",
+          "requested_at": "2026-10-30T00:12:14.710469+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "historic_2010",
+      "api": "daily_basic",
+      "params": {
+        "trade_date": "20100104"
+      },
+      "rows": 1632,
+      "has_more": false,
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "returned_field_count": 19,
+      "nonnull_source_types": {
+        "ts_code": {
+          "str": 1632
+        },
+        "trade_date": {
+          "str": 1632
+        },
+        "limit_status": {
+          "int": 1632
+        }
+      },
+      "null_counts_nonzero": {
+        "volume_ratio": 3,
+        "pe": 233,
+        "pe_ttm": 392,
+        "pb": 35,
+        "ps": 2,
+        "ps_ttm": 4,
+        "dv_ratio": 155,
+        "dv_ttm": 792,
+        "free_share": 2
+      },
+      "limit_status_values": {
+        "4": 816,
+        "1": 762,
+        "0": 42,
+        "2": 9,
+        "3": 2,
+        "5": 1
+      },
+      "negative_counts_nonzero": {},
+      "evidence": [
+        {
+          "path": "data/probes/daily-basic-onboarding-20261030T081207214252/requests/historic_2010-attempt-01.json",
+          "sha256": "566a527977b515841add619c6218ae07cf665acad832ddde19ecce6904fe24b4",
+          "requested_at": "2026-10-30T00:12:16.402370+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "halt",
+      "api": "daily_basic",
+      "params": {
+        "ts_code": "300104.SZ",
+        "start_date": "20170417",
+        "end_date": "20170428"
+      },
+      "rows": 0,
+      "has_more": false,
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "returned_field_count": 19,
+      "nonnull_source_types": {
+        "ts_code": {},
+        "trade_date": {},
+        "limit_status": {}
+      },
+      "null_counts_nonzero": {},
+      "limit_status_values": {},
+      "negative_counts_nonzero": {},
+      "evidence": [
+        {
+          "path": "data/probes/daily-basic-onboarding-20261030T081207214252/requests/halt-attempt-01.json",
+          "sha256": "e50e584bb415d1ea572117e30c8f74add0507ff179a84db3f19de51e961621d3",
+          "requested_at": "2026-10-30T00:12:18.215361+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "ipo_star",
+      "api": "daily_basic",
+      "params": {
+        "ts_code": "688981.SH",
+        "start_date": "20200716",
+        "end_date": "20200724"
+      },
+      "rows": 7,
+      "has_more": false,
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "returned_field_count": 19,
+      "nonnull_source_types": {
+        "ts_code": {
+          "str": 7
+        },
+        "trade_date": {
+          "str": 7
+        },
+        "limit_status": {
+          "int": 7
+        }
+      },
+      "null_counts_nonzero": {
+        "volume_ratio": 5,
+        "dv_ratio": 7,
+        "dv_ttm": 7
+      },
+      "limit_status_values": {
+        "4": 4,
+        "1": 3
+      },
+      "negative_counts_nonzero": {},
+      "evidence": [
+        {
+          "path": "data/probes/daily-basic-onboarding-20261030T081207214252/requests/ipo_star-attempt-01.json",
+          "sha256": "6a72627fdca959932df53a545be83ccbfa79eee0180894c2ea8cfdca830ad856",
+          "requested_at": "2026-10-30T00:12:19.708925+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "bse_zero_limit_day",
+      "api": "daily_basic",
+      "params": {
+        "ts_code": "920285.BJ",
+        "start_date": "20261023",
+        "end_date": "20261026"
+      },
+      "rows": 2,
+      "has_more": false,
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "returned_field_count": 19,
+      "nonnull_source_types": {
+        "ts_code": {
+          "str": 2
+        },
+        "trade_date": {
+          "str": 2
+        },
+        "limit_status": {
+          "int": 2
+        }
+      },
+      "null_counts_nonzero": {
+        "volume_ratio": 2,
+        "dv_ratio": 2,
+        "dv_ttm": 2
+      },
+      "limit_status_values": {
+        "4": 1,
+        "1": 1
+      },
+      "negative_counts_nonzero": {},
+      "evidence": [
+        {
+          "path": "data/probes/daily-basic-onboarding-20261030T081207214252/requests/bse_zero_limit_day-attempt-01.json",
+          "sha256": "400641adfc1276b83934ca325dac24120401041258b46ec669e86711a8cdef02",
+          "requested_at": "2026-10-30T00:12:21.193608+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "closed",
+      "api": "daily_basic",
+      "params": {
+        "trade_date": "20261025"
+      },
+      "rows": 0,
+      "has_more": false,
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "returned_field_count": 19,
+      "nonnull_source_types": {
+        "ts_code": {},
+        "trade_date": {},
+        "limit_status": {}
+      },
+      "null_counts_nonzero": {},
+      "limit_status_values": {},
+      "negative_counts_nonzero": {},
+      "evidence": [
+        {
+          "path": "data/probes/daily-basic-onboarding-20261030T081207214252/requests/closed-attempt-01.json",
+          "sha256": "ed7f6b2a84346186d888c74fc95745b1a8e22179ae397c67b835d0280d2e8bee",
+          "requested_at": "2026-10-30T00:12:22.689925+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "empty_code",
+      "api": "daily_basic",
+      "params": {
+        "ts_code": "999999.SH",
+        "trade_date": "20261029"
+      },
+      "rows": 0,
+      "has_more": false,
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "returned_field_count": 19,
+      "nonnull_source_types": {
+        "ts_code": {},
+        "trade_date": {},
+        "limit_status": {}
+      },
+      "null_counts_nonzero": {},
+      "limit_status_values": {},
+      "negative_counts_nonzero": {},
+      "evidence": [
+        {
+          "path": "data/probes/daily-basic-onboarding-20261030T081207214252/requests/empty_code-attempt-01.json",
+          "sha256": "86394cf5808a161fb0507a9511aac307ffa487195a32231d6bb61fcdf2d144ea",
+          "requested_at": "2026-10-30T00:12:24.185820+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "default_fields",
+      "api": "daily_basic",
+      "params": {
+        "ts_code": "000001.SZ",
+        "trade_date": "20261029"
+      },
+      "rows": 1,
+      "has_more": false,
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "returned_field_count": 18,
+      "nonnull_source_types": {
+        "ts_code": {
+          "str": 1
+        },
+        "trade_date": {
+          "str": 1
+        }
+      },
+      "null_counts_nonzero": {},
+      "negative_counts_nonzero": {},
+      "evidence": [
+        {
+          "path": "data/probes/daily-basic-onboarding-20261030T081207214252/requests/default_fields-attempt-01.json",
+          "sha256": "f1e6eeab190063e4f213f4275f1b66aaf09743e55cb6b8cb00494d1bc2424ee9",
+          "requested_at": "2026-10-30T00:12:25.675481+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "stock_daily_comparison",
+      "api": "daily",
+      "params": {
+        "trade_date": "20261029"
+      },
+      "rows": 5570,
+      "has_more": false,
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "returned_field_count": 3,
+      "nonnull_source_types": {
+        "ts_code": {
+          "str": 5570
+        },
+        "trade_date": {
+          "str": 5570
+        }
+      },
+      "null_counts_nonzero": {},
+      "negative_counts_nonzero": {},
+      "evidence": [
+        {
+          "path": "data/probes/daily-basic-onboarding-20261030T081207214252/requests/stock_daily_comparison-attempt-01.json",
+          "sha256": "b8daf50c4e6286fa923d940b973cf9803901362a20cd0688ccd6af0ec3a270cf",
+          "requested_at": "2026-10-30T00:12:27.168573+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    }
+  ],
+  "evidence_files_sha256": {
+    "base18-check/requests/base18-attempt-01.json": "4f6aefd23898e37d228a2a1f5c29cc2e5df2ecb94f67b0b0806d4e99aa4711bc",
+    "base18-check/result.json": "a2273f6e02596dfc13ced317a197cadb0e82dbf2299eea43943184356c8eeaf1",
+    "historical-status-check/requests/daily_2000-attempt-01.json": "01e57d3bd424e9e976d83442f149c1adf685be35876336d88a9956d34708d945",
+    "historical-status-check/result.json": "37846e09e342da332b6827ec0ea1b144abf624808d3a924a7b4f54dc7e5e8aba",
+    "manifest.json": "c1ec2fbf4e55137ee5ee7f08bb6485cfeab45a236ab80736996d2b4de99803e4",
+    "requests/bse_zero_limit_day-attempt-01.json": "400641adfc1276b83934ca325dac24120401041258b46ec669e86711a8cdef02",
+    "requests/closed-attempt-01.json": "ed7f6b2a84346186d888c74fc95745b1a8e22179ae397c67b835d0280d2e8bee",
+    "requests/default_fields-attempt-01.json": "f1e6eeab190063e4f213f4275f1b66aaf09743e55cb6b8cb00494d1bc2424ee9",
+    "requests/empty_code-attempt-01.json": "86394cf5808a161fb0507a9511aac307ffa487195a32231d6bb61fcdf2d144ea",
+    "requests/halt-attempt-01.json": "e50e584bb415d1ea572117e30c8f74add0507ff179a84db3f19de51e961621d3",
+    "requests/historic_2000-attempt-01.json": "5a9f170ff8c05a5ee369b2a2ba37c7a38c73c6e76e57277dbe70d4e9782b182b",
+    "requests/historic_2010-attempt-01.json": "566a527977b515841add619c6218ae07cf665acad832ddde19ecce6904fe24b4",
+    "requests/ipo_star-attempt-01.json": "6a72627fdca959932df53a545be83ccbfa79eee0180894c2ea8cfdca830ad856",
+    "requests/page0-attempt-01.json": "4a1bc897b63a6e7bdddbcca10532d5b31e909552f8b86c7d39417bb3544e0faf",
+    "requests/page1-attempt-01.json": "23f51e9ba96fd4a17b205c9c4c01135c1c1efcde7078a3c24134f89d1070d8a4",
+    "requests/recent-attempt-01.json": "0778f3a85958a506cbd7c3a4ef804ed342e600cf5ccf721b5320c94402a79cdc",
+    "requests/stock_daily_comparison-attempt-01.json": "b8daf50c4e6286fa923d940b973cf9803901362a20cd0688ccd6af0ec3a270cf",
+    "requests/tail-attempt-01.json": "923e2d666529d4c64fa29e127d1204526ca51e0e0bfe462e6877c0d86364adf8",
+    "summary.json": "3f26356df8832875a9dfed2d2af98019756be1a35e8e08e3df365596eda88fa6"
+  },
+  "checks": {
+    "evidence_hashes_verified": 19,
+    "proposed_row_rules_checked_rows": 8124,
+    "proposed_row_rule_errors": 0,
+    "production_tests_run": false
+  },
+  "limits": [
+    "No daily_basic implementation, formal acceptance or database publication",
+    "Single recent-day pagination and daily comparison do not prove historical coverage or cross-page snapshots",
+    "limit_status reliability period and exact historical coverage start unresolved"
+  ],
+  "implementation_report": "daily-basic-ingestion-summary-2026-10-30.json"
+}

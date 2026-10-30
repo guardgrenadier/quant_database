@@ -1,0 +1,146 @@
+{
+  "date": "2026-10-30",
+  "status": "implementation_and_validation_complete",
+  "contract": {
+    "fields": 18,
+    "limit_status_included": false,
+    "dependencies": [
+      "trade_calendar"
+    ],
+    "publication_unit": "trade date",
+    "empty_market_day": "blocked",
+    "nullable_numeric_fields": 15,
+    "signed_valuation_values_preserved": true,
+    "share_and_market_value_relationships": "WARNING only"
+  },
+  "tests": {
+    "new_tests_run": 9,
+    "new_tests_passed": 9,
+    "full_suite_run": 150,
+    "full_suite_passed": 149,
+    "skipped": 1,
+    "skip_reason": "Existing stock_basic local real-response sample absent",
+    "environment_check": "PASS"
+  },
+  "real_response_replay": [
+    {
+      "trade_date": "2026-10-29",
+      "rows": 5570
+    },
+    {
+      "trade_date": "2000-01-04",
+      "rows": 913
+    },
+    {
+      "trade_date": "2020-07-16",
+      "code": "688981.SH",
+      "rows": 1
+    }
+  ],
+  "live_validation": {
+    "evidence_root": "data/probes/daily-basic-ingestion-validation-20261030",
+    "database": "/home/xindingtian/code/quant_data/data/probes/daily-basic-ingestion-validation-20261030/warehouse.duckdb",
+    "params": {
+      "start_date": "20261028",
+      "end_date": "20261029"
+    },
+    "runs": [
+      {
+        "run_id": "97d94f78-c457-4d34-ae75-f33a3f204586",
+        "status": "SUCCESS",
+        "publications": [
+          {
+            "unit_key": "SSE:2026-10-29",
+            "publication_id": 1,
+            "row_count": 1
+          },
+          {
+            "unit_key": "SSE:2026-10-28",
+            "publication_id": 2,
+            "row_count": 1
+          }
+        ],
+        "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/daily-basic-ingestion-validation-20261030/landing/97d94f78-c457-4d34-ae75-f33a3f204586",
+        "artifacts_complete": true
+      },
+      {
+        "run_id": "8f18405f-42b5-42cf-92c9-5c83fe207bff",
+        "status": "SUCCESS",
+        "publications": [
+          {
+            "unit_key": "2026-10-29",
+            "publication_id": 3,
+            "row_count": 5570
+          },
+          {
+            "unit_key": "2026-10-28",
+            "publication_id": 4,
+            "row_count": 5570
+          }
+        ],
+        "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/daily-basic-ingestion-validation-20261030/landing/8f18405f-42b5-42cf-92c9-5c83fe207bff",
+        "artifacts_complete": true
+      },
+      {
+        "run_id": "928b4a22-cc42-4ef7-94d4-eda33cb8d794",
+        "status": "SUCCESS",
+        "publications": [
+          {
+            "unit_key": "2026-10-29",
+            "publication_id": 5,
+            "row_count": 5570
+          },
+          {
+            "unit_key": "2026-10-28",
+            "publication_id": 6,
+            "row_count": 5570
+          }
+        ],
+        "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/daily-basic-ingestion-validation-20261030/landing/928b4a22-cc42-4ef7-94d4-eda33cb8d794",
+        "artifacts_complete": true
+      }
+    ],
+    "warnings": {
+      "8f18405f-42b5-42cf-92c9-5c83fe207bff": {
+        "daily_basic.free_share_above_float_share": {
+          "2026-10-28": 3,
+          "2026-10-29": 3
+        }
+      },
+      "928b4a22-cc42-4ef7-94d4-eda33cb8d794": {
+        "daily_basic.free_share_above_float_share": {
+          "2026-10-29": 3,
+          "2026-10-28": 3
+        }
+      }
+    },
+    "canonical_rows": 11140,
+    "canonical_sha256": "67e559c12b4a8fd721acb5479497deb60bca190ae1b81897d04fe5d212413689",
+    "rerun_equal": true,
+    "source_raw_candidate_canonical_equal": true,
+    "verified_manifest_files": 230
+  },
+  "offline_injections": {
+    "no_http": true,
+    "complete_empty": {
+      "run_id": "2811211a-c955-4ef9-b3ea-cf1b6735132a",
+      "status": "FAILED",
+      "old_facts_and_versions_preserved": true
+    },
+    "second_page_failure": {
+      "run_id": "3b767263-e70e-4b1a-b7ca-740f005f5e55",
+      "status": "PARTIAL",
+      "failed_day_old_facts_and_versions_preserved": true,
+      "other_day_replayed_and_published": true
+    }
+  },
+  "shared_interfaces_changed": false,
+  "new_dependencies": [],
+  "default_database_modified": false,
+  "not_implemented": [
+    "limit_status",
+    "PIT",
+    "automatic scheduling",
+    "full-history ingestion"
+  ]
+}
