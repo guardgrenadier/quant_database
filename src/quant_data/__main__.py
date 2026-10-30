@@ -19,6 +19,7 @@ from quant_data.datasets.stock_st import StockStDataset
 from quant_data.datasets.index_basic import IndexBasicDataset
 from quant_data.datasets.stock_daily import StockDailyDataset
 from quant_data.datasets.daily_basic import DailyBasicDataset
+from quant_data.datasets.adj_factor import AdjFactorDataset
 from quant_data.datasets.stk_limit import StkLimitDataset
 from quant_data.datasets.index_daily import IndexDailyDataset
 from quant_data.datasets.bse_mapping import BseMappingDataset
@@ -31,6 +32,7 @@ from quant_data.sources.tushare.stock_st import TushareStockStAdapter
 from quant_data.sources.tushare.index_basic import TushareIndexBasicAdapter
 from quant_data.sources.tushare.stock_daily import TushareStockDailyAdapter
 from quant_data.sources.tushare.daily_basic import TushareDailyBasicAdapter
+from quant_data.sources.tushare.adj_factor import TushareAdjFactorAdapter
 from quant_data.sources.tushare.stk_limit import TushareStkLimitAdapter
 from quant_data.sources.tushare.index_daily import TushareIndexDailyAdapter
 from quant_data.sources.tushare.bse_mapping import TushareBseMappingAdapter
@@ -66,7 +68,7 @@ def main():
     parser = argparse.ArgumentParser(description="Personal quantitative database ingestion")
     commands = parser.add_subparsers(dest="command", required=True)
     ingest = commands.add_parser("ingest")
-    ingest.add_argument("dataset", choices=["stock_basic", "trade_calendar", "suspend_daily", "stock_st", "index_basic", "stock_daily", "index_daily", "bse_mapping", "stock_1min", "stk_limit", "daily_basic"])
+    ingest.add_argument("dataset", choices=["stock_basic", "trade_calendar", "suspend_daily", "stock_st", "index_basic", "stock_daily", "index_daily", "bse_mapping", "stock_1min", "stk_limit", "daily_basic", "adj_factor"])
     ingest.add_argument("--db", type=Path, default=Path("data/warehouse.duckdb"))
     ingest.add_argument("--landing-dir", type=Path, default=Path("data/landing"))
     ingest.add_argument("--keep-artifacts", action="store_true", help="保留完整阶段产物供 walkthrough")
@@ -87,7 +89,7 @@ def main():
         return _maintain(args)
     # CLI 边界：按日期发布的数据必须显式给出完整区间，完整快照不能接受子集日期。
     params = {}
-    if args.dataset in ("trade_calendar", "suspend_daily", "stock_st", "stock_daily", "index_daily", "stock_1min", "stk_limit", "daily_basic"):
+    if args.dataset in ("trade_calendar", "suspend_daily", "stock_st", "stock_daily", "index_daily", "stock_1min", "stk_limit", "daily_basic", "adj_factor"):
         # 业务检查：不猜测任何日集合的目标起止日期，必须同时给出区间两端。
         if args.start_date is None or args.end_date is None:
             parser.error(f"{args.dataset} requires --start-date and --end-date")
@@ -145,6 +147,10 @@ def main():
             # 业务装配：默认十八字段按交易日完整替换，仅由本 Dataset 声明日历依赖。
             dataset = DailyBasicDataset()
             adapter = TushareDailyBasicAdapter(TushareClient(token))
+        elif args.dataset == "adj_factor":
+            # 业务装配：只保存全市场原始因子，依赖日历，不触发复权计算或上游获取。
+            dataset = AdjFactorDataset()
+            adapter = TushareAdjFactorAdapter(TushareClient(token))
         elif args.dataset == "stk_limit":
             # 业务装配：全市场价格按日替换，专属分页不改变现有共享接口。
             dataset = StkLimitDataset()

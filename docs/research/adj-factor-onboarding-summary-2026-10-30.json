@@ -1,0 +1,1276 @@
+{
+  "date": "2026-10-30",
+  "status": "research_complete_contract_accepted",
+  "official_documents": [
+    "https://tushare.pro/document/2?doc_id=28",
+    "https://tushare.pro/document/2?doc_id=146"
+  ],
+  "evidence_root": "data/probes/adj-factor-onboarding-20261030T083849971994",
+  "request_attempts": 20,
+  "all_requests_successful": true,
+  "database_modified": false,
+  "production_code_changed": false,
+  "proposed_fields": [
+    "ts_code",
+    "trade_date",
+    "adj_factor"
+  ],
+  "comparisons": {
+    "pagination": {
+      "rows": 5581,
+      "equal_sorted_rows": true,
+      "duplicate_keys": 0
+    },
+    "daily_coverage": {
+      "adj_factor_rows": 5581,
+      "daily_rows": 5570,
+      "only_adj_factor": 11,
+      "only_daily": 0,
+      "only_adj_factor_codes": [
+        "000016.SZ",
+        "002717.SZ",
+        "002827.SZ",
+        "301139.SZ",
+        "301468.SZ",
+        "601059.SH",
+        "601198.SH",
+        "601326.SH",
+        "605258.SH",
+        "688121.SH",
+        "688496.SH"
+      ]
+    },
+    "end_date_overlap": {
+      "overlap_rows": 117,
+      "different_factors": 0
+    },
+    "recorded_20261026_values": {
+      "path": "data/probes/galaxy-preclose-20261026/tushare_evidence.json",
+      "sha256": "1a9a594c313bad8991810edc8e2f17ca62bdf8eb0b05e11bc430acf22e0366ea",
+      "samples": [
+        {
+          "ts_code": "600519.SH",
+          "trade_date": "20260629",
+          "recorded_20261026": 8.6463,
+          "current": 8.6463,
+          "equal": true
+        },
+        {
+          "ts_code": "600519.SH",
+          "trade_date": "20260626",
+          "recorded_20261026": 8.6463,
+          "current": 8.6463,
+          "equal": true
+        },
+        {
+          "ts_code": "600519.SH",
+          "trade_date": "20260625",
+          "recorded_20261026": 8.4464,
+          "current": 8.4464,
+          "equal": true
+        },
+        {
+          "ts_code": "001298.SZ",
+          "trade_date": "20260420",
+          "recorded_20261026": 4.5162,
+          "current": 4.5162,
+          "equal": true
+        },
+        {
+          "ts_code": "001298.SZ",
+          "trade_date": "20260417",
+          "recorded_20261026": 4.5162,
+          "current": 4.5162,
+          "equal": true
+        },
+        {
+          "ts_code": "001298.SZ",
+          "trade_date": "20260416",
+          "recorded_20261026": 3.1081,
+          "current": 3.1081,
+          "equal": true
+        },
+        {
+          "ts_code": "920037.BJ",
+          "trade_date": "20260511",
+          "recorded_20261026": 1.4226,
+          "current": 1.4226,
+          "equal": true
+        },
+        {
+          "ts_code": "920037.BJ",
+          "trade_date": "20260508",
+          "recorded_20261026": 1.4226,
+          "current": 1.4226,
+          "equal": true
+        },
+        {
+          "ts_code": "920037.BJ",
+          "trade_date": "20260507",
+          "recorded_20261026": 1.0077,
+          "current": 1.0077,
+          "equal": true
+        }
+      ],
+      "different": 0
+    },
+    "reference_preclose": [
+      {
+        "date": "20260626",
+        "from_factor_ratio": 1184.0765922995963,
+        "reported_pre_close": 1184.08
+      },
+      {
+        "date": "20260629",
+        "from_factor_ratio": 1168.63,
+        "reported_pre_close": 1168.63
+      }
+    ]
+  },
+  "observed_factor_decreases": [
+    {
+      "case": "long_range",
+      "ts_code": "000001.SZ",
+      "previous_date": "20240624",
+      "date": "20240625",
+      "previous_factor": 125.05,
+      "factor": 125.049
+    },
+    {
+      "case": "dividend_2024",
+      "ts_code": "600519.SH",
+      "previous_date": "20240625",
+      "date": "20240626",
+      "previous_factor": 8.021,
+      "factor": 8.02
+    },
+    {
+      "case": "dividend_2024_short",
+      "ts_code": "600519.SH",
+      "previous_date": "20240625",
+      "date": "20240626",
+      "previous_factor": 8.021,
+      "factor": 8.02
+    }
+  ],
+  "proposed_row_rule_review": [
+    {
+      "case": "recent",
+      "rows": 5581,
+      "proposed_row_rule_errors": 0
+    },
+    {
+      "case": "historic_2000",
+      "rows": 925,
+      "proposed_row_rule_errors": 0
+    },
+    {
+      "case": "historic_2010",
+      "rows": 1697,
+      "proposed_row_rule_errors": 0
+    },
+    {
+      "case": "halt",
+      "rows": 10,
+      "proposed_row_rule_errors": 0
+    },
+    {
+      "case": "ipo_star",
+      "rows": 7,
+      "proposed_row_rule_errors": 0
+    },
+    {
+      "case": "ipo_bse",
+      "rows": 2,
+      "proposed_row_rule_errors": 0
+    },
+    {
+      "case": "dividend_2024",
+      "rows": 242,
+      "proposed_row_rule_errors": 0
+    },
+    {
+      "case": "cash_event_sh",
+      "rows": 3,
+      "proposed_row_rule_errors": 0
+    },
+    {
+      "case": "share_event_sz",
+      "rows": 3,
+      "proposed_row_rule_errors": 0
+    },
+    {
+      "case": "share_event_bj",
+      "rows": 3,
+      "proposed_row_rule_errors": 0
+    }
+  ],
+  "cases": [
+    {
+      "case": "recent",
+      "api": "adj_factor",
+      "params": {
+        "trade_date": "20261029"
+      },
+      "rows": 5581,
+      "has_more": false,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "adj_factor": 0
+      },
+      "types": {
+        "ts_code": {
+          "str": 5581
+        },
+        "trade_date": {
+          "str": 5581
+        },
+        "adj_factor": {
+          "float": 5581
+        }
+      },
+      "factor_stats": {
+        "min": 1.0,
+        "max": 10055.64,
+        "nonpositive": 0,
+        "nonfinite": 0
+      },
+      "evidence": [
+        {
+          "path": "data/probes/adj-factor-onboarding-20261030T083849971994/requests/recent-attempt-01.json",
+          "sha256": "92f4f8ce08bc2d922063d0939397af6a9534559906348750d66ac82f8403ac81",
+          "requested_at": "2026-10-30T00:38:49.973344+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "page0",
+      "api": "adj_factor",
+      "params": {
+        "trade_date": "20261029",
+        "limit": 3000,
+        "offset": 0
+      },
+      "rows": 3000,
+      "has_more": true,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "adj_factor": 0
+      },
+      "types": {
+        "ts_code": {
+          "str": 3000
+        },
+        "trade_date": {
+          "str": 3000
+        },
+        "adj_factor": {
+          "float": 3000
+        }
+      },
+      "factor_stats": {
+        "min": 1.0,
+        "max": 242.035,
+        "nonpositive": 0,
+        "nonfinite": 0
+      },
+      "evidence": [
+        {
+          "path": "data/probes/adj-factor-onboarding-20261030T083849971994/requests/page0-attempt-01.json",
+          "sha256": "b91274eade1729601cf58fcf47a2c58a67ff7dd3ac42413ed361cfd1ad550eed",
+          "requested_at": "2026-10-30T00:38:51.765702+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "page1",
+      "api": "adj_factor",
+      "params": {
+        "trade_date": "20261029",
+        "limit": 3000,
+        "offset": 3000
+      },
+      "rows": 2581,
+      "has_more": false,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "adj_factor": 0
+      },
+      "types": {
+        "ts_code": {
+          "str": 2581
+        },
+        "trade_date": {
+          "str": 2581
+        },
+        "adj_factor": {
+          "float": 2581
+        }
+      },
+      "factor_stats": {
+        "min": 1.0,
+        "max": 10055.64,
+        "nonpositive": 0,
+        "nonfinite": 0
+      },
+      "evidence": [
+        {
+          "path": "data/probes/adj-factor-onboarding-20261030T083849971994/requests/page1-attempt-01.json",
+          "sha256": "4a6ce9515e3796b132d6890c30e974d2adbe7085775c0c1bdb29d0d268a500e8",
+          "requested_at": "2026-10-30T00:38:53.428310+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "tail",
+      "api": "adj_factor",
+      "params": {
+        "trade_date": "20261029",
+        "limit": 3000,
+        "offset": 6000
+      },
+      "rows": 0,
+      "has_more": false,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "adj_factor": 0
+      },
+      "types": {
+        "ts_code": {},
+        "trade_date": {},
+        "adj_factor": {}
+      },
+      "factor_stats": {
+        "min": null,
+        "max": null,
+        "nonpositive": 0,
+        "nonfinite": 0
+      },
+      "evidence": [
+        {
+          "path": "data/probes/adj-factor-onboarding-20261030T083849971994/requests/tail-attempt-01.json",
+          "sha256": "e27bb66816f6fc1fa8f57877ce3d159228930f95155ead2efb40d7cb81645497",
+          "requested_at": "2026-10-30T00:38:55.084221+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "historic_2000",
+      "api": "adj_factor",
+      "params": {
+        "trade_date": "20000104"
+      },
+      "rows": 925,
+      "has_more": false,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "adj_factor": 0
+      },
+      "types": {
+        "ts_code": {
+          "str": 925
+        },
+        "trade_date": {
+          "str": 925
+        },
+        "adj_factor": {
+          "float": 925
+        }
+      },
+      "factor_stats": {
+        "min": 1.0,
+        "max": 2499.611,
+        "nonpositive": 0,
+        "nonfinite": 0
+      },
+      "evidence": [
+        {
+          "path": "data/probes/adj-factor-onboarding-20261030T083849971994/requests/historic_2000-attempt-01.json",
+          "sha256": "8e57874551c2a20324a716a8cb2d8cd64b6b12b2ed8f221b2cbc0b41d01aa01c",
+          "requested_at": "2026-10-30T00:38:56.595930+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "historic_2010",
+      "api": "adj_factor",
+      "params": {
+        "trade_date": "20100104"
+      },
+      "rows": 1697,
+      "has_more": false,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "adj_factor": 0
+      },
+      "types": {
+        "ts_code": {
+          "str": 1697
+        },
+        "trade_date": {
+          "str": 1697
+        },
+        "adj_factor": {
+          "float": 1697
+        }
+      },
+      "factor_stats": {
+        "min": 1.0,
+        "max": 10055.64,
+        "nonpositive": 0,
+        "nonfinite": 0
+      },
+      "evidence": [
+        {
+          "path": "data/probes/adj-factor-onboarding-20261030T083849971994/requests/historic_2010-attempt-01.json",
+          "sha256": "7a0b0f7f86899adef7ceefb8153d80db4f304450ce2d194a88db5875ffdc839a",
+          "requested_at": "2026-10-30T00:38:58.161857+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "halt",
+      "api": "adj_factor",
+      "params": {
+        "ts_code": "300104.SZ",
+        "start_date": "20170417",
+        "end_date": "20170428"
+      },
+      "rows": 10,
+      "has_more": false,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "adj_factor": 0
+      },
+      "types": {
+        "ts_code": {
+          "str": 10
+        },
+        "trade_date": {
+          "str": 10
+        },
+        "adj_factor": {
+          "float": 10
+        }
+      },
+      "factor_stats": {
+        "min": 17.593,
+        "max": 17.593,
+        "nonpositive": 0,
+        "nonfinite": 0
+      },
+      "first_row": {
+        "ts_code": "300104.SZ",
+        "trade_date": "20170417",
+        "adj_factor": 17.593
+      },
+      "last_row": {
+        "ts_code": "300104.SZ",
+        "trade_date": "20170428",
+        "adj_factor": 17.593
+      },
+      "factor_change_count": 0,
+      "evidence": [
+        {
+          "path": "data/probes/adj-factor-onboarding-20261030T083849971994/requests/halt-attempt-01.json",
+          "sha256": "8d54889f30dd696f33d9a4e177de3948e382021caa6ee2d2cf3e3039745f215d",
+          "requested_at": "2026-10-30T00:38:59.753564+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "ipo_star",
+      "api": "adj_factor",
+      "params": {
+        "ts_code": "688981.SH",
+        "start_date": "20200716",
+        "end_date": "20200724"
+      },
+      "rows": 7,
+      "has_more": false,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "adj_factor": 0
+      },
+      "types": {
+        "ts_code": {
+          "str": 7
+        },
+        "trade_date": {
+          "str": 7
+        },
+        "adj_factor": {
+          "float": 7
+        }
+      },
+      "factor_stats": {
+        "min": 1.0,
+        "max": 1.0,
+        "nonpositive": 0,
+        "nonfinite": 0
+      },
+      "first_row": {
+        "ts_code": "688981.SH",
+        "trade_date": "20200716",
+        "adj_factor": 1.0
+      },
+      "last_row": {
+        "ts_code": "688981.SH",
+        "trade_date": "20200724",
+        "adj_factor": 1.0
+      },
+      "factor_change_count": 0,
+      "evidence": [
+        {
+          "path": "data/probes/adj-factor-onboarding-20261030T083849971994/requests/ipo_star-attempt-01.json",
+          "sha256": "d5587540552890ecb0bda112717925fbfe6215648352e47cf9a0355c6550fcbb",
+          "requested_at": "2026-10-30T00:39:01.251490+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "ipo_bse",
+      "api": "adj_factor",
+      "params": {
+        "ts_code": "920285.BJ",
+        "start_date": "20261023",
+        "end_date": "20261026"
+      },
+      "rows": 2,
+      "has_more": false,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "adj_factor": 0
+      },
+      "types": {
+        "ts_code": {
+          "str": 2
+        },
+        "trade_date": {
+          "str": 2
+        },
+        "adj_factor": {
+          "float": 2
+        }
+      },
+      "factor_stats": {
+        "min": 1.0,
+        "max": 1.0,
+        "nonpositive": 0,
+        "nonfinite": 0
+      },
+      "first_row": {
+        "ts_code": "920285.BJ",
+        "trade_date": "20261023",
+        "adj_factor": 1.0
+      },
+      "last_row": {
+        "ts_code": "920285.BJ",
+        "trade_date": "20261026",
+        "adj_factor": 1.0
+      },
+      "factor_change_count": 0,
+      "evidence": [
+        {
+          "path": "data/probes/adj-factor-onboarding-20261030T083849971994/requests/ipo_bse-attempt-01.json",
+          "sha256": "44f57c99319a550f066ddc4bfc0bacaa6c9b348859b3e635a480697d5fe6a30b",
+          "requested_at": "2026-10-30T00:39:02.817801+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "closed",
+      "api": "adj_factor",
+      "params": {
+        "trade_date": "20261025"
+      },
+      "rows": 0,
+      "has_more": false,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "adj_factor": 0
+      },
+      "types": {
+        "ts_code": {},
+        "trade_date": {},
+        "adj_factor": {}
+      },
+      "factor_stats": {
+        "min": null,
+        "max": null,
+        "nonpositive": 0,
+        "nonfinite": 0
+      },
+      "evidence": [
+        {
+          "path": "data/probes/adj-factor-onboarding-20261030T083849971994/requests/closed-attempt-01.json",
+          "sha256": "d9e1153d042bdd892fe17e0ce942d5165d8bea3020fc0826b13addb583d9dd00",
+          "requested_at": "2026-10-30T00:39:04.318972+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "empty_code",
+      "api": "adj_factor",
+      "params": {
+        "ts_code": "999999.SH",
+        "trade_date": "20261029"
+      },
+      "rows": 0,
+      "has_more": false,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "adj_factor": 0
+      },
+      "types": {
+        "ts_code": {},
+        "trade_date": {},
+        "adj_factor": {}
+      },
+      "factor_stats": {
+        "min": null,
+        "max": null,
+        "nonpositive": 0,
+        "nonfinite": 0
+      },
+      "evidence": [
+        {
+          "path": "data/probes/adj-factor-onboarding-20261030T083849971994/requests/empty_code-attempt-01.json",
+          "sha256": "e4bf76be0dee244148834a0e347c6388ea39565d9c0ea86c058e20e6a95bfb7d",
+          "requested_at": "2026-10-30T00:39:05.830818+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "long_range",
+      "api": "adj_factor",
+      "params": {
+        "ts_code": "000001.SZ",
+        "start_date": "19910403",
+        "end_date": "20261029"
+      },
+      "rows": 6000,
+      "has_more": true,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "adj_factor": 0
+      },
+      "types": {
+        "ts_code": {
+          "str": 6000
+        },
+        "trade_date": {
+          "str": 6000
+        },
+        "adj_factor": {
+          "float": 6000
+        }
+      },
+      "factor_stats": {
+        "min": 24.359,
+        "max": 142.0699,
+        "nonpositive": 0,
+        "nonfinite": 0
+      },
+      "first_row": {
+        "ts_code": "000001.SZ",
+        "trade_date": "20020131",
+        "adj_factor": 24.359
+      },
+      "last_row": {
+        "ts_code": "000001.SZ",
+        "trade_date": "20261029",
+        "adj_factor": 142.0699
+      },
+      "factor_change_count": 23,
+      "evidence": [
+        {
+          "path": "data/probes/adj-factor-onboarding-20261030T083849971994/requests/long_range-attempt-01.json",
+          "sha256": "2c47f83f00583436a0a37e50ca5df7f446e2a66a91035db4f3a2367a2a948f79",
+          "requested_at": "2026-10-30T00:39:07.331928+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "dividend_2024",
+      "api": "adj_factor",
+      "params": {
+        "ts_code": "600519.SH",
+        "start_date": "20240101",
+        "end_date": "20241231"
+      },
+      "rows": 242,
+      "has_more": false,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "adj_factor": 0
+      },
+      "types": {
+        "ts_code": {
+          "str": 242
+        },
+        "trade_date": {
+          "str": 242
+        },
+        "adj_factor": {
+          "float": 242
+        }
+      },
+      "factor_stats": {
+        "min": 7.8576,
+        "max": 8.1454,
+        "nonpositive": 0,
+        "nonfinite": 0
+      },
+      "first_row": {
+        "ts_code": "600519.SH",
+        "trade_date": "20240102",
+        "adj_factor": 7.8576
+      },
+      "last_row": {
+        "ts_code": "600519.SH",
+        "trade_date": "20241231",
+        "adj_factor": 8.1454
+      },
+      "factor_change_count": 4,
+      "evidence": [
+        {
+          "path": "data/probes/adj-factor-onboarding-20261030T083849971994/requests/dividend_2024-attempt-01.json",
+          "sha256": "2349a0690845e95444df6f3aea758b767e133d266a40bfd095ca6f92161879e6",
+          "requested_at": "2026-10-30T00:39:09.021435+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "cash_event_sh",
+      "api": "adj_factor",
+      "params": {
+        "ts_code": "600519.SH",
+        "start_date": "20260625",
+        "end_date": "20260629"
+      },
+      "rows": 3,
+      "has_more": false,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "adj_factor": 0
+      },
+      "types": {
+        "ts_code": {
+          "str": 3
+        },
+        "trade_date": {
+          "str": 3
+        },
+        "adj_factor": {
+          "float": 3
+        }
+      },
+      "factor_stats": {
+        "min": 8.4464,
+        "max": 8.6463,
+        "nonpositive": 0,
+        "nonfinite": 0
+      },
+      "first_row": {
+        "ts_code": "600519.SH",
+        "trade_date": "20260625",
+        "adj_factor": 8.4464
+      },
+      "last_row": {
+        "ts_code": "600519.SH",
+        "trade_date": "20260629",
+        "adj_factor": 8.6463
+      },
+      "factor_change_count": 1,
+      "evidence": [
+        {
+          "path": "data/probes/adj-factor-onboarding-20261030T083849971994/requests/cash_event_sh-attempt-01.json",
+          "sha256": "9a787da9f3f7db845c2d76a24f54f8a46db88cea4b99ccc12e91b7ba309ad30a",
+          "requested_at": "2026-10-30T00:39:10.783669+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "share_event_sz",
+      "api": "adj_factor",
+      "params": {
+        "ts_code": "001298.SZ",
+        "start_date": "20260416",
+        "end_date": "20260420"
+      },
+      "rows": 3,
+      "has_more": false,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "adj_factor": 0
+      },
+      "types": {
+        "ts_code": {
+          "str": 3
+        },
+        "trade_date": {
+          "str": 3
+        },
+        "adj_factor": {
+          "float": 3
+        }
+      },
+      "factor_stats": {
+        "min": 3.1081,
+        "max": 4.5162,
+        "nonpositive": 0,
+        "nonfinite": 0
+      },
+      "first_row": {
+        "ts_code": "001298.SZ",
+        "trade_date": "20260416",
+        "adj_factor": 3.1081
+      },
+      "last_row": {
+        "ts_code": "001298.SZ",
+        "trade_date": "20260420",
+        "adj_factor": 4.5162
+      },
+      "factor_change_count": 1,
+      "evidence": [
+        {
+          "path": "data/probes/adj-factor-onboarding-20261030T083849971994/requests/share_event_sz-attempt-01.json",
+          "sha256": "e17ce95fe71d63f14e9c8fb8bc17447a613eb17dc62b8074c9a891c95f35574e",
+          "requested_at": "2026-10-30T00:39:12.279889+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "share_event_bj",
+      "api": "adj_factor",
+      "params": {
+        "ts_code": "920037.BJ",
+        "start_date": "20260507",
+        "end_date": "20260511"
+      },
+      "rows": 3,
+      "has_more": false,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "adj_factor": 0
+      },
+      "types": {
+        "ts_code": {
+          "str": 3
+        },
+        "trade_date": {
+          "str": 3
+        },
+        "adj_factor": {
+          "float": 3
+        }
+      },
+      "factor_stats": {
+        "min": 1.0077,
+        "max": 1.4226,
+        "nonpositive": 0,
+        "nonfinite": 0
+      },
+      "first_row": {
+        "ts_code": "920037.BJ",
+        "trade_date": "20260507",
+        "adj_factor": 1.0077
+      },
+      "last_row": {
+        "ts_code": "920037.BJ",
+        "trade_date": "20260511",
+        "adj_factor": 1.4226
+      },
+      "factor_change_count": 1,
+      "evidence": [
+        {
+          "path": "data/probes/adj-factor-onboarding-20261030T083849971994/requests/share_event_bj-attempt-01.json",
+          "sha256": "ea21cdeb97e9a3dd7a950939b61b827b4c08429dd95129a4666c955a47dacc42",
+          "requested_at": "2026-10-30T00:39:13.797184+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "daily_recent",
+      "api": "daily",
+      "params": {
+        "trade_date": "20261029"
+      },
+      "rows": 5570,
+      "has_more": false,
+      "fields": [
+        "ts_code",
+        "trade_date"
+      ],
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0
+      },
+      "types": {
+        "ts_code": {
+          "str": 5570
+        },
+        "trade_date": {
+          "str": 5570
+        }
+      },
+      "evidence": [
+        {
+          "path": "data/probes/adj-factor-onboarding-20261030T083849971994/requests/daily_recent-attempt-01.json",
+          "sha256": "0afcf4e705f011e9dde5b069c5ee42074ecdb8b45fd17d65d744302c2a843bd6",
+          "requested_at": "2026-10-30T00:39:15.306689+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "daily_halt",
+      "api": "daily",
+      "params": {
+        "ts_code": "300104.SZ",
+        "start_date": "20170417",
+        "end_date": "20170428"
+      },
+      "rows": 0,
+      "has_more": false,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "close"
+      ],
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "close": 0
+      },
+      "types": {
+        "ts_code": {},
+        "trade_date": {},
+        "close": {}
+      },
+      "evidence": [
+        {
+          "path": "data/probes/adj-factor-onboarding-20261030T083849971994/requests/daily_halt-attempt-01.json",
+          "sha256": "61f9ef6d28620d8486092776dbbb1067ca19a38e493ff1d23dbacd1b16a429a3",
+          "requested_at": "2026-10-30T00:39:16.903026+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "daily_cash_event",
+      "api": "daily",
+      "params": {
+        "ts_code": "600519.SH",
+        "start_date": "20260625",
+        "end_date": "20260629"
+      },
+      "rows": 3,
+      "has_more": false,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "close",
+        "pre_close"
+      ],
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "close": 0,
+        "pre_close": 0
+      },
+      "types": {
+        "ts_code": {
+          "str": 3
+        },
+        "trade_date": {
+          "str": 3
+        },
+        "close": {
+          "float": 3
+        },
+        "pre_close": {
+          "float": 3
+        }
+      },
+      "evidence": [
+        {
+          "path": "data/probes/adj-factor-onboarding-20261030T083849971994/requests/daily_cash_event-attempt-01.json",
+          "sha256": "ddba8a9f780411e2c211c3554cd1dbf874ca95fb832dbb3444e0e55dd5e40aec",
+          "requested_at": "2026-10-30T00:39:18.391570+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    },
+    {
+      "case": "dividend_2024_short",
+      "api": "adj_factor",
+      "params": {
+        "ts_code": "600519.SH",
+        "start_date": "20240101",
+        "end_date": "20240630"
+      },
+      "rows": 117,
+      "has_more": false,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "missing_requested_fields": [],
+      "duplicate_keys": 0,
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "adj_factor": 0
+      },
+      "types": {
+        "ts_code": {
+          "str": 117
+        },
+        "trade_date": {
+          "str": 117
+        },
+        "adj_factor": {
+          "float": 117
+        }
+      },
+      "factor_stats": {
+        "min": 7.8576,
+        "max": 8.021,
+        "nonpositive": 0,
+        "nonfinite": 0
+      },
+      "first_row": {
+        "ts_code": "600519.SH",
+        "trade_date": "20240102",
+        "adj_factor": 7.8576
+      },
+      "last_row": {
+        "ts_code": "600519.SH",
+        "trade_date": "20240628",
+        "adj_factor": 8.02
+      },
+      "factor_change_count": 3,
+      "evidence": [
+        {
+          "path": "data/probes/adj-factor-onboarding-20261030T083849971994/requests/dividend_2024_short-attempt-01.json",
+          "sha256": "65b38a027a7461a1142477225fb8204e3bbd6a3724157a5890d969252173fed9",
+          "requested_at": "2026-10-30T00:39:19.896941+00:00",
+          "http_status": 200,
+          "provider_code": 0
+        }
+      ]
+    }
+  ],
+  "evidence_files_sha256": {
+    "manifest.json": "37ab9d78d355c0030d9856ffa229e6161260a7589105842941070b3764e1308b",
+    "requests/cash_event_sh-attempt-01.json": "9a787da9f3f7db845c2d76a24f54f8a46db88cea4b99ccc12e91b7ba309ad30a",
+    "requests/closed-attempt-01.json": "d9e1153d042bdd892fe17e0ce942d5165d8bea3020fc0826b13addb583d9dd00",
+    "requests/daily_cash_event-attempt-01.json": "ddba8a9f780411e2c211c3554cd1dbf874ca95fb832dbb3444e0e55dd5e40aec",
+    "requests/daily_halt-attempt-01.json": "61f9ef6d28620d8486092776dbbb1067ca19a38e493ff1d23dbacd1b16a429a3",
+    "requests/daily_recent-attempt-01.json": "0afcf4e705f011e9dde5b069c5ee42074ecdb8b45fd17d65d744302c2a843bd6",
+    "requests/dividend_2024-attempt-01.json": "2349a0690845e95444df6f3aea758b767e133d266a40bfd095ca6f92161879e6",
+    "requests/dividend_2024_short-attempt-01.json": "65b38a027a7461a1142477225fb8204e3bbd6a3724157a5890d969252173fed9",
+    "requests/empty_code-attempt-01.json": "e4bf76be0dee244148834a0e347c6388ea39565d9c0ea86c058e20e6a95bfb7d",
+    "requests/halt-attempt-01.json": "8d54889f30dd696f33d9a4e177de3948e382021caa6ee2d2cf3e3039745f215d",
+    "requests/historic_2000-attempt-01.json": "8e57874551c2a20324a716a8cb2d8cd64b6b12b2ed8f221b2cbc0b41d01aa01c",
+    "requests/historic_2010-attempt-01.json": "7a0b0f7f86899adef7ceefb8153d80db4f304450ce2d194a88db5875ffdc839a",
+    "requests/ipo_bse-attempt-01.json": "44f57c99319a550f066ddc4bfc0bacaa6c9b348859b3e635a480697d5fe6a30b",
+    "requests/ipo_star-attempt-01.json": "d5587540552890ecb0bda112717925fbfe6215648352e47cf9a0355c6550fcbb",
+    "requests/long_range-attempt-01.json": "2c47f83f00583436a0a37e50ca5df7f446e2a66a91035db4f3a2367a2a948f79",
+    "requests/page0-attempt-01.json": "b91274eade1729601cf58fcf47a2c58a67ff7dd3ac42413ed361cfd1ad550eed",
+    "requests/page1-attempt-01.json": "4a6ce9515e3796b132d6890c30e974d2adbe7085775c0c1bdb29d0d268a500e8",
+    "requests/recent-attempt-01.json": "92f4f8ce08bc2d922063d0939397af6a9534559906348750d66ac82f8403ac81",
+    "requests/share_event_bj-attempt-01.json": "ea21cdeb97e9a3dd7a950939b61b827b4c08429dd95129a4666c955a47dacc42",
+    "requests/share_event_sz-attempt-01.json": "e17ce95fe71d63f14e9c8fb8bc17447a613eb17dc62b8074c9a891c95f35574e",
+    "requests/tail-attempt-01.json": "e27bb66816f6fc1fa8f57877ce3d159228930f95155ead2efb40d7cb81645497",
+    "summary.json": "53e073ea9fe4ecf88aeacb90f606e52eac7a925aaeaac124b9fd3ec4c1b798fc"
+  },
+  "verification": {
+    "root_evidence_hashes_verified": 22,
+    "external_prior_record_hash_verified": true,
+    "proposed_row_rule_rows": 8473,
+    "proposed_row_rule_errors": 0,
+    "production_tests_run": false
+  },
+  "semantic_correction": "A change in the qfq normalization anchor does not by itself prove historical raw adj_factor rows were rewritten.",
+  "limits": [
+    "No formal adj_factor implementation or publication",
+    "Nine previously recorded factors unchanged do not prove absence of historical revisions",
+    "Raw factor decreases preserved; no monotonicity or constant-scale guarantee inferred",
+    "Daily replacement updates only selected dates; full-history revision consistency not guaranteed",
+    "No adjusted-price Serving, PIT, automatic refresh or full-history download"
+  ],
+  "implementation_report": "adj-factor-ingestion-summary-2026-10-30.json"
+}

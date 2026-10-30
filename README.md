@@ -1,6 +1,6 @@
 # quant_data
 
-个人量化数据库，已接入 `stock_basic` 完整快照、SSE `trade_calendar`、`suspend_daily` 停复牌、`stock_st` 名单、`index_basic` 目标指数快照、`stock_daily` 未复权股票日线、`daily_basic` 每日指标、`index_daily` universe 内指数日线、`stk_limit` 每日涨跌停价格、`bse_mapping` 北交所代码映射，以及 `stock_1min` 完整分钟研究网格：获取及证据 → 集中准备 Candidate → 统一验收 → Canonical 和 Meta 原子发布。
+个人量化数据库，已接入 `stock_basic` 完整快照、SSE `trade_calendar`、`suspend_daily` 停复牌、`stock_st` 名单、`index_basic` 目标指数快照、`stock_daily` 未复权股票日线、`daily_basic` 每日指标、`adj_factor` 原始复权因子、`index_daily` universe 内指数日线、`stk_limit` 每日涨跌停价格、`bse_mapping` 北交所代码映射，以及 `stock_1min` 完整分钟研究网格：获取及证据 → 集中准备 Candidate → 统一验收 → Canonical 和 Meta 原子发布。
 
 | 阅读目的 | 文档 |
 |---|---|
@@ -124,7 +124,7 @@ uv run --frozen python -m quant_data ingest index_daily \
   --db data/probes/my-daily/warehouse.duckdb --landing-dir data/probes/my-daily/landing --keep-artifacts
 ```
 
-两类 Canonical 量额均为手／千元；申万源万股／万元在准备时分别乘100／10，pct_change 映射到 pct_chg，缺源能力的 pre_close 保留NULL。指数允许合法数值NULL，四价齐全才检查区间；股票九个数值必填。请求／转换／验收失败保护旧数据及版本，上游版本变化时提交前阻断。未实现复权因子、盘后量额、PIT 或自动调度。
+两类 Canonical 量额均为手／千元；申万源万股／万元在准备时分别乘100／10，pct_change 映射到 pct_chg，缺源能力的 pre_close 保留NULL。指数允许合法数值NULL，四价齐全才检查区间；股票九个数值必填。请求／转换／验收失败保护旧数据及版本，上游版本变化时提交前阻断。复权因子通过独立 adj_factor 保存，盘后量额、PIT 和自动调度尚未实现。
 
 契约和真实独立库验收见[股票日线](docs/design/stock_daily_ingestion_proposal.md)、[指数日线](docs/design/index_daily_ingestion_proposal.md)。
 
@@ -143,6 +143,22 @@ uv run --frozen python -m quant_data ingest daily_basic \
 每页 3,000 行，满页 false 仍续取尾页，短页且明确 false 才完成。后续页失败、缺列、坏值、错日、重复键或整日零行阻断所属日，保护旧版，其他合格日仍可发布。
 
 close 必填且为有限正数，其余十五个指标允许合法 NULL。有符号估值、NULL 和零原样保存；股本为万股、市值为万元，比率为百分数，不换算或重算。非负指标出现负值会阻断；股本/市值关系异常按日告警，不改值。limit_status 因已发现历史语义冲突暂缓接入，不提供财务 PIT 或自动调度。完整契约与验收见 [daily_basic 文档](docs/design/daily_basic_ingestion_proposal.md)。
+
+## adj_factor 原始复权因子
+
+保存 Tushare 原始三字段，主键 `(ts_code, trade_date)`，全市场逐日分页并按日完整替换。仅依赖同库已发布的 SSE 日历；停牌日因子按源交付保留，不根据当前股票名单或日线集合过滤。
+
+```bash
+uv run --frozen python -m quant_data ingest trade_calendar \
+  --start-date 20261028 --end-date 20261029 --db data/probes/my-adj-factor/warehouse.duckdb
+uv run --frozen python -m quant_data ingest adj_factor \
+  --start-date 20261028 --end-date 20261029 --db data/probes/my-adj-factor/warehouse.duckdb \
+  --landing-dir data/probes/my-adj-factor/landing --keep-artifacts
+```
+
+每页 3,000 行，满页 false 仍续取尾页，短页且明确 false 才完成。坏字段、错日、重复键、非有限/非正因子或整日零行阻断对应日，保护旧数据及版本。
+
+因子无量纲，原值不归一化、不填 1 或前向继承；允许正值小于 1、大因子和相邻日回落。重抓只修订显式目标日，不保证全历史来自同一供应商修订版本。前复权基准变化不等于历史原始因子必然改写；前后复权行情、PIT、自动重抓及全历史下载另行设计。完整契约和验收见 [adj_factor 文档](docs/design/adj_factor_ingestion_proposal.md)。
 
 ## stk_limit 每日涨跌停价格
 
@@ -180,7 +196,7 @@ uv run --frozen python -m quant_data ingest stock_1min \
   --landing-dir data/probes/my-minute/landing --keep-artifacts
 ```
 
-默认并行 2，可选 4；worker 进程隔离、请求超时、熔断及当前 Run 证据恢复沿用正式执行层。特殊交易时段、复权因子和全历史自动回补不在首版范围。完整契约见[分钟提案](docs/design/stock_1min_ingestion_proposal.md)与[映射提案](docs/design/bse_mapping_ingestion_proposal.md)。
+默认并行 2，可选 4；worker 进程隔离、请求超时、熔断及当前 Run 证据恢复沿用正式执行层。特殊交易时段、分钟复权和全历史自动回补不在首版范围。完整契约见[分钟提案](docs/design/stock_1min_ingestion_proposal.md)与[映射提案](docs/design/bse_mapping_ingestion_proposal.md)。
 
 ## Meta 审计维护
 
@@ -225,7 +241,7 @@ uv run --frozen python scripts/probe_tushare.py --case stock_L --case suspend_20
 - [停复牌正式 Schema](src/quant_data/datasets/suspend_daily.sql) 与[落地验证](docs/research/suspend-daily-ingestion-validation-2026-10-16.md)
 - [银河 vs Tushare 日线质量对照与接入建议](docs/research/galaxy-vs-tushare-daily-quality-2026-10-22.md)（银河接口系列探查见同目录 galaxy-* 报告）
 
-十一个 Dataset 的正式 DDL 位于 [datasets](src/quant_data/datasets)。逐请求摘要由探查报告引用。早期 review、walkthrough 和探查原始产物已于 2026-10-16 清理，可按上述入口重新生成；当前正式切片的证据路径见各自文档。
+十二个 Dataset 的正式 DDL 位于 [datasets](src/quant_data/datasets)。逐请求摘要由探查报告引用。早期 review、walkthrough 和探查原始产物已于 2026-10-16 清理，可按上述入口重新生成；当前正式切片的证据路径见各自文档。
 
 ## 数据商接口
 

@@ -1,14 +1,14 @@
 # 个人量化数据库核心架构 V3.2（统一验收修订）
 
-**更新：2026-10-30（补充 daily_basic 已落地范围）｜状态：核心架构与 invariant 已确认**
+**更新：2026-10-30（补充 daily_basic/adj_factor 已落地范围）｜状态：核心架构与 invariant 已确认**
 
-本文定义项目的核心心智模型、职责与可靠性保证。当前十一个切片采用“获取、集中标准化、统一验收、原子发布”的设计；当前接口与阶段见[技术设计与实现边界](ingestion_v3.2_implementation.md)。实现细节调整不改变本文的架构约束；约束变更需另行讨论确认。
+本文定义项目的核心心智模型、职责与可靠性保证。当前十二个切片采用“获取、集中标准化、统一验收、原子发布”的设计；当前接口与阶段见[技术设计与实现边界](ingestion_v3.2_implementation.md)。实现细节调整不改变本文的架构约束；约束变更需另行讨论确认。
 
 ## 一、项目定位
 
 建设面向个人量化研究的数据平台，将供应商数据转为可追溯、可修订、可靠发布的标准业务事实，供研究与回测使用。
 
-当前已落地 `stock_basic` 完整快照、SSE `trade_calendar` 自然日日历、`suspend_daily` 停复牌、`stock_st` 每日名单、`index_basic` 目标指数快照、`stock_daily` 未复权股票日线、`daily_basic` 每日指标、`index_daily` universe 内指数日线、`stk_limit` 每日涨跌停价格、`bse_mapping` 北交所代码映射和 `stock_1min` 完整分钟研究网格。指数目标为宽基白名单及供应商按类别／发布方报告的申万行业集合。多 Unit、部分成功、合法零行替换、上游版本复核与分钟派生网格已有正式切片及测试；正式 Serving 尚未接入。专属契约见[ST](stock_st_ingestion_proposal.md)、[指数快照](index_basic_ingestion_proposal.md)、[股票日线](stock_daily_ingestion_proposal.md)、[每日指标](daily_basic_ingestion_proposal.md)、[指数日线](index_daily_ingestion_proposal.md)、[涨跌停价格](stk_limit_ingestion_proposal.md)、[BJ 映射](bse_mapping_ingestion_proposal.md)及[股票分钟](stock_1min_ingestion_proposal.md)。
+当前已落地 `stock_basic` 完整快照、SSE `trade_calendar` 自然日日历、`suspend_daily` 停复牌、`stock_st` 每日名单、`index_basic` 目标指数快照、`stock_daily` 未复权股票日线、`daily_basic` 每日指标、`adj_factor` 原始复权因子、`index_daily` universe 内指数日线、`stk_limit` 每日涨跌停价格、`bse_mapping` 北交所代码映射和 `stock_1min` 完整分钟研究网格。指数目标为宽基白名单及供应商按类别／发布方报告的申万行业集合。多 Unit、部分成功、合法零行替换、上游版本复核与分钟派生网格已有正式切片及测试；正式 Serving 尚未接入。专属契约见[ST](stock_st_ingestion_proposal.md)、[指数快照](index_basic_ingestion_proposal.md)、[股票日线](stock_daily_ingestion_proposal.md)、[每日指标](daily_basic_ingestion_proposal.md)、[复权因子](adj_factor_ingestion_proposal.md)、[指数日线](index_daily_ingestion_proposal.md)、[涨跌停价格](stk_limit_ingestion_proposal.md)、[BJ 映射](bse_mapping_ingestion_proposal.md)及[股票分钟](stock_1min_ingestion_proposal.md)。
 
 ## 二、职责分工
 
@@ -42,7 +42,7 @@ Runner 管机制，Dataset 管业务语义，Adapter 管供应商交付与准备
 | Publication | 一次成功发布的版本与变更范围，包含合法零行替换和修订；不等于历史数据快照 |
 | Run Audit | 本次执行的请求、检查、成功或失败结果及所用上游版本 |
 
-`stock_basic`、`index_basic` 和 `bse_mapping` 的 Unit 各是一个完整快照，`trade_calendar` 是一个交易所的一个自然日（包含休市日），`suspend_daily`、`stock_st`、`stock_daily`、`daily_basic` 和 `stk_limit` 各以一个经 SSE 日历确认的交易日为 Unit；`index_daily` 是固定 universe 内一个代码的一个交易日；`stock_1min` 以一只股票的一个交易日为 Unit。Scope.units 始终表示发布范围，Scope.request_units 只表示其中的供应商请求子集；全天停牌分钟因此可以本地交付并发布，而不必请求银河。
+`stock_basic`、`index_basic` 和 `bse_mapping` 的 Unit 各是一个完整快照，`trade_calendar` 是一个交易所的一个自然日（包含休市日），`suspend_daily`、`stock_st`、`stock_daily`、`daily_basic`、`adj_factor` 和 `stk_limit` 各以一个经 SSE 日历确认的交易日为 Unit；`index_daily` 是固定 universe 内一个代码的一个交易日；`stock_1min` 以一只股票的一个交易日为 Unit。Scope.units 始终表示发布范围，Scope.request_units 只表示其中的供应商请求子集；全天停牌分钟因此可以本地交付并发布，而不必请求银河。
 
 控制信息明确表达范围、交付状态、验收结论和版本；业务数据按列式批次处理。Unit 是业务粒度，与文件、表或分块组织独立，一份批次可以包含多个 Unit。
 
