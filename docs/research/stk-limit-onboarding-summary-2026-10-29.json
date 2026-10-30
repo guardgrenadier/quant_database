@@ -1,0 +1,930 @@
+{
+  "date": "2026-10-29",
+  "timezone": "Asia/Shanghai",
+  "status": "probe_complete_contract_pending",
+  "official_document": "https://tushare.pro/document/2?doc_id=183",
+  "evidence_root": "data/probes/stk-limit-onboarding-20261029T213351571183",
+  "database_modified": false,
+  "pagination_comparison": {
+    "full_rows": 5653,
+    "paged_rows": 5653,
+    "equal_sorted_rows": true,
+    "paged_duplicate_keys": 0
+  },
+  "cases": [
+    {
+      "case": "recent",
+      "params": {
+        "trade_date": "20261028"
+      },
+      "rows": 5653,
+      "has_more": false,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "pre_close",
+        "up_limit",
+        "down_limit",
+        "asset_type",
+        "exchange"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "pre_close": 0,
+        "up_limit": 0,
+        "down_limit": 0,
+        "asset_type": 0,
+        "exchange": 0
+      },
+      "types": {
+        "ts_code": {
+          "str": 5653
+        },
+        "trade_date": {
+          "str": 5653
+        },
+        "pre_close": {
+          "float": 5653
+        },
+        "up_limit": {
+          "float": 5653
+        },
+        "down_limit": {
+          "float": 5653
+        },
+        "asset_type": {
+          "str": 5653
+        },
+        "exchange": {
+          "str": 5653
+        }
+      },
+      "exchanges": {
+        "SZSE": 2941,
+        "SSE": 2359,
+        "BSE": 353
+      },
+      "asset_types": {
+        "STK": 5653
+      },
+      "duplicate_keys": 0,
+      "nonpositive": {
+        "pre_close": 0,
+        "up_limit": 0,
+        "down_limit": 0
+      },
+      "nonfinite": {
+        "pre_close": 0,
+        "up_limit": 0,
+        "down_limit": 0
+      },
+      "reversed_limits": 0,
+      "evidence": [
+        {
+          "path": "data/probes/stk-limit-onboarding-20261029T213351571183/requests/recent-attempt-01.json",
+          "sha256": "83c8b18cbfa9a331948f6d5a322544dc43711a79d8f77486a27e19285bb42453",
+          "attempt": 1,
+          "requested_at": "2026-10-29T13:33:51.574297+00:00",
+          "http_status": 200,
+          "provider_code": 0,
+          "error": null
+        }
+      ],
+      "pre_close_zero": 0,
+      "pre_close_negative": 0
+    },
+    {
+      "case": "historic_2010",
+      "params": {
+        "trade_date": "20100104"
+      },
+      "rows": 1671,
+      "has_more": false,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "pre_close",
+        "up_limit",
+        "down_limit",
+        "asset_type",
+        "exchange"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "pre_close": 1,
+        "up_limit": 0,
+        "down_limit": 0,
+        "asset_type": 0,
+        "exchange": 0
+      },
+      "types": {
+        "ts_code": {
+          "str": 1671
+        },
+        "trade_date": {
+          "str": 1671
+        },
+        "pre_close": {
+          "float": 1670,
+          "NoneType": 1
+        },
+        "up_limit": {
+          "float": 1671
+        },
+        "down_limit": {
+          "float": 1671
+        },
+        "asset_type": {
+          "str": 1671
+        },
+        "exchange": {
+          "str": 1671
+        }
+      },
+      "exchanges": {
+        "SZSE": 819,
+        "SSE": 852
+      },
+      "asset_types": {
+        "STK": 1671
+      },
+      "duplicate_keys": 0,
+      "nonpositive": {
+        "pre_close": 40,
+        "up_limit": 0,
+        "down_limit": 0
+      },
+      "nonfinite": {
+        "pre_close": 0,
+        "up_limit": 0,
+        "down_limit": 0
+      },
+      "reversed_limits": 0,
+      "evidence": [
+        {
+          "path": "data/probes/stk-limit-onboarding-20261029T213351571183/requests/historic_2010-attempt-01.json",
+          "sha256": "01cb785e72b22cb7dc86ea1c96b84d562cd1c0bd90bc1678dfa84641b06f4af2",
+          "attempt": 1,
+          "requested_at": "2026-10-29T13:33:53.936531+00:00",
+          "http_status": 200,
+          "provider_code": 0,
+          "error": null
+        }
+      ],
+      "pre_close_zero": 40,
+      "pre_close_negative": 0
+    },
+    {
+      "case": "historic_2000",
+      "params": {
+        "trade_date": "20000104"
+      },
+      "rows": 0,
+      "has_more": false,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "pre_close",
+        "up_limit",
+        "down_limit",
+        "asset_type",
+        "exchange"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "pre_close": 0,
+        "up_limit": 0,
+        "down_limit": 0,
+        "asset_type": 0,
+        "exchange": 0
+      },
+      "types": {
+        "ts_code": {},
+        "trade_date": {},
+        "pre_close": {},
+        "up_limit": {},
+        "down_limit": {},
+        "asset_type": {},
+        "exchange": {}
+      },
+      "exchanges": {},
+      "asset_types": {},
+      "duplicate_keys": 0,
+      "nonpositive": {
+        "pre_close": 0,
+        "up_limit": 0,
+        "down_limit": 0
+      },
+      "nonfinite": {
+        "pre_close": 0,
+        "up_limit": 0,
+        "down_limit": 0
+      },
+      "reversed_limits": 0,
+      "evidence": [
+        {
+          "path": "data/probes/stk-limit-onboarding-20261029T213351571183/requests/historic_2000-attempt-01.json",
+          "sha256": "8bb77bf02ca8e107d8e8d67c91571211f2da15420ac0dc04f385f4075b690631",
+          "attempt": 1,
+          "requested_at": "2026-10-29T13:33:55.591206+00:00",
+          "http_status": 200,
+          "provider_code": 0,
+          "error": null
+        }
+      ],
+      "pre_close_zero": 0,
+      "pre_close_negative": 0
+    },
+    {
+      "case": "halt",
+      "params": {
+        "ts_code": "300104.SZ",
+        "start_date": "20170417",
+        "end_date": "20170428"
+      },
+      "rows": 10,
+      "has_more": false,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "pre_close",
+        "up_limit",
+        "down_limit",
+        "asset_type",
+        "exchange"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "pre_close": 0,
+        "up_limit": 0,
+        "down_limit": 0,
+        "asset_type": 0,
+        "exchange": 0
+      },
+      "types": {
+        "ts_code": {
+          "str": 10
+        },
+        "trade_date": {
+          "str": 10
+        },
+        "pre_close": {
+          "float": 10
+        },
+        "up_limit": {
+          "float": 10
+        },
+        "down_limit": {
+          "float": 10
+        },
+        "asset_type": {
+          "str": 10
+        },
+        "exchange": {
+          "str": 10
+        }
+      },
+      "exchanges": {
+        "SZSE": 10
+      },
+      "asset_types": {
+        "STK": 10
+      },
+      "duplicate_keys": 0,
+      "nonpositive": {
+        "pre_close": 10,
+        "up_limit": 0,
+        "down_limit": 0
+      },
+      "nonfinite": {
+        "pre_close": 0,
+        "up_limit": 0,
+        "down_limit": 0
+      },
+      "reversed_limits": 0,
+      "sample_rows": [
+        {
+          "ts_code": "300104.SZ",
+          "trade_date": "20170428",
+          "pre_close": 0.0,
+          "up_limit": 33.75,
+          "down_limit": 27.61,
+          "asset_type": "STK",
+          "exchange": "SZSE"
+        },
+        {
+          "ts_code": "300104.SZ",
+          "trade_date": "20170427",
+          "pre_close": 0.0,
+          "up_limit": 33.75,
+          "down_limit": 27.61,
+          "asset_type": "STK",
+          "exchange": "SZSE"
+        },
+        {
+          "ts_code": "300104.SZ",
+          "trade_date": "20170426",
+          "pre_close": 0.0,
+          "up_limit": 33.75,
+          "down_limit": 27.61,
+          "asset_type": "STK",
+          "exchange": "SZSE"
+        },
+        {
+          "ts_code": "300104.SZ",
+          "trade_date": "20170425",
+          "pre_close": 0.0,
+          "up_limit": 33.75,
+          "down_limit": 27.61,
+          "asset_type": "STK",
+          "exchange": "SZSE"
+        },
+        {
+          "ts_code": "300104.SZ",
+          "trade_date": "20170424",
+          "pre_close": 0.0,
+          "up_limit": 33.75,
+          "down_limit": 27.61,
+          "asset_type": "STK",
+          "exchange": "SZSE"
+        },
+        {
+          "ts_code": "300104.SZ",
+          "trade_date": "20170421",
+          "pre_close": 0.0,
+          "up_limit": 33.75,
+          "down_limit": 27.61,
+          "asset_type": "STK",
+          "exchange": "SZSE"
+        },
+        {
+          "ts_code": "300104.SZ",
+          "trade_date": "20170420",
+          "pre_close": 0.0,
+          "up_limit": 33.75,
+          "down_limit": 27.61,
+          "asset_type": "STK",
+          "exchange": "SZSE"
+        },
+        {
+          "ts_code": "300104.SZ",
+          "trade_date": "20170419",
+          "pre_close": 0.0,
+          "up_limit": 33.75,
+          "down_limit": 27.61,
+          "asset_type": "STK",
+          "exchange": "SZSE"
+        },
+        {
+          "ts_code": "300104.SZ",
+          "trade_date": "20170418",
+          "pre_close": 0.0,
+          "up_limit": 33.75,
+          "down_limit": 27.61,
+          "asset_type": "STK",
+          "exchange": "SZSE"
+        },
+        {
+          "ts_code": "300104.SZ",
+          "trade_date": "20170417",
+          "pre_close": 0.0,
+          "up_limit": 33.75,
+          "down_limit": 27.61,
+          "asset_type": "STK",
+          "exchange": "SZSE"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "data/probes/stk-limit-onboarding-20261029T213351571183/requests/halt-attempt-01.json",
+          "sha256": "4ab6c3d5b9d6211804d5ec511f24690e6d595f52c5f601ea5689432ebb9dc60a",
+          "attempt": 1,
+          "requested_at": "2026-10-29T13:33:57.316733+00:00",
+          "http_status": 200,
+          "provider_code": 0,
+          "error": null
+        }
+      ],
+      "pre_close_zero": 10,
+      "pre_close_negative": 0
+    },
+    {
+      "case": "ipo_star",
+      "params": {
+        "ts_code": "688981.SH",
+        "start_date": "20200716",
+        "end_date": "20200724"
+      },
+      "rows": 7,
+      "has_more": false,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "pre_close",
+        "up_limit",
+        "down_limit",
+        "asset_type",
+        "exchange"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "pre_close": 0,
+        "up_limit": 0,
+        "down_limit": 0,
+        "asset_type": 0,
+        "exchange": 0
+      },
+      "types": {
+        "ts_code": {
+          "str": 7
+        },
+        "trade_date": {
+          "str": 7
+        },
+        "pre_close": {
+          "float": 7
+        },
+        "up_limit": {
+          "float": 7
+        },
+        "down_limit": {
+          "float": 7
+        },
+        "asset_type": {
+          "str": 7
+        },
+        "exchange": {
+          "str": 7
+        }
+      },
+      "exchanges": {
+        "SSE": 7
+      },
+      "asset_types": {
+        "STK": 7
+      },
+      "duplicate_keys": 0,
+      "nonpositive": {
+        "pre_close": 0,
+        "up_limit": 0,
+        "down_limit": 0
+      },
+      "nonfinite": {
+        "pre_close": 0,
+        "up_limit": 0,
+        "down_limit": 0
+      },
+      "reversed_limits": 0,
+      "sample_rows": [
+        {
+          "ts_code": "688981.SH",
+          "trade_date": "20200724",
+          "pre_close": 78.78,
+          "up_limit": 94.54,
+          "down_limit": 63.02,
+          "asset_type": "STK",
+          "exchange": "SSE"
+        },
+        {
+          "ts_code": "688981.SH",
+          "trade_date": "20200723",
+          "pre_close": 79.57,
+          "up_limit": 95.48,
+          "down_limit": 63.66,
+          "asset_type": "STK",
+          "exchange": "SSE"
+        },
+        {
+          "ts_code": "688981.SH",
+          "trade_date": "20200722",
+          "pre_close": 78.63,
+          "up_limit": 100000.0,
+          "down_limit": 0.01,
+          "asset_type": "STK",
+          "exchange": "SSE"
+        },
+        {
+          "ts_code": "688981.SH",
+          "trade_date": "20200721",
+          "pre_close": 79.17,
+          "up_limit": 100000.0,
+          "down_limit": 0.01,
+          "asset_type": "STK",
+          "exchange": "SSE"
+        },
+        {
+          "ts_code": "688981.SH",
+          "trade_date": "20200720",
+          "pre_close": 77.06,
+          "up_limit": 100000.0,
+          "down_limit": 0.01,
+          "asset_type": "STK",
+          "exchange": "SSE"
+        },
+        {
+          "ts_code": "688981.SH",
+          "trade_date": "20200717",
+          "pre_close": 82.92,
+          "up_limit": 100000.0,
+          "down_limit": 0.01,
+          "asset_type": "STK",
+          "exchange": "SSE"
+        },
+        {
+          "ts_code": "688981.SH",
+          "trade_date": "20200716",
+          "pre_close": 27.46,
+          "up_limit": 100000.0,
+          "down_limit": 0.01,
+          "asset_type": "STK",
+          "exchange": "SSE"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "data/probes/stk-limit-onboarding-20261029T213351571183/requests/ipo_star-attempt-01.json",
+          "sha256": "81cfd166c1e43f8d2e11c8f50acdd2872e2b44eb36b02dbc67f2931c0b0aa1ee",
+          "attempt": 1,
+          "requested_at": "2026-10-29T13:33:58.835439+00:00",
+          "http_status": 200,
+          "provider_code": 0,
+          "error": null
+        }
+      ],
+      "pre_close_zero": 0,
+      "pre_close_negative": 0
+    },
+    {
+      "case": "page0",
+      "params": {
+        "trade_date": "20261028",
+        "limit": 3000,
+        "offset": 0
+      },
+      "rows": 3000,
+      "has_more": true,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "pre_close",
+        "up_limit",
+        "down_limit",
+        "asset_type",
+        "exchange"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "pre_close": 0,
+        "up_limit": 0,
+        "down_limit": 0,
+        "asset_type": 0,
+        "exchange": 0
+      },
+      "types": {
+        "ts_code": {
+          "str": 3000
+        },
+        "trade_date": {
+          "str": 3000
+        },
+        "pre_close": {
+          "float": 3000
+        },
+        "up_limit": {
+          "float": 3000
+        },
+        "down_limit": {
+          "float": 3000
+        },
+        "asset_type": {
+          "str": 3000
+        },
+        "exchange": {
+          "str": 3000
+        }
+      },
+      "exchanges": {
+        "SZSE": 2941,
+        "SSE": 59
+      },
+      "asset_types": {
+        "STK": 3000
+      },
+      "duplicate_keys": 0,
+      "nonpositive": {
+        "pre_close": 0,
+        "up_limit": 0,
+        "down_limit": 0
+      },
+      "nonfinite": {
+        "pre_close": 0,
+        "up_limit": 0,
+        "down_limit": 0
+      },
+      "reversed_limits": 0,
+      "evidence": [
+        {
+          "path": "data/probes/stk-limit-onboarding-20261029T213351571183/requests/page0-attempt-01.json",
+          "sha256": "4d3cc7b6a39a4c9b20f3ecddf21ec27d614d9497a5d2226a46f5cb9ae41d04af",
+          "attempt": 1,
+          "requested_at": "2026-10-29T13:34:00.320871+00:00",
+          "http_status": 200,
+          "provider_code": 0,
+          "error": null
+        }
+      ],
+      "pre_close_zero": 0,
+      "pre_close_negative": 0
+    },
+    {
+      "case": "page1",
+      "params": {
+        "trade_date": "20261028",
+        "limit": 3000,
+        "offset": 3000
+      },
+      "rows": 2653,
+      "has_more": false,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "pre_close",
+        "up_limit",
+        "down_limit",
+        "asset_type",
+        "exchange"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "pre_close": 0,
+        "up_limit": 0,
+        "down_limit": 0,
+        "asset_type": 0,
+        "exchange": 0
+      },
+      "types": {
+        "ts_code": {
+          "str": 2653
+        },
+        "trade_date": {
+          "str": 2653
+        },
+        "pre_close": {
+          "float": 2653
+        },
+        "up_limit": {
+          "float": 2653
+        },
+        "down_limit": {
+          "float": 2653
+        },
+        "asset_type": {
+          "str": 2653
+        },
+        "exchange": {
+          "str": 2653
+        }
+      },
+      "exchanges": {
+        "SSE": 2300,
+        "BSE": 353
+      },
+      "asset_types": {
+        "STK": 2653
+      },
+      "duplicate_keys": 0,
+      "nonpositive": {
+        "pre_close": 0,
+        "up_limit": 0,
+        "down_limit": 0
+      },
+      "nonfinite": {
+        "pre_close": 0,
+        "up_limit": 0,
+        "down_limit": 0
+      },
+      "reversed_limits": 0,
+      "evidence": [
+        {
+          "path": "data/probes/stk-limit-onboarding-20261029T213351571183/requests/page1-attempt-01.json",
+          "sha256": "37db51eba7bd67c0747de49d68c86880b7a8f595886f75c205fa02f86ce7b5cc",
+          "attempt": 1,
+          "requested_at": "2026-10-29T13:34:02.157974+00:00",
+          "http_status": 200,
+          "provider_code": 0,
+          "error": null
+        }
+      ],
+      "pre_close_zero": 0,
+      "pre_close_negative": 0
+    },
+    {
+      "case": "page2",
+      "params": {
+        "trade_date": "20261028",
+        "limit": 3000,
+        "offset": 6000
+      },
+      "rows": 0,
+      "has_more": false,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "pre_close",
+        "up_limit",
+        "down_limit",
+        "asset_type",
+        "exchange"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "pre_close": 0,
+        "up_limit": 0,
+        "down_limit": 0,
+        "asset_type": 0,
+        "exchange": 0
+      },
+      "types": {
+        "ts_code": {},
+        "trade_date": {},
+        "pre_close": {},
+        "up_limit": {},
+        "down_limit": {},
+        "asset_type": {},
+        "exchange": {}
+      },
+      "exchanges": {},
+      "asset_types": {},
+      "duplicate_keys": 0,
+      "nonpositive": {
+        "pre_close": 0,
+        "up_limit": 0,
+        "down_limit": 0
+      },
+      "nonfinite": {
+        "pre_close": 0,
+        "up_limit": 0,
+        "down_limit": 0
+      },
+      "reversed_limits": 0,
+      "evidence": [
+        {
+          "path": "data/probes/stk-limit-onboarding-20261029T213351571183/requests/page2-attempt-01.json",
+          "sha256": "31da454a0888c479cf282a9a79caf57bfbbea79f745d3296fa6892443f66603c",
+          "attempt": 1,
+          "requested_at": "2026-10-29T13:34:03.999851+00:00",
+          "http_status": 200,
+          "provider_code": 0,
+          "error": null
+        }
+      ],
+      "pre_close_zero": 0,
+      "pre_close_negative": 0
+    },
+    {
+      "case": "empty_code",
+      "params": {
+        "trade_date": "20261028",
+        "ts_code": "999999.SH"
+      },
+      "rows": 0,
+      "has_more": false,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "pre_close",
+        "up_limit",
+        "down_limit",
+        "asset_type",
+        "exchange"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "pre_close": 0,
+        "up_limit": 0,
+        "down_limit": 0,
+        "asset_type": 0,
+        "exchange": 0
+      },
+      "types": {
+        "ts_code": {},
+        "trade_date": {},
+        "pre_close": {},
+        "up_limit": {},
+        "down_limit": {},
+        "asset_type": {},
+        "exchange": {}
+      },
+      "exchanges": {},
+      "asset_types": {},
+      "duplicate_keys": 0,
+      "nonpositive": {
+        "pre_close": 0,
+        "up_limit": 0,
+        "down_limit": 0
+      },
+      "nonfinite": {
+        "pre_close": 0,
+        "up_limit": 0,
+        "down_limit": 0
+      },
+      "reversed_limits": 0,
+      "evidence": [
+        {
+          "path": "data/probes/stk-limit-onboarding-20261029T213351571183/requests/empty_code-attempt-01.json",
+          "sha256": "fd3d825c8013972b6da18e6b27a1864b0add17ad1d10eda6a3912ed4b9bf12f0",
+          "attempt": 1,
+          "requested_at": "2026-10-29T13:34:05.700718+00:00",
+          "http_status": 200,
+          "provider_code": 0,
+          "error": null
+        }
+      ],
+      "pre_close_zero": 0,
+      "pre_close_negative": 0
+    },
+    {
+      "case": "closed",
+      "params": {
+        "trade_date": "20261025"
+      },
+      "rows": 0,
+      "has_more": false,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "pre_close",
+        "up_limit",
+        "down_limit",
+        "asset_type",
+        "exchange"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "pre_close": 0,
+        "up_limit": 0,
+        "down_limit": 0,
+        "asset_type": 0,
+        "exchange": 0
+      },
+      "types": {
+        "ts_code": {},
+        "trade_date": {},
+        "pre_close": {},
+        "up_limit": {},
+        "down_limit": {},
+        "asset_type": {},
+        "exchange": {}
+      },
+      "exchanges": {},
+      "asset_types": {},
+      "duplicate_keys": 0,
+      "nonpositive": {
+        "pre_close": 0,
+        "up_limit": 0,
+        "down_limit": 0
+      },
+      "nonfinite": {
+        "pre_close": 0,
+        "up_limit": 0,
+        "down_limit": 0
+      },
+      "reversed_limits": 0,
+      "evidence": [
+        {
+          "path": "data/probes/stk-limit-onboarding-20261029T213351571183/requests/closed-attempt-01.json",
+          "sha256": "53c2413d085bb1cf06f8c14a2e88910bb0b622fa8602e7c7a218723f6d1e8ff9",
+          "attempt": 1,
+          "requested_at": "2026-10-29T13:34:07.613444+00:00",
+          "http_status": 200,
+          "provider_code": 0,
+          "error": null
+        }
+      ],
+      "pre_close_zero": 0,
+      "pre_close_negative": 0
+    }
+  ],
+  "baseline_tests": {
+    "command": "uv run --frozen python -m unittest tests.test_ingestion tests.test_daily tests.test_bse_mapping -q",
+    "run": 47,
+    "passed": 46,
+    "skipped": 1,
+    "skip_reason": "Existing stock_basic local real-response fixture absent"
+  },
+  "limitations": [
+    "No production stk_limit implementation or publication",
+    "Historical coverage start, cross-page snapshot consistency and data finality not established",
+    "Special price representations outside the sampled security and dates not exhaustively tested"
+  ]
+}

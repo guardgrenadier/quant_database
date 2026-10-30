@@ -1,6 +1,6 @@
 # quant_data
 
-个人量化数据库，已接入 `stock_basic` 完整快照、SSE `trade_calendar`、`suspend_daily` 停复牌、`stock_st` 名单、`index_basic` 目标指数快照、`stock_daily` 未复权股票日线、`index_daily` universe 内指数日线、`bse_mapping` 北交所代码映射，以及 `stock_1min` 完整分钟研究网格：获取及证据 → 集中准备 Candidate → 统一验收 → Canonical 和 Meta 原子发布。
+个人量化数据库，已接入 `stock_basic` 完整快照、SSE `trade_calendar`、`suspend_daily` 停复牌、`stock_st` 名单、`index_basic` 目标指数快照、`stock_daily` 未复权股票日线、`index_daily` universe 内指数日线、`stk_limit` 每日涨跌停价格、`bse_mapping` 北交所代码映射，以及 `stock_1min` 完整分钟研究网格：获取及证据 → 集中准备 Candidate → 统一验收 → Canonical 和 Meta 原子发布。
 
 | 阅读目的 | 文档 |
 |---|---|
@@ -128,6 +128,22 @@ uv run --frozen python -m quant_data ingest index_daily \
 
 契约和真实独立库验收见[股票日线](docs/design/stock_daily_ingestion_proposal.md)、[指数日线](docs/design/index_daily_ingestion_proposal.md)。
 
+## stk_limit 每日涨跌停价格
+
+保存 Tushare 报告的全市场七字段，包括 B 股、基金及停牌证券；主键 `(ts_code, trade_date)`，按交易日完整替换。只依赖同库已发布的 SSE 日历，不按当前股票名单过滤历史。
+
+```bash
+uv run --frozen python -m quant_data ingest trade_calendar \
+  --start-date 20261023 --end-date 20261026 --db data/probes/my-limits/warehouse.duckdb
+uv run --frozen python -m quant_data ingest stk_limit \
+  --start-date 20261023 --end-date 20261026 --db data/probes/my-limits/warehouse.duckdb \
+  --landing-dir data/probes/my-limits/landing --keep-artifacts
+```
+
+逐开市日按 3,000 行专属分页；满页即使 has_more=false 也续取尾页，短页且明确 false 才完成。分页失败、重复页、缺列、坏值、错日、重复业务键或整日零行均阻断对应日，保护旧数据及版本，其他合格日仍可发布。
+
+pre_close 的 NULL/0 原样保存并告警；asset_type/exchange 为可空开放字符串。两个上下限须为有限数，上限为正、下限非负且顺序正确；零下限原样保留并按日告警，`100000 / 0.01` 等源值同样保留，不推导无限制标志或交易状态。价格保留各证券源报价口径，不统一换算币种，不自动下载全历史。完整契约及独立库验收见 [stk_limit 文档](docs/design/stk_limit_ingestion_proposal.md)。
+
 ## 北交所代码映射与股票一分钟
 
 `bse_mapping` 保存官方北交所新旧代码完整快照，用于分钟历史的时代代码路由。单次全量请求，四字段，`o_code` 主键、`n_code` 唯一，整快照替换，失败保护旧版：
@@ -193,7 +209,7 @@ uv run --frozen python scripts/probe_tushare.py --case stock_L --case suspend_20
 - [停复牌正式 Schema](src/quant_data/datasets/suspend_daily.sql) 与[落地验证](docs/research/suspend-daily-ingestion-validation-2026-10-16.md)
 - [银河 vs Tushare 日线质量对照与接入建议](docs/research/galaxy-vs-tushare-daily-quality-2026-10-22.md)（银河接口系列探查见同目录 galaxy-* 报告）
 
-九个 Dataset 的正式 DDL 位于 [datasets](src/quant_data/datasets)。逐请求摘要由探查报告引用。早期 review、walkthrough 和探查原始产物已于 2026-10-16 清理，可按上述入口重新生成；当前正式切片的证据路径见各自文档。
+十个 Dataset 的正式 DDL 位于 [datasets](src/quant_data/datasets)。逐请求摘要由探查报告引用。早期 review、walkthrough 和探查原始产物已于 2026-10-16 清理，可按上述入口重新生成；当前正式切片的证据路径见各自文档。
 
 ## 数据商接口
 
