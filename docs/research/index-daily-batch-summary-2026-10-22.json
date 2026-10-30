@@ -1,0 +1,112 @@
+{
+  "root": "data/probes/index-daily-batch-validation-20261022T113340060289",
+  "database": "data/probes/index-daily-batch-validation-20261022T113340060289/warehouse.duckdb",
+  "default_database_written": false,
+  "completed": true,
+  "manifest_files_verified": 316,
+  "runs": [
+    {
+      "label": "calendar",
+      "mode": "official_live_cli",
+      "dataset": "trade_calendar",
+      "run_id": "ef84e17b-ed35-43f8-8336-748dd7fa919c",
+      "status": "SUCCESS",
+      "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/index-daily-batch-validation-20261022T113340060289/landing/ef84e17b-ed35-43f8-8336-748dd7fa919c",
+      "artifacts_complete": true,
+      "publication_count": 1
+    },
+    {
+      "label": "universe",
+      "mode": "official_live_cli",
+      "dataset": "index_basic",
+      "run_id": "5d573a2f-7107-46ca-b856-d98a0273e8fd",
+      "status": "SUCCESS",
+      "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/index-daily-batch-validation-20261022T113340060289/landing/5d573a2f-7107-46ca-b856-d98a0273e8fd",
+      "artifacts_complete": true,
+      "publication_count": 1
+    },
+    {
+      "label": "batch_first",
+      "mode": "official_live_cli",
+      "dataset": "index_daily",
+      "run_id": "2400ef84-8170-4802-a610-2ff8ca0f4c1b",
+      "status": "SUCCESS",
+      "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/index-daily-batch-validation-20261022T113340060289/landing/2400ef84-8170-4802-a610-2ff8ca0f4c1b",
+      "artifacts_complete": true,
+      "publication_count": 793,
+      "logical_requests": {
+        "index_daily": 24,
+        "sw_daily": 1
+      },
+      "rows": 438,
+      "raw_rows": 463,
+      "raw_sw_rows": 439,
+      "excluded_rows": 25,
+      "zero_row_publications": 355,
+      "source_candidate_canonical_equal": true
+    },
+    {
+      "label": "batch_rerun",
+      "mode": "official_live_cli",
+      "dataset": "index_daily",
+      "run_id": "c74c6eea-74df-4a88-81b9-e908c29dcccb",
+      "status": "SUCCESS",
+      "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/index-daily-batch-validation-20261022T113340060289/landing/c74c6eea-74df-4a88-81b9-e908c29dcccb",
+      "artifacts_complete": true,
+      "publication_count": 793,
+      "logical_requests": {
+        "index_daily": 24,
+        "sw_daily": 1
+      },
+      "rows": 438,
+      "raw_rows": 463,
+      "raw_sw_rows": 439,
+      "excluded_rows": 25,
+      "zero_row_publications": 355,
+      "source_candidate_canonical_equal": true
+    },
+    {
+      "label": "failed_sw_batch",
+      "mode": "offline_fault_injection_no_http",
+      "run_id": "4eb6745b-268d-41b8-be47-c569f02ac2f4",
+      "status": "PARTIAL",
+      "broad_published_units": 24,
+      "sw_failed_units": 769,
+      "sw_old_data_coverage_publications_preserved": true,
+      "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/index-daily-batch-validation-20261022T113340060289/landing/4eb6745b-268d-41b8-be47-c569f02ac2f4",
+      "artifacts_complete": false
+    }
+  ],
+  "universe_count": 793,
+  "sw_target_count": 769,
+  "broad_target_count": 24,
+  "rerun_equal": true,
+  "individual_comparisons": [
+    {
+      "code": "801010.SI",
+      "rows": 1,
+      "equal_to_daily_batch": true,
+      "evidence_path": "data/probes/index-daily-batch-validation-20261022T113340060289/individual-checks/requests/individual-801010.SI-attempt-01.json",
+      "sha256": "ce57d5abc8ccc2eda29ce3de3684a16175678e6d6b9d04754ae57b7e26603ab5"
+    },
+    {
+      "code": "801011.SI",
+      "rows": 0,
+      "equal_to_daily_batch": true,
+      "evidence_path": "data/probes/index-daily-batch-validation-20261022T113340060289/individual-checks/requests/individual-801011.SI-attempt-01.json",
+      "sha256": "49d48f0503dd88977ee06d87472ea5f1d454de1d4f822fea79256a5195ffd64a"
+    }
+  ],
+  "dataset_tests": {
+    "total": 12,
+    "passed": 12,
+    "added_batch_scenarios": 2
+  },
+  "regression": {
+    "total": 84,
+    "passed": 83,
+    "skipped": 1,
+    "skip_reason": "existing stock_basic real response sample missing locally"
+  },
+  "environment_smoke": "PASS"
+}

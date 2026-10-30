@@ -1,0 +1,199 @@
+{
+  "date": "2026-10-29",
+  "status": "implementation_and_validation_complete",
+  "tests": {
+    "new_tests_passed": 9,
+    "full_suite_run": 141,
+    "full_suite_passed": 140,
+    "skipped": 1,
+    "skip_reason": "Existing stock_basic local sample missing",
+    "environment_check": "PASS",
+    "full_suite_phase": "initial implementation before zero-lower-limit revision",
+    "after_contract_revision": {
+      "command": "uv run --frozen python -m unittest tests.test_stk_limit -v",
+      "run": 9,
+      "passed": 9,
+      "skipped": 0
+    }
+  },
+  "positive_live_validation": {
+    "evidence_root": "data/probes/stk-limit-validation-positive-20261029",
+    "params": {
+      "start_date": "20261028",
+      "end_date": "20261028"
+    },
+    "runs": [
+      {
+        "run_id": "113d912a-3450-4f09-8b9f-9b9594f37138",
+        "status": "SUCCESS",
+        "publications": [
+          {
+            "unit_key": "SSE:2026-10-28",
+            "publication_id": 1,
+            "row_count": 1
+          }
+        ],
+        "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/stk-limit-validation-positive-20261029/landing/113d912a-3450-4f09-8b9f-9b9594f37138"
+      },
+      {
+        "run_id": "c77130c6-7c8e-4806-b16d-e31f74b25c00",
+        "status": "SUCCESS",
+        "publications": [
+          {
+            "unit_key": "2026-10-28",
+            "publication_id": 2,
+            "row_count": 5653
+          }
+        ],
+        "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/stk-limit-validation-positive-20261029/landing/c77130c6-7c8e-4806-b16d-e31f74b25c00"
+      },
+      {
+        "run_id": "60863602-ae6d-478e-ac9a-740e56126b6d",
+        "status": "SUCCESS",
+        "publications": [
+          {
+            "unit_key": "2026-10-28",
+            "publication_id": 3,
+            "row_count": 5653
+          }
+        ],
+        "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/stk-limit-validation-positive-20261029/landing/60863602-ae6d-478e-ac9a-740e56126b6d"
+      }
+    ],
+    "canonical_rows": 5653,
+    "canonical_sha256": "c60c9c16e026dba4eca06692ef1b142fe5cfc7b9a466f20028b97926cb6b0177",
+    "rerun_equal": true,
+    "source_candidate_canonical_equal": true,
+    "verified_manifest_files": 134,
+    "offline_zero_injection_preserved_old_facts_and_versions": true,
+    "offline_zero_run_id": "d5e5db18-4676-4325-9d72-ea340fa025ce"
+  },
+  "contract_conflict": {
+    "evidence_root": "data/probes/stk-limit-validation-20261029",
+    "run_id": "e4010026-5b19-457e-ad11-9b489f34d109",
+    "status": "PARTIAL",
+    "source_rows": [
+      {
+        "ts_code": "920285.BJ",
+        "trade_date": "20261023",
+        "pre_close": 20.3,
+        "up_limit": 99999.99,
+        "down_limit": 0.0,
+        "asset_type": "STK",
+        "exchange": "BSE",
+        "_requested_date": "2026-10-23",
+        "_offset": 3000
+      }
+    ],
+    "published_units": [
+      {
+        "unit_key": "2026-10-26",
+        "publication_id": 5,
+        "row_count": 5654
+      }
+    ],
+    "verified_manifest_files": 91,
+    "resolution": "User approved zero lower limit with warning; final independent validation passed"
+  },
+  "shared_interfaces_changed": false,
+  "new_dependencies": [],
+  "default_database_modified": false,
+  "contract_revision": {
+    "user_confirmed": true,
+    "up_limit": "finite and >0",
+    "down_limit": "finite and >=0",
+    "zero_lower_limit": "preserved with stk_limit.down_limit_zero WARNING; no unlimited flag inferred"
+  },
+  "final_live_validation": {
+    "evidence_root": "data/probes/stk-limit-validation-final-20261029",
+    "params": {
+      "start_date": "20261023",
+      "end_date": "20261026"
+    },
+    "runs": [
+      {
+        "run_id": "5e652262-39e8-43de-83d5-2189c996cea2",
+        "status": "SUCCESS",
+        "publications": [
+          {
+            "unit_key": "SSE:2026-10-26",
+            "publication_id": 1,
+            "row_count": 1
+          },
+          {
+            "unit_key": "SSE:2026-10-24",
+            "publication_id": 2,
+            "row_count": 1
+          },
+          {
+            "unit_key": "SSE:2026-10-25",
+            "publication_id": 3,
+            "row_count": 1
+          },
+          {
+            "unit_key": "SSE:2026-10-23",
+            "publication_id": 4,
+            "row_count": 1
+          }
+        ],
+        "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/stk-limit-validation-final-20261029/landing/5e652262-39e8-43de-83d5-2189c996cea2"
+      },
+      {
+        "run_id": "8c20f2f1-7702-4598-8ca8-67a9fd590d8f",
+        "status": "SUCCESS",
+        "publications": [
+          {
+            "unit_key": "2026-10-26",
+            "publication_id": 5,
+            "row_count": 5654
+          },
+          {
+            "unit_key": "2026-10-23",
+            "publication_id": 6,
+            "row_count": 5654
+          }
+        ],
+        "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/stk-limit-validation-final-20261029/landing/8c20f2f1-7702-4598-8ca8-67a9fd590d8f"
+      },
+      {
+        "run_id": "6fa3495e-7064-4a06-8895-811f86cfcaef",
+        "status": "SUCCESS",
+        "publications": [
+          {
+            "unit_key": "2026-10-26",
+            "publication_id": 7,
+            "row_count": 5654
+          },
+          {
+            "unit_key": "2026-10-23",
+            "publication_id": 8,
+            "row_count": 5654
+          }
+        ],
+        "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/stk-limit-validation-final-20261029/landing/6fa3495e-7064-4a06-8895-811f86cfcaef"
+      }
+    ],
+    "checks": {
+      "first": {
+        "WARNING": 1
+      },
+      "second": {
+        "WARNING": 1
+      }
+    },
+    "canonical_rows": 11308,
+    "canonical_sha256": "5c923e561160177e1ab041eb51f9ddcb84a6dc87029d4bd713bd67c5993c81e0",
+    "rerun_equal": true,
+    "source_raw_candidate_canonical_equal": true,
+    "verified_manifest_files": 138,
+    "zero_lower_limit_record": {
+      "ts_code": "920285.BJ",
+      "trade_date": "2026-10-23",
+      "up_limit": 99999.99,
+      "down_limit": 0.0
+    },
+    "zero_lower_limit_warning_count_per_run": 1,
+    "offline_zero_injection_preserved_old_facts_and_versions": true,
+    "offline_zero_run_id": "293e39c3-0fca-46ea-88f9-1264537675ae"
+  }
+}

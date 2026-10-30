@@ -1,0 +1,2735 @@
+{
+  "observed_on": "2026-10-13",
+  "timezone": "Asia/Shanghai",
+  "request_count": 56,
+  "checks": {
+    "stock_L_exchange_union": true,
+    "stock_D_exchange_union": true,
+    "stock_P_exchange_union": true,
+    "stock_G_exchange_union": true,
+    "stock_UN_exchange_union": true,
+    "stock_default_matches_L": true,
+    "stock_empty_status_matches_L": true,
+    "suspend_type_union": true,
+    "range_matches_daily_union": true
+  },
+  "canonical_ddl_load": {
+    "stock_basic": 5921,
+    "suspend_daily_distinct_sample": 11435
+  },
+  "requests": [
+    {
+      "path": "data/probes/official-followup-2026-10-13/stock_D_BSE.json",
+      "sha256": "b299df0e92cc08dd0c5170c2dbf32d2cb1e89d67974e3dcf9656e8617a733b68",
+      "case": "stock_D_BSE",
+      "requested_at": "2026-10-13T19:56:16.701659+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "stock_basic",
+      "params": {
+        "list_status": "D",
+        "exchange": "BSE"
+      },
+      "requested_fields": "ts_code,symbol,name,area,industry,fullname,enname,cnspell,market,exchange,curr_type,list_status,list_date,delist_date,is_hs,act_name,act_ent_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 5,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "symbol",
+        "name",
+        "area",
+        "industry",
+        "fullname",
+        "enname",
+        "cnspell",
+        "market",
+        "exchange",
+        "curr_type",
+        "list_status",
+        "list_date",
+        "delist_date",
+        "is_hs",
+        "act_name",
+        "act_ent_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "symbol": 0,
+        "name": 0,
+        "area": 5,
+        "industry": 5,
+        "fullname": 0,
+        "enname": 0,
+        "cnspell": 0,
+        "market": 0,
+        "exchange": 0,
+        "curr_type": 0,
+        "list_status": 0,
+        "list_date": 0,
+        "delist_date": 0,
+        "is_hs": 0,
+        "act_name": 2,
+        "act_ent_type": 2
+      },
+      "duplicate_keys": {
+        "ts_code": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-followup-2026-10-13/stock_D_SSE.json",
+      "sha256": "f92b4a847623acef310578557521b30a35101bd39deb844dd7a47aaf1af0c29b",
+      "case": "stock_D_SSE",
+      "requested_at": "2026-10-13T19:56:04.980385+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "stock_basic",
+      "params": {
+        "list_status": "D",
+        "exchange": "SSE"
+      },
+      "requested_fields": "ts_code,symbol,name,area,industry,fullname,enname,cnspell,market,exchange,curr_type,list_status,list_date,delist_date,is_hs,act_name,act_ent_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 147,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "symbol",
+        "name",
+        "area",
+        "industry",
+        "fullname",
+        "enname",
+        "cnspell",
+        "market",
+        "exchange",
+        "curr_type",
+        "list_status",
+        "list_date",
+        "delist_date",
+        "is_hs",
+        "act_name",
+        "act_ent_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "symbol": 0,
+        "name": 0,
+        "area": 145,
+        "industry": 145,
+        "fullname": 0,
+        "enname": 0,
+        "cnspell": 0,
+        "market": 1,
+        "exchange": 0,
+        "curr_type": 0,
+        "list_status": 0,
+        "list_date": 0,
+        "delist_date": 0,
+        "is_hs": 0,
+        "act_name": 4,
+        "act_ent_type": 4
+      },
+      "duplicate_keys": {
+        "ts_code": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-followup-2026-10-13/stock_D_SZSE.json",
+      "sha256": "0995bc0407e6bd69740fffd3297ec6dd58ef4c531cbc397ccce0eb93ed54c1eb",
+      "case": "stock_D_SZSE",
+      "requested_at": "2026-10-13T19:56:10.898618+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "stock_basic",
+      "params": {
+        "list_status": "D",
+        "exchange": "SZSE"
+      },
+      "requested_fields": "ts_code,symbol,name,area,industry,fullname,enname,cnspell,market,exchange,curr_type,list_status,list_date,delist_date,is_hs,act_name,act_ent_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 187,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "symbol",
+        "name",
+        "area",
+        "industry",
+        "fullname",
+        "enname",
+        "cnspell",
+        "market",
+        "exchange",
+        "curr_type",
+        "list_status",
+        "list_date",
+        "delist_date",
+        "is_hs",
+        "act_name",
+        "act_ent_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "symbol": 0,
+        "name": 0,
+        "area": 183,
+        "industry": 183,
+        "fullname": 0,
+        "enname": 0,
+        "cnspell": 0,
+        "market": 0,
+        "exchange": 0,
+        "curr_type": 0,
+        "list_status": 0,
+        "list_date": 0,
+        "delist_date": 0,
+        "is_hs": 0,
+        "act_name": 2,
+        "act_ent_type": 2
+      },
+      "duplicate_keys": {
+        "ts_code": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-followup-2026-10-13/stock_G_BSE.json",
+      "sha256": "1cf524aba51bc70409bb1b7b4e4416b7f1cbe3c0afa1ddd269b1b9e2234dbdcd",
+      "case": "stock_G_BSE",
+      "requested_at": "2026-10-13T19:56:19.593621+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "stock_basic",
+      "params": {
+        "list_status": "G",
+        "exchange": "BSE"
+      },
+      "requested_fields": "ts_code,symbol,name,area,industry,fullname,enname,cnspell,market,exchange,curr_type,list_status,list_date,delist_date,is_hs,act_name,act_ent_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 0,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "symbol",
+        "name",
+        "area",
+        "industry",
+        "fullname",
+        "enname",
+        "cnspell",
+        "market",
+        "exchange",
+        "curr_type",
+        "list_status",
+        "list_date",
+        "delist_date",
+        "is_hs",
+        "act_name",
+        "act_ent_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "symbol": 0,
+        "name": 0,
+        "area": 0,
+        "industry": 0,
+        "fullname": 0,
+        "enname": 0,
+        "cnspell": 0,
+        "market": 0,
+        "exchange": 0,
+        "curr_type": 0,
+        "list_status": 0,
+        "list_date": 0,
+        "delist_date": 0,
+        "is_hs": 0,
+        "act_name": 0,
+        "act_ent_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-followup-2026-10-13/stock_G_SSE.json",
+      "sha256": "768fadf0d3b015c570710b60cd1e48c79be2d3b066ad9cc34f034134797f2cfa",
+      "case": "stock_G_SSE",
+      "requested_at": "2026-10-13T19:56:07.992689+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "stock_basic",
+      "params": {
+        "list_status": "G",
+        "exchange": "SSE"
+      },
+      "requested_fields": "ts_code,symbol,name,area,industry,fullname,enname,cnspell,market,exchange,curr_type,list_status,list_date,delist_date,is_hs,act_name,act_ent_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 0,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "symbol",
+        "name",
+        "area",
+        "industry",
+        "fullname",
+        "enname",
+        "cnspell",
+        "market",
+        "exchange",
+        "curr_type",
+        "list_status",
+        "list_date",
+        "delist_date",
+        "is_hs",
+        "act_name",
+        "act_ent_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "symbol": 0,
+        "name": 0,
+        "area": 0,
+        "industry": 0,
+        "fullname": 0,
+        "enname": 0,
+        "cnspell": 0,
+        "market": 0,
+        "exchange": 0,
+        "curr_type": 0,
+        "list_status": 0,
+        "list_date": 0,
+        "delist_date": 0,
+        "is_hs": 0,
+        "act_name": 0,
+        "act_ent_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-followup-2026-10-13/stock_G_SZSE.json",
+      "sha256": "ee3d1ebc8f0f1b4e1f33dd1da965e0ee3b30b20d23aac25b0d74dade29ebb87a",
+      "case": "stock_G_SZSE",
+      "requested_at": "2026-10-13T19:56:13.817515+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "stock_basic",
+      "params": {
+        "list_status": "G",
+        "exchange": "SZSE"
+      },
+      "requested_fields": "ts_code,symbol,name,area,industry,fullname,enname,cnspell,market,exchange,curr_type,list_status,list_date,delist_date,is_hs,act_name,act_ent_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 0,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "symbol",
+        "name",
+        "area",
+        "industry",
+        "fullname",
+        "enname",
+        "cnspell",
+        "market",
+        "exchange",
+        "curr_type",
+        "list_status",
+        "list_date",
+        "delist_date",
+        "is_hs",
+        "act_name",
+        "act_ent_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "symbol": 0,
+        "name": 0,
+        "area": 0,
+        "industry": 0,
+        "fullname": 0,
+        "enname": 0,
+        "cnspell": 0,
+        "market": 0,
+        "exchange": 0,
+        "curr_type": 0,
+        "list_status": 0,
+        "list_date": 0,
+        "delist_date": 0,
+        "is_hs": 0,
+        "act_name": 0,
+        "act_ent_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-followup-2026-10-13/stock_L_after_end.json",
+      "sha256": "bc5eb0a75671f61065b97cd79e57eb2b1fb2406ee7caff88ddcb3e0064fa3249",
+      "case": "stock_L_after_end",
+      "requested_at": "2026-10-13T19:56:23.931977+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "stock_basic",
+      "params": {
+        "list_status": "L",
+        "limit": 2,
+        "offset": 5574
+      },
+      "requested_fields": "ts_code,symbol,name,area,industry,fullname,enname,cnspell,market,exchange,curr_type,list_status,list_date,delist_date,is_hs,act_name,act_ent_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 0,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "symbol",
+        "name",
+        "area",
+        "industry",
+        "fullname",
+        "enname",
+        "cnspell",
+        "market",
+        "exchange",
+        "curr_type",
+        "list_status",
+        "list_date",
+        "delist_date",
+        "is_hs",
+        "act_name",
+        "act_ent_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "symbol": 0,
+        "name": 0,
+        "area": 0,
+        "industry": 0,
+        "fullname": 0,
+        "enname": 0,
+        "cnspell": 0,
+        "market": 0,
+        "exchange": 0,
+        "curr_type": 0,
+        "list_status": 0,
+        "list_date": 0,
+        "delist_date": 0,
+        "is_hs": 0,
+        "act_name": 0,
+        "act_ent_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-followup-2026-10-13/stock_L_last_page.json",
+      "sha256": "a86a527ab582e49e2e86a16103440bf6b78557f6a798420709d3f4874648e53f",
+      "case": "stock_L_last_page",
+      "requested_at": "2026-10-13T19:56:22.483164+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "stock_basic",
+      "params": {
+        "list_status": "L",
+        "limit": 2,
+        "offset": 5572
+      },
+      "requested_fields": "ts_code,symbol,name,area,industry,fullname,enname,cnspell,market,exchange,curr_type,list_status,list_date,delist_date,is_hs,act_name,act_ent_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 2,
+      "has_more": true,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "symbol",
+        "name",
+        "area",
+        "industry",
+        "fullname",
+        "enname",
+        "cnspell",
+        "market",
+        "exchange",
+        "curr_type",
+        "list_status",
+        "list_date",
+        "delist_date",
+        "is_hs",
+        "act_name",
+        "act_ent_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "symbol": 0,
+        "name": 0,
+        "area": 0,
+        "industry": 0,
+        "fullname": 0,
+        "enname": 0,
+        "cnspell": 0,
+        "market": 0,
+        "exchange": 0,
+        "curr_type": 0,
+        "list_status": 0,
+        "list_date": 0,
+        "delist_date": 2,
+        "is_hs": 0,
+        "act_name": 0,
+        "act_ent_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-followup-2026-10-13/stock_P_BSE.json",
+      "sha256": "cbeae34808e8cd834b72934782ed54e67273681aa15276716aa99edafbda8ee9",
+      "case": "stock_P_BSE",
+      "requested_at": "2026-10-13T19:56:18.144701+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "stock_basic",
+      "params": {
+        "list_status": "P",
+        "exchange": "BSE"
+      },
+      "requested_fields": "ts_code,symbol,name,area,industry,fullname,enname,cnspell,market,exchange,curr_type,list_status,list_date,delist_date,is_hs,act_name,act_ent_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 0,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "symbol",
+        "name",
+        "area",
+        "industry",
+        "fullname",
+        "enname",
+        "cnspell",
+        "market",
+        "exchange",
+        "curr_type",
+        "list_status",
+        "list_date",
+        "delist_date",
+        "is_hs",
+        "act_name",
+        "act_ent_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "symbol": 0,
+        "name": 0,
+        "area": 0,
+        "industry": 0,
+        "fullname": 0,
+        "enname": 0,
+        "cnspell": 0,
+        "market": 0,
+        "exchange": 0,
+        "curr_type": 0,
+        "list_status": 0,
+        "list_date": 0,
+        "delist_date": 0,
+        "is_hs": 0,
+        "act_name": 0,
+        "act_ent_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-followup-2026-10-13/stock_P_SSE.json",
+      "sha256": "1f3c6c680640f10f90afe52b551ca9408eb3bde451d2870b39704463023623f4",
+      "case": "stock_P_SSE",
+      "requested_at": "2026-10-13T19:56:06.512734+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "stock_basic",
+      "params": {
+        "list_status": "P",
+        "exchange": "SSE"
+      },
+      "requested_fields": "ts_code,symbol,name,area,industry,fullname,enname,cnspell,market,exchange,curr_type,list_status,list_date,delist_date,is_hs,act_name,act_ent_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 0,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "symbol",
+        "name",
+        "area",
+        "industry",
+        "fullname",
+        "enname",
+        "cnspell",
+        "market",
+        "exchange",
+        "curr_type",
+        "list_status",
+        "list_date",
+        "delist_date",
+        "is_hs",
+        "act_name",
+        "act_ent_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "symbol": 0,
+        "name": 0,
+        "area": 0,
+        "industry": 0,
+        "fullname": 0,
+        "enname": 0,
+        "cnspell": 0,
+        "market": 0,
+        "exchange": 0,
+        "curr_type": 0,
+        "list_status": 0,
+        "list_date": 0,
+        "delist_date": 0,
+        "is_hs": 0,
+        "act_name": 0,
+        "act_ent_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-followup-2026-10-13/stock_P_SZSE.json",
+      "sha256": "b8d6e81f67e0223f69243b384e2e8b5d0657352dbe1073e1e18353fe9f796554",
+      "case": "stock_P_SZSE",
+      "requested_at": "2026-10-13T19:56:12.379008+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "stock_basic",
+      "params": {
+        "list_status": "P",
+        "exchange": "SZSE"
+      },
+      "requested_fields": "ts_code,symbol,name,area,industry,fullname,enname,cnspell,market,exchange,curr_type,list_status,list_date,delist_date,is_hs,act_name,act_ent_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 0,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "symbol",
+        "name",
+        "area",
+        "industry",
+        "fullname",
+        "enname",
+        "cnspell",
+        "market",
+        "exchange",
+        "curr_type",
+        "list_status",
+        "list_date",
+        "delist_date",
+        "is_hs",
+        "act_name",
+        "act_ent_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "symbol": 0,
+        "name": 0,
+        "area": 0,
+        "industry": 0,
+        "fullname": 0,
+        "enname": 0,
+        "cnspell": 0,
+        "market": 0,
+        "exchange": 0,
+        "curr_type": 0,
+        "list_status": 0,
+        "list_date": 0,
+        "delist_date": 0,
+        "is_hs": 0,
+        "act_name": 0,
+        "act_ent_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-followup-2026-10-13/stock_UN_BSE.json",
+      "sha256": "c255e5d621ce102097038168a8ced54ae8725ef5d75cd8dcfeea44ecba211937",
+      "case": "stock_UN_BSE",
+      "requested_at": "2026-10-13T19:56:21.048173+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "stock_basic",
+      "params": {
+        "list_status": "UN",
+        "exchange": "BSE"
+      },
+      "requested_fields": "ts_code,symbol,name,area,industry,fullname,enname,cnspell,market,exchange,curr_type,list_status,list_date,delist_date,is_hs,act_name,act_ent_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 5,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "symbol",
+        "name",
+        "area",
+        "industry",
+        "fullname",
+        "enname",
+        "cnspell",
+        "market",
+        "exchange",
+        "curr_type",
+        "list_status",
+        "list_date",
+        "delist_date",
+        "is_hs",
+        "act_name",
+        "act_ent_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "symbol": 0,
+        "name": 0,
+        "area": 2,
+        "industry": 2,
+        "fullname": 0,
+        "enname": 0,
+        "cnspell": 1,
+        "market": 0,
+        "exchange": 0,
+        "curr_type": 0,
+        "list_status": 0,
+        "list_date": 5,
+        "delist_date": 5,
+        "is_hs": 0,
+        "act_name": 5,
+        "act_ent_type": 5
+      },
+      "duplicate_keys": {
+        "ts_code": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-followup-2026-10-13/stock_UN_SSE.json",
+      "sha256": "c8f2087e531b999af3647d66d50d225b17168c2f7e3cac4ad243cc51ee74b18c",
+      "case": "stock_UN_SSE",
+      "requested_at": "2026-10-13T19:56:09.441015+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "stock_basic",
+      "params": {
+        "list_status": "UN",
+        "exchange": "SSE"
+      },
+      "requested_fields": "ts_code,symbol,name,area,industry,fullname,enname,cnspell,market,exchange,curr_type,list_status,list_date,delist_date,is_hs,act_name,act_ent_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 0,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "symbol",
+        "name",
+        "area",
+        "industry",
+        "fullname",
+        "enname",
+        "cnspell",
+        "market",
+        "exchange",
+        "curr_type",
+        "list_status",
+        "list_date",
+        "delist_date",
+        "is_hs",
+        "act_name",
+        "act_ent_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "symbol": 0,
+        "name": 0,
+        "area": 0,
+        "industry": 0,
+        "fullname": 0,
+        "enname": 0,
+        "cnspell": 0,
+        "market": 0,
+        "exchange": 0,
+        "curr_type": 0,
+        "list_status": 0,
+        "list_date": 0,
+        "delist_date": 0,
+        "is_hs": 0,
+        "act_name": 0,
+        "act_ent_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-followup-2026-10-13/stock_UN_SZSE.json",
+      "sha256": "88f712ae878bef9e7622cd9b43c2019e496e070f218ccb47306b29661e23ac67",
+      "case": "stock_UN_SZSE",
+      "requested_at": "2026-10-13T19:56:15.264261+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "stock_basic",
+      "params": {
+        "list_status": "UN",
+        "exchange": "SZSE"
+      },
+      "requested_fields": "ts_code,symbol,name,area,industry,fullname,enname,cnspell,market,exchange,curr_type,list_status,list_date,delist_date,is_hs,act_name,act_ent_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 3,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "symbol",
+        "name",
+        "area",
+        "industry",
+        "fullname",
+        "enname",
+        "cnspell",
+        "market",
+        "exchange",
+        "curr_type",
+        "list_status",
+        "list_date",
+        "delist_date",
+        "is_hs",
+        "act_name",
+        "act_ent_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "symbol": 0,
+        "name": 0,
+        "area": 0,
+        "industry": 0,
+        "fullname": 0,
+        "enname": 0,
+        "cnspell": 0,
+        "market": 0,
+        "exchange": 0,
+        "curr_type": 0,
+        "list_status": 0,
+        "list_date": 3,
+        "delist_date": 3,
+        "is_hs": 0,
+        "act_name": 3,
+        "act_ent_type": 3
+      },
+      "duplicate_keys": {
+        "ts_code": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-followup-2026-10-13/suspend_2017_long_halt.json",
+      "sha256": "3a235252ea71f12dd19598f0b15845ad0299c25582a8d2527f5c33448cebd7cb",
+      "case": "suspend_2017_long_halt",
+      "requested_at": "2026-10-13T19:56:28.472949+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "suspend_d",
+      "params": {
+        "ts_code": "300104.SZ",
+        "start_date": "20170401",
+        "end_date": "20170430"
+      },
+      "requested_fields": "ts_code,trade_date,suspend_timing,suspend_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 10,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "suspend_timing",
+        "suspend_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "suspend_timing": 10,
+        "suspend_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code,trade_date": 0,
+        "ts_code,trade_date,suspend_type": 0,
+        "ts_code,trade_date,suspend_type,suspend_timing": 0
+      },
+      "trade_date_range": [
+        "20170417",
+        "20170428"
+      ]
+    },
+    {
+      "path": "data/probes/official-followup-2026-10-13/suspend_2020.json",
+      "sha256": "8cc30d14833ffcb56686b80f820245ec61f695e89856e1fdcbb1912d944ce240",
+      "case": "suspend_2020",
+      "requested_at": "2026-10-13T19:56:25.401791+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "suspend_d",
+      "params": {
+        "start_date": "20200101",
+        "end_date": "20201231"
+      },
+      "requested_fields": "ts_code,trade_date,suspend_timing,suspend_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 5000,
+      "has_more": true,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "suspend_timing",
+        "suspend_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "suspend_timing": 4894,
+        "suspend_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code,trade_date": 0,
+        "ts_code,trade_date,suspend_type": 0,
+        "ts_code,trade_date,suspend_type,suspend_timing": 0
+      },
+      "trade_date_range": [
+        "20200102",
+        "20200727"
+      ]
+    },
+    {
+      "path": "data/probes/official-followup-2026-10-13/suspend_day_after.json",
+      "sha256": "260c2bf3bc853265cb0d55a2899e6a31a409441836f2f35d4be39b695e834aa5",
+      "case": "suspend_day_after",
+      "requested_at": "2026-10-13T19:56:31.390371+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "suspend_d",
+      "params": {
+        "trade_date": "20200313"
+      },
+      "requested_fields": "ts_code,trade_date,suspend_timing,suspend_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 22,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "suspend_timing",
+        "suspend_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "suspend_timing": 21,
+        "suspend_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code,trade_date": 0,
+        "ts_code,trade_date,suspend_type": 0,
+        "ts_code,trade_date,suspend_type,suspend_timing": 0
+      },
+      "trade_date_range": [
+        "20200313",
+        "20200313"
+      ]
+    },
+    {
+      "path": "data/probes/official-followup-2026-10-13/suspend_day_before.json",
+      "sha256": "ea412f3be26a359927d761ffcef5075811eddf0b46397148f532a5dd63b38da1",
+      "case": "suspend_day_before",
+      "requested_at": "2026-10-13T19:56:29.928012+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "suspend_d",
+      "params": {
+        "trade_date": "20200311"
+      },
+      "requested_fields": "ts_code,trade_date,suspend_timing,suspend_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 20,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "suspend_timing",
+        "suspend_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "suspend_timing": 20,
+        "suspend_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code,trade_date": 0,
+        "ts_code,trade_date,suspend_type": 0,
+        "ts_code,trade_date,suspend_type,suspend_timing": 0
+      },
+      "trade_date_range": [
+        "20200311",
+        "20200311"
+      ]
+    },
+    {
+      "path": "data/probes/official-followup-2026-10-13/suspend_repeated.json",
+      "sha256": "ec72be936781a327b607c33178bc29ba97c4dd11e94de11e2710027fcd1d3e96",
+      "case": "suspend_repeated",
+      "requested_at": "2026-10-13T19:56:27.021066+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "suspend_d",
+      "params": {
+        "ts_code": "000029.SZ",
+        "start_date": "20200309",
+        "end_date": "20200313"
+      },
+      "requested_fields": "ts_code,trade_date,suspend_timing,suspend_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 5,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "suspend_timing",
+        "suspend_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "suspend_timing": 5,
+        "suspend_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code,trade_date": 0,
+        "ts_code,trade_date,suspend_type": 0,
+        "ts_code,trade_date,suspend_type,suspend_timing": 0
+      },
+      "trade_date_range": [
+        "20200309",
+        "20200313"
+      ]
+    },
+    {
+      "path": "data/probes/official-followup-2026-10-13/suspend_small_end.json",
+      "sha256": "c906796cb1f84029e5a069ac2c0eaa9df61d1ef181efe14807c2dff6967ad029",
+      "case": "suspend_small_end",
+      "requested_at": "2026-10-13T19:56:34.429018+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "suspend_d",
+      "params": {
+        "trade_date": "20200312",
+        "limit": 2,
+        "offset": 23
+      },
+      "requested_fields": "ts_code,trade_date,suspend_timing,suspend_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 0,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "suspend_timing",
+        "suspend_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "suspend_timing": 0,
+        "suspend_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code,trade_date": 0,
+        "ts_code,trade_date,suspend_type": 0,
+        "ts_code,trade_date,suspend_type,suspend_timing": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-followup-2026-10-13/suspend_small_last.json",
+      "sha256": "1bc61e2d7cdecaef57c3dbbb8110b68095175b29d86597330884ad91d84baa85",
+      "case": "suspend_small_last",
+      "requested_at": "2026-10-13T19:56:32.922465+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "suspend_d",
+      "params": {
+        "trade_date": "20200312",
+        "limit": 2,
+        "offset": 22
+      },
+      "requested_fields": "ts_code,trade_date,suspend_timing,suspend_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 1,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "suspend_timing",
+        "suspend_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "suspend_timing": 1,
+        "suspend_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code,trade_date": 0,
+        "ts_code,trade_date,suspend_type": 0,
+        "ts_code,trade_date,suspend_type,suspend_timing": 0
+      },
+      "trade_date_range": [
+        "20200312",
+        "20200312"
+      ]
+    },
+    {
+      "path": "data/probes/official-initial-2026-10-13/stock_default.json",
+      "sha256": "1683b921941107677c6c39460534580e82a314410d28168651e9760fdcd88e43",
+      "case": "stock_default",
+      "requested_at": "2026-10-13T19:54:21.249538+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "stock_basic",
+      "params": {},
+      "requested_fields": "",
+      "http_status": 200,
+      "code": 0,
+      "rows": 5574,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "symbol",
+        "name",
+        "area",
+        "industry",
+        "cnspell",
+        "market",
+        "list_date",
+        "act_name",
+        "act_ent_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "symbol": 0,
+        "name": 0,
+        "area": 1,
+        "industry": 1,
+        "cnspell": 0,
+        "market": 0,
+        "list_date": 0,
+        "act_name": 1,
+        "act_ent_type": 57
+      },
+      "duplicate_keys": {},
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-initial-2026-10-13/suspend_20200312.json",
+      "sha256": "ec3e2af7334c5df8014718114cfacf84dbcbb828be3fe3e4d2c64293ee01679b",
+      "case": "suspend_20200312",
+      "requested_at": "2026-10-13T19:54:22.992884+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "suspend_d",
+      "params": {
+        "trade_date": "20200312"
+      },
+      "requested_fields": "ts_code,trade_date,suspend_timing,suspend_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 23,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "suspend_timing",
+        "suspend_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "suspend_timing": 21,
+        "suspend_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code,trade_date": 0,
+        "ts_code,trade_date,suspend_type": 0,
+        "ts_code,trade_date,suspend_type,suspend_timing": 0
+      },
+      "trade_date_range": [
+        "20200312",
+        "20200312"
+      ]
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/stock_D.json",
+      "sha256": "79832425a914934d4d86d1213b70dcef83f696b6253e68e306c5ecacd217eb19",
+      "case": "stock_D",
+      "requested_at": "2026-10-13T19:54:32.370915+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "stock_basic",
+      "params": {
+        "list_status": "D"
+      },
+      "requested_fields": "ts_code,symbol,name,area,industry,fullname,enname,cnspell,market,exchange,curr_type,list_status,list_date,delist_date,is_hs,act_name,act_ent_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 339,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "symbol",
+        "name",
+        "area",
+        "industry",
+        "fullname",
+        "enname",
+        "cnspell",
+        "market",
+        "exchange",
+        "curr_type",
+        "list_status",
+        "list_date",
+        "delist_date",
+        "is_hs",
+        "act_name",
+        "act_ent_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "symbol": 0,
+        "name": 0,
+        "area": 333,
+        "industry": 333,
+        "fullname": 0,
+        "enname": 0,
+        "cnspell": 0,
+        "market": 1,
+        "exchange": 0,
+        "curr_type": 0,
+        "list_status": 0,
+        "list_date": 0,
+        "delist_date": 0,
+        "is_hs": 0,
+        "act_name": 8,
+        "act_ent_type": 8
+      },
+      "duplicate_keys": {
+        "ts_code": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/stock_G.json",
+      "sha256": "f661f54eecd0c205d605b31c5e0770f843b202fee3b48bbcfee206ff37a10462",
+      "case": "stock_G",
+      "requested_at": "2026-10-13T19:54:35.332652+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "stock_basic",
+      "params": {
+        "list_status": "G"
+      },
+      "requested_fields": "ts_code,symbol,name,area,industry,fullname,enname,cnspell,market,exchange,curr_type,list_status,list_date,delist_date,is_hs,act_name,act_ent_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 0,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "symbol",
+        "name",
+        "area",
+        "industry",
+        "fullname",
+        "enname",
+        "cnspell",
+        "market",
+        "exchange",
+        "curr_type",
+        "list_status",
+        "list_date",
+        "delist_date",
+        "is_hs",
+        "act_name",
+        "act_ent_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "symbol": 0,
+        "name": 0,
+        "area": 0,
+        "industry": 0,
+        "fullname": 0,
+        "enname": 0,
+        "cnspell": 0,
+        "market": 0,
+        "exchange": 0,
+        "curr_type": 0,
+        "list_status": 0,
+        "list_date": 0,
+        "delist_date": 0,
+        "is_hs": 0,
+        "act_name": 0,
+        "act_ent_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/stock_L.json",
+      "sha256": "233cbb3526b3c290b6c933302995ce9d521f8cd5e5e3caa9d5b6c02e628896c9",
+      "case": "stock_L",
+      "requested_at": "2026-10-13T19:54:30.699651+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "stock_basic",
+      "params": {
+        "list_status": "L"
+      },
+      "requested_fields": "ts_code,symbol,name,area,industry,fullname,enname,cnspell,market,exchange,curr_type,list_status,list_date,delist_date,is_hs,act_name,act_ent_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 5574,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "symbol",
+        "name",
+        "area",
+        "industry",
+        "fullname",
+        "enname",
+        "cnspell",
+        "market",
+        "exchange",
+        "curr_type",
+        "list_status",
+        "list_date",
+        "delist_date",
+        "is_hs",
+        "act_name",
+        "act_ent_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "symbol": 0,
+        "name": 0,
+        "area": 1,
+        "industry": 1,
+        "fullname": 0,
+        "enname": 0,
+        "cnspell": 0,
+        "market": 0,
+        "exchange": 0,
+        "curr_type": 0,
+        "list_status": 0,
+        "list_date": 0,
+        "delist_date": 5572,
+        "is_hs": 0,
+        "act_name": 1,
+        "act_ent_type": 57
+      },
+      "duplicate_keys": {
+        "ts_code": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/stock_L_BSE.json",
+      "sha256": "590ce7fdb2926cd185fcc8a8acc53f0c41005df6d61c63741287990a99340e25",
+      "case": "stock_L_BSE",
+      "requested_at": "2026-10-13T19:54:41.518414+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "stock_basic",
+      "params": {
+        "list_status": "L",
+        "exchange": "BSE"
+      },
+      "requested_fields": "ts_code,symbol,name,area,industry,fullname,enname,cnspell,market,exchange,curr_type,list_status,list_date,delist_date,is_hs,act_name,act_ent_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 349,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "symbol",
+        "name",
+        "area",
+        "industry",
+        "fullname",
+        "enname",
+        "cnspell",
+        "market",
+        "exchange",
+        "curr_type",
+        "list_status",
+        "list_date",
+        "delist_date",
+        "is_hs",
+        "act_name",
+        "act_ent_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "symbol": 0,
+        "name": 0,
+        "area": 0,
+        "industry": 0,
+        "fullname": 0,
+        "enname": 0,
+        "cnspell": 0,
+        "market": 0,
+        "exchange": 0,
+        "curr_type": 0,
+        "list_status": 0,
+        "list_date": 0,
+        "delist_date": 349,
+        "is_hs": 0,
+        "act_name": 0,
+        "act_ent_type": 2
+      },
+      "duplicate_keys": {
+        "ts_code": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/stock_L_SSE.json",
+      "sha256": "d465239f39b78db818a4343ebdbd0f51aaa07fc1942eefc38377bdd1fda48f77",
+      "case": "stock_L_SSE",
+      "requested_at": "2026-10-13T19:54:38.235389+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "stock_basic",
+      "params": {
+        "list_status": "L",
+        "exchange": "SSE"
+      },
+      "requested_fields": "ts_code,symbol,name,area,industry,fullname,enname,cnspell,market,exchange,curr_type,list_status,list_date,delist_date,is_hs,act_name,act_ent_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 2320,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "symbol",
+        "name",
+        "area",
+        "industry",
+        "fullname",
+        "enname",
+        "cnspell",
+        "market",
+        "exchange",
+        "curr_type",
+        "list_status",
+        "list_date",
+        "delist_date",
+        "is_hs",
+        "act_name",
+        "act_ent_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "symbol": 0,
+        "name": 0,
+        "area": 0,
+        "industry": 0,
+        "fullname": 0,
+        "enname": 0,
+        "cnspell": 0,
+        "market": 0,
+        "exchange": 0,
+        "curr_type": 0,
+        "list_status": 0,
+        "list_date": 0,
+        "delist_date": 2318,
+        "is_hs": 0,
+        "act_name": 1,
+        "act_ent_type": 29
+      },
+      "duplicate_keys": {
+        "ts_code": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/stock_L_SZSE.json",
+      "sha256": "737d457c068d22dec2fbea0c64427a72daa37c9e2c012856c2732a6db5ed4ff0",
+      "case": "stock_L_SZSE",
+      "requested_at": "2026-10-13T19:54:39.844824+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "stock_basic",
+      "params": {
+        "list_status": "L",
+        "exchange": "SZSE"
+      },
+      "requested_fields": "ts_code,symbol,name,area,industry,fullname,enname,cnspell,market,exchange,curr_type,list_status,list_date,delist_date,is_hs,act_name,act_ent_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 2905,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "symbol",
+        "name",
+        "area",
+        "industry",
+        "fullname",
+        "enname",
+        "cnspell",
+        "market",
+        "exchange",
+        "curr_type",
+        "list_status",
+        "list_date",
+        "delist_date",
+        "is_hs",
+        "act_name",
+        "act_ent_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "symbol": 0,
+        "name": 0,
+        "area": 1,
+        "industry": 1,
+        "fullname": 0,
+        "enname": 0,
+        "cnspell": 0,
+        "market": 0,
+        "exchange": 0,
+        "curr_type": 0,
+        "list_status": 0,
+        "list_date": 0,
+        "delist_date": 2905,
+        "is_hs": 0,
+        "act_name": 0,
+        "act_ent_type": 26
+      },
+      "duplicate_keys": {
+        "ts_code": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/stock_L_page.json",
+      "sha256": "b798057156c5093630ddca83ecce80dea6cf5faa64584a0594d397e0e0c0dbae",
+      "case": "stock_L_page",
+      "requested_at": "2026-10-13T19:54:44.852687+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "stock_basic",
+      "params": {
+        "list_status": "L",
+        "limit": 2,
+        "offset": 0
+      },
+      "requested_fields": "ts_code,symbol,name,area,industry,fullname,enname,cnspell,market,exchange,curr_type,list_status,list_date,delist_date,is_hs,act_name,act_ent_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 2,
+      "has_more": true,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "symbol",
+        "name",
+        "area",
+        "industry",
+        "fullname",
+        "enname",
+        "cnspell",
+        "market",
+        "exchange",
+        "curr_type",
+        "list_status",
+        "list_date",
+        "delist_date",
+        "is_hs",
+        "act_name",
+        "act_ent_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "symbol": 0,
+        "name": 0,
+        "area": 0,
+        "industry": 0,
+        "fullname": 0,
+        "enname": 0,
+        "cnspell": 0,
+        "market": 0,
+        "exchange": 0,
+        "curr_type": 0,
+        "list_status": 0,
+        "list_date": 0,
+        "delist_date": 2,
+        "is_hs": 0,
+        "act_name": 0,
+        "act_ent_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/stock_L_page_next.json",
+      "sha256": "70702579b6269e9315076275e6b2e53c58164e06a1f0ade9af9df814d52669dd",
+      "case": "stock_L_page_next",
+      "requested_at": "2026-10-13T19:54:46.304496+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "stock_basic",
+      "params": {
+        "list_status": "L",
+        "limit": 2,
+        "offset": 2
+      },
+      "requested_fields": "ts_code,symbol,name,area,industry,fullname,enname,cnspell,market,exchange,curr_type,list_status,list_date,delist_date,is_hs,act_name,act_ent_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 2,
+      "has_more": true,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "symbol",
+        "name",
+        "area",
+        "industry",
+        "fullname",
+        "enname",
+        "cnspell",
+        "market",
+        "exchange",
+        "curr_type",
+        "list_status",
+        "list_date",
+        "delist_date",
+        "is_hs",
+        "act_name",
+        "act_ent_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "symbol": 0,
+        "name": 0,
+        "area": 0,
+        "industry": 0,
+        "fullname": 0,
+        "enname": 0,
+        "cnspell": 0,
+        "market": 0,
+        "exchange": 0,
+        "curr_type": 0,
+        "list_status": 0,
+        "list_date": 0,
+        "delist_date": 2,
+        "is_hs": 0,
+        "act_name": 0,
+        "act_ent_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/stock_P.json",
+      "sha256": "5bb26cd8127316c8d15cb18f4b0d0a22166872ff3031dee470b09aafac64020a",
+      "case": "stock_P",
+      "requested_at": "2026-10-13T19:54:33.889923+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "stock_basic",
+      "params": {
+        "list_status": "P"
+      },
+      "requested_fields": "ts_code,symbol,name,area,industry,fullname,enname,cnspell,market,exchange,curr_type,list_status,list_date,delist_date,is_hs,act_name,act_ent_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 0,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "symbol",
+        "name",
+        "area",
+        "industry",
+        "fullname",
+        "enname",
+        "cnspell",
+        "market",
+        "exchange",
+        "curr_type",
+        "list_status",
+        "list_date",
+        "delist_date",
+        "is_hs",
+        "act_name",
+        "act_ent_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "symbol": 0,
+        "name": 0,
+        "area": 0,
+        "industry": 0,
+        "fullname": 0,
+        "enname": 0,
+        "cnspell": 0,
+        "market": 0,
+        "exchange": 0,
+        "curr_type": 0,
+        "list_status": 0,
+        "list_date": 0,
+        "delist_date": 0,
+        "is_hs": 0,
+        "act_name": 0,
+        "act_ent_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/stock_UN.json",
+      "sha256": "0c0b00e148911449c1f86c057a26ca1d8482927aaea689019a8347f3ca9342b4",
+      "case": "stock_UN",
+      "requested_at": "2026-10-13T19:54:36.776785+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "stock_basic",
+      "params": {
+        "list_status": "UN"
+      },
+      "requested_fields": "ts_code,symbol,name,area,industry,fullname,enname,cnspell,market,exchange,curr_type,list_status,list_date,delist_date,is_hs,act_name,act_ent_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 8,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "symbol",
+        "name",
+        "area",
+        "industry",
+        "fullname",
+        "enname",
+        "cnspell",
+        "market",
+        "exchange",
+        "curr_type",
+        "list_status",
+        "list_date",
+        "delist_date",
+        "is_hs",
+        "act_name",
+        "act_ent_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "symbol": 0,
+        "name": 0,
+        "area": 2,
+        "industry": 2,
+        "fullname": 0,
+        "enname": 0,
+        "cnspell": 1,
+        "market": 0,
+        "exchange": 0,
+        "curr_type": 0,
+        "list_status": 0,
+        "list_date": 8,
+        "delist_date": 8,
+        "is_hs": 0,
+        "act_name": 8,
+        "act_ent_type": 8
+      },
+      "duplicate_keys": {
+        "ts_code": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/stock_default.json",
+      "sha256": "d6247c748a0309d9af42f7ab10633363e41c91efa502b7bd368a0310e12a774c",
+      "case": "stock_default",
+      "requested_at": "2026-10-13T19:54:29.057419+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "stock_basic",
+      "params": {},
+      "requested_fields": "",
+      "http_status": 200,
+      "code": 0,
+      "rows": 5574,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "symbol",
+        "name",
+        "area",
+        "industry",
+        "cnspell",
+        "market",
+        "list_date",
+        "act_name",
+        "act_ent_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "symbol": 0,
+        "name": 0,
+        "area": 1,
+        "industry": 1,
+        "cnspell": 0,
+        "market": 0,
+        "list_date": 0,
+        "act_name": 1,
+        "act_ent_type": 57
+      },
+      "duplicate_keys": {},
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/stock_empty_status.json",
+      "sha256": "39582025492bf45eecd7313025a4b4a309cae7a8acfa9ec9ed15f72e1256efad",
+      "case": "stock_empty_status",
+      "requested_at": "2026-10-13T19:54:43.045913+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "stock_basic",
+      "params": {
+        "list_status": ""
+      },
+      "requested_fields": "ts_code,symbol,name,area,industry,fullname,enname,cnspell,market,exchange,curr_type,list_status,list_date,delist_date,is_hs,act_name,act_ent_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 5574,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "symbol",
+        "name",
+        "area",
+        "industry",
+        "fullname",
+        "enname",
+        "cnspell",
+        "market",
+        "exchange",
+        "curr_type",
+        "list_status",
+        "list_date",
+        "delist_date",
+        "is_hs",
+        "act_name",
+        "act_ent_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "symbol": 0,
+        "name": 0,
+        "area": 1,
+        "industry": 1,
+        "fullname": 0,
+        "enname": 0,
+        "cnspell": 0,
+        "market": 0,
+        "exchange": 0,
+        "curr_type": 0,
+        "list_status": 0,
+        "list_date": 0,
+        "delist_date": 5572,
+        "is_hs": 0,
+        "act_name": 1,
+        "act_ent_type": 57
+      },
+      "duplicate_keys": {
+        "ts_code": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/stock_missing.json",
+      "sha256": "99c589d571372c28aeb638f6707291598f6ec27f28927fd54fe6b6df83a2e68e",
+      "case": "stock_missing",
+      "requested_at": "2026-10-13T19:54:47.758245+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "stock_basic",
+      "params": {
+        "ts_code": "999999.SH"
+      },
+      "requested_fields": "ts_code,symbol,name,area,industry,fullname,enname,cnspell,market,exchange,curr_type,list_status,list_date,delist_date,is_hs,act_name,act_ent_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 0,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "symbol",
+        "name",
+        "area",
+        "industry",
+        "fullname",
+        "enname",
+        "cnspell",
+        "market",
+        "exchange",
+        "curr_type",
+        "list_status",
+        "list_date",
+        "delist_date",
+        "is_hs",
+        "act_name",
+        "act_ent_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "symbol": 0,
+        "name": 0,
+        "area": 0,
+        "industry": 0,
+        "fullname": 0,
+        "enname": 0,
+        "cnspell": 0,
+        "market": 0,
+        "exchange": 0,
+        "curr_type": 0,
+        "list_status": 0,
+        "list_date": 0,
+        "delist_date": 0,
+        "is_hs": 0,
+        "act_name": 0,
+        "act_ent_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/suspend_20000103.json",
+      "sha256": "5a144b5a48f7ba77aade932e2d57ece094643fb1fcf99dc3d803f807a3210b31",
+      "case": "suspend_20000103",
+      "requested_at": "2026-10-13T19:54:49.242773+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "suspend_d",
+      "params": {
+        "trade_date": "20000103"
+      },
+      "requested_fields": "ts_code,trade_date,suspend_timing,suspend_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 0,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "suspend_timing",
+        "suspend_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "suspend_timing": 0,
+        "suspend_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code,trade_date": 0,
+        "ts_code,trade_date,suspend_type": 0,
+        "ts_code,trade_date,suspend_type,suspend_timing": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/suspend_20100104.json",
+      "sha256": "36f4a71d21a247703b6124652f38e293dc1c53d72cc044e8dd1fda296ea16531",
+      "case": "suspend_20100104",
+      "requested_at": "2026-10-13T19:54:50.697252+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "suspend_d",
+      "params": {
+        "trade_date": "20100104"
+      },
+      "requested_fields": "ts_code,trade_date,suspend_timing,suspend_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 41,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "suspend_timing",
+        "suspend_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "suspend_timing": 41,
+        "suspend_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code,trade_date": 0,
+        "ts_code,trade_date,suspend_type": 0,
+        "ts_code,trade_date,suspend_type,suspend_timing": 0
+      },
+      "trade_date_range": [
+        "20100104",
+        "20100104"
+      ]
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/suspend_20150708.json",
+      "sha256": "2532b415efd805f3aa95a10bb17d16c9aba77474b1ea2379abbdb1a6ebb2979e",
+      "case": "suspend_20150708",
+      "requested_at": "2026-10-13T19:54:52.179741+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "suspend_d",
+      "params": {
+        "trade_date": "20150708"
+      },
+      "requested_fields": "ts_code,trade_date,suspend_timing,suspend_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 1348,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "suspend_timing",
+        "suspend_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "suspend_timing": 1317,
+        "suspend_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code,trade_date": 0,
+        "ts_code,trade_date,suspend_type": 0,
+        "ts_code,trade_date,suspend_type,suspend_timing": 0
+      },
+      "trade_date_range": [
+        "20150708",
+        "20150708"
+      ]
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/suspend_20200312.json",
+      "sha256": "656cf810bc311f2b855bf9a8ac964e4f2572587a9e343d18f13b2a046d139c06",
+      "case": "suspend_20200312",
+      "requested_at": "2026-10-13T19:54:53.719664+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "suspend_d",
+      "params": {
+        "trade_date": "20200312"
+      },
+      "requested_fields": "ts_code,trade_date,suspend_timing,suspend_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 23,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "suspend_timing",
+        "suspend_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "suspend_timing": 21,
+        "suspend_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code,trade_date": 0,
+        "ts_code,trade_date,suspend_type": 0,
+        "ts_code,trade_date,suspend_type,suspend_timing": 0
+      },
+      "trade_date_range": [
+        "20200312",
+        "20200312"
+      ]
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/suspend_20200312_R.json",
+      "sha256": "c2d8f7e463a2774f002cd0aafc01e69bf664e15ba8331f6de73387b5557af8b2",
+      "case": "suspend_20200312_R",
+      "requested_at": "2026-10-13T19:55:04.620290+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "suspend_d",
+      "params": {
+        "trade_date": "20200312",
+        "suspend_type": "R"
+      },
+      "requested_fields": "ts_code,trade_date,suspend_timing,suspend_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 1,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "suspend_timing",
+        "suspend_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "suspend_timing": 1,
+        "suspend_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code,trade_date": 0,
+        "ts_code,trade_date,suspend_type": 0,
+        "ts_code,trade_date,suspend_type,suspend_timing": 0
+      },
+      "trade_date_range": [
+        "20200312",
+        "20200312"
+      ]
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/suspend_20200312_S.json",
+      "sha256": "701a63ff184ee6573bc6c3a4d5835f207449bf57622ae5b5805906e64a937b35",
+      "case": "suspend_20200312_S",
+      "requested_at": "2026-10-13T19:55:03.180851+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "suspend_d",
+      "params": {
+        "trade_date": "20200312",
+        "suspend_type": "S"
+      },
+      "requested_fields": "ts_code,trade_date,suspend_timing,suspend_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 22,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "suspend_timing",
+        "suspend_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "suspend_timing": 20,
+        "suspend_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code,trade_date": 0,
+        "ts_code,trade_date,suspend_type": 0,
+        "ts_code,trade_date,suspend_type,suspend_timing": 0
+      },
+      "trade_date_range": [
+        "20200312",
+        "20200312"
+      ]
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/suspend_20260903.json",
+      "sha256": "847593678f097e3bc6b95394b5fa92bb005eb774b1132eaf0c3bccb741bad4c1",
+      "case": "suspend_20260903",
+      "requested_at": "2026-10-13T19:54:55.192533+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "suspend_d",
+      "params": {
+        "trade_date": "20260903"
+      },
+      "requested_fields": "ts_code,trade_date,suspend_timing,suspend_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 7,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "suspend_timing",
+        "suspend_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "suspend_timing": 7,
+        "suspend_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code,trade_date": 0,
+        "ts_code,trade_date,suspend_type": 0,
+        "ts_code,trade_date,suspend_type,suspend_timing": 0
+      },
+      "trade_date_range": [
+        "20260903",
+        "20260903"
+      ]
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/suspend_20261011.json",
+      "sha256": "c254e16edf9cf0ff9816db165d072c004fe3d8662c6e9ab4d36a710cb202bb91",
+      "case": "suspend_20261011",
+      "requested_at": "2026-10-13T19:54:59.567025+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "suspend_d",
+      "params": {
+        "trade_date": "20261011"
+      },
+      "requested_fields": "ts_code,trade_date,suspend_timing,suspend_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 0,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "suspend_timing",
+        "suspend_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "suspend_timing": 0,
+        "suspend_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code,trade_date": 0,
+        "ts_code,trade_date,suspend_type": 0,
+        "ts_code,trade_date,suspend_type,suspend_timing": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/suspend_20261012.json",
+      "sha256": "62e064c2d8df5ec9ebdb7af14d1a1bead0df1cfe908a5369d77ce13e3599b0df",
+      "case": "suspend_20261012",
+      "requested_at": "2026-10-13T19:54:56.655556+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "suspend_d",
+      "params": {
+        "trade_date": "20261012"
+      },
+      "requested_fields": "ts_code,trade_date,suspend_timing,suspend_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 14,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "suspend_timing",
+        "suspend_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "suspend_timing": 14,
+        "suspend_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code,trade_date": 0,
+        "ts_code,trade_date,suspend_type": 0,
+        "ts_code,trade_date,suspend_type,suspend_timing": 0
+      },
+      "trade_date_range": [
+        "20261012",
+        "20261012"
+      ]
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/suspend_20261013.json",
+      "sha256": "ad76d1d64db956a6476d105ea706ce1453afd8d7973169202093087a9daa1577",
+      "case": "suspend_20261013",
+      "requested_at": "2026-10-13T19:54:58.102873+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "suspend_d",
+      "params": {
+        "trade_date": "20261013"
+      },
+      "requested_fields": "ts_code,trade_date,suspend_timing,suspend_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 15,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "suspend_timing",
+        "suspend_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "suspend_timing": 15,
+        "suspend_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code,trade_date": 0,
+        "ts_code,trade_date,suspend_type": 0,
+        "ts_code,trade_date,suspend_type,suspend_timing": 0
+      },
+      "trade_date_range": [
+        "20261013",
+        "20261013"
+      ]
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/suspend_cap.json",
+      "sha256": "60687345796e7941661e9d5388cdcaf97736707cfa67c1b3c6ef5e24657fe8b2",
+      "case": "suspend_cap",
+      "requested_at": "2026-10-13T19:55:12.428715+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "suspend_d",
+      "params": {
+        "start_date": "20150101",
+        "end_date": "20151231"
+      },
+      "requested_fields": "ts_code,trade_date,suspend_timing,suspend_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 5000,
+      "has_more": true,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "suspend_timing",
+        "suspend_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "suspend_timing": 4979,
+        "suspend_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code,trade_date": 0,
+        "ts_code,trade_date,suspend_type": 0,
+        "ts_code,trade_date,suspend_type,suspend_timing": 0
+      },
+      "trade_date_range": [
+        "20150105",
+        "20150129"
+      ]
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/suspend_intraday.json",
+      "sha256": "bc51e8587f5a4e483378a2a345c50e20b631e7b8170a64087500a1d33b108be2",
+      "case": "suspend_intraday",
+      "requested_at": "2026-10-13T19:55:07.587055+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "suspend_d",
+      "params": {
+        "ts_code": "300819.SZ",
+        "start_date": "20200301",
+        "end_date": "20200331"
+      },
+      "requested_fields": "ts_code,trade_date,suspend_timing,suspend_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 1,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "suspend_timing",
+        "suspend_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "suspend_timing": 0,
+        "suspend_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code,trade_date": 0,
+        "ts_code,trade_date,suspend_type": 0,
+        "ts_code,trade_date,suspend_type,suspend_timing": 0
+      },
+      "trade_date_range": [
+        "20200312",
+        "20200312"
+      ]
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/suspend_long_halt.json",
+      "sha256": "8fe74c07a43d1f0cfc3bc09692cb0e11a4b106ae358dd1dfad369685102993e4",
+      "case": "suspend_long_halt",
+      "requested_at": "2026-10-13T19:55:10.989768+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "suspend_d",
+      "params": {
+        "ts_code": "300104.SZ",
+        "start_date": "20200309",
+        "end_date": "20200313"
+      },
+      "requested_fields": "ts_code,trade_date,suspend_timing,suspend_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 0,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "suspend_timing",
+        "suspend_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "suspend_timing": 0,
+        "suspend_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code,trade_date": 0,
+        "ts_code,trade_date,suspend_type": 0,
+        "ts_code,trade_date,suspend_type,suspend_timing": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/suspend_missing.json",
+      "sha256": "54a8221321e84bb1191722992105998a33f98f4a031be81ad2d2d9b9dc2d04d7",
+      "case": "suspend_missing",
+      "requested_at": "2026-10-13T19:55:16.901498+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "suspend_d",
+      "params": {
+        "ts_code": "999999.SH",
+        "trade_date": "20200312"
+      },
+      "requested_fields": "ts_code,trade_date,suspend_timing,suspend_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 0,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "suspend_timing",
+        "suspend_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "suspend_timing": 0,
+        "suspend_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code,trade_date": 0,
+        "ts_code,trade_date,suspend_type": 0,
+        "ts_code,trade_date,suspend_type,suspend_timing": 0
+      },
+      "trade_date_range": null
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/suspend_multi_code.json",
+      "sha256": "ac6f851fa4603684ad25dff9a5553168e81addd8c837f3ac7606e168f4eda86e",
+      "case": "suspend_multi_code",
+      "requested_at": "2026-10-13T19:55:09.543237+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "suspend_d",
+      "params": {
+        "ts_code": "300819.SZ,300821.SZ",
+        "trade_date": "20200312"
+      },
+      "requested_fields": "ts_code,trade_date,suspend_timing,suspend_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 2,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "suspend_timing",
+        "suspend_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "suspend_timing": 0,
+        "suspend_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code,trade_date": 0,
+        "ts_code,trade_date,suspend_type": 0,
+        "ts_code,trade_date,suspend_type,suspend_timing": 0
+      },
+      "trade_date_range": [
+        "20200312",
+        "20200312"
+      ]
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/suspend_page.json",
+      "sha256": "941d712a10727044f8368ebf80d6b0db9ba70090dcca0248161c38b311ca0a20",
+      "case": "suspend_page",
+      "requested_at": "2026-10-13T19:55:13.969383+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "suspend_d",
+      "params": {
+        "start_date": "20150101",
+        "end_date": "20151231",
+        "limit": 2,
+        "offset": 0
+      },
+      "requested_fields": "ts_code,trade_date,suspend_timing,suspend_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 2,
+      "has_more": true,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "suspend_timing",
+        "suspend_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "suspend_timing": 2,
+        "suspend_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code,trade_date": 0,
+        "ts_code,trade_date,suspend_type": 0,
+        "ts_code,trade_date,suspend_type,suspend_timing": 0
+      },
+      "trade_date_range": [
+        "20150105",
+        "20150105"
+      ]
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/suspend_page_next.json",
+      "sha256": "e4b859cbf68cced83c43d0e4e135c17c0f14b96dc8b52e5c6ae4551eb651bb10",
+      "case": "suspend_page_next",
+      "requested_at": "2026-10-13T19:55:15.417038+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "suspend_d",
+      "params": {
+        "start_date": "20150101",
+        "end_date": "20151231",
+        "limit": 2,
+        "offset": 2
+      },
+      "requested_fields": "ts_code,trade_date,suspend_timing,suspend_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 2,
+      "has_more": true,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "suspend_timing",
+        "suspend_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "suspend_timing": 2,
+        "suspend_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code,trade_date": 0,
+        "ts_code,trade_date,suspend_type": 0,
+        "ts_code,trade_date,suspend_type,suspend_timing": 0
+      },
+      "trade_date_range": [
+        "20150105",
+        "20150105"
+      ]
+    },
+    {
+      "path": "data/probes/official-matrix-2026-10-13/suspend_range.json",
+      "sha256": "4f00b216f4efdd9de2af91efbed8288e4a3b86facddc11a0ec6b6a8600fdeef8",
+      "case": "suspend_range",
+      "requested_at": "2026-10-13T19:55:06.092714+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "suspend_d",
+      "params": {
+        "start_date": "20200309",
+        "end_date": "20200313"
+      },
+      "requested_fields": "ts_code,trade_date,suspend_timing,suspend_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 100,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "suspend_timing",
+        "suspend_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "suspend_timing": 96,
+        "suspend_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code,trade_date": 0,
+        "ts_code,trade_date,suspend_type": 0,
+        "ts_code,trade_date,suspend_type,suspend_timing": 0
+      },
+      "trade_date_range": [
+        "20200309",
+        "20200313"
+      ]
+    },
+    {
+      "path": "data/probes/official-range-check-2026-10-13/suspend_day_09.json",
+      "sha256": "35f5c8b525f64fbb179f273a6b330a5f5f39b0ec809d83673b702ef9994539ab",
+      "case": "suspend_day_09",
+      "requested_at": "2026-10-13T19:58:55.846899+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "suspend_d",
+      "params": {
+        "trade_date": "20200309"
+      },
+      "requested_fields": "ts_code,trade_date,suspend_timing,suspend_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 17,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "suspend_timing",
+        "suspend_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "suspend_timing": 17,
+        "suspend_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code,trade_date": 0,
+        "ts_code,trade_date,suspend_type": 0,
+        "ts_code,trade_date,suspend_type,suspend_timing": 0
+      },
+      "trade_date_range": [
+        "20200309",
+        "20200309"
+      ]
+    },
+    {
+      "path": "data/probes/official-range-check-2026-10-13/suspend_day_10.json",
+      "sha256": "ce4a12a1ef9e9f98e1df289c0273d960e8de94f212b2935fb89035a40d886adf",
+      "case": "suspend_day_10",
+      "requested_at": "2026-10-13T19:58:57.336247+08:00",
+      "endpoint": "https://api.tushare.pro",
+      "api_name": "suspend_d",
+      "params": {
+        "trade_date": "20200310"
+      },
+      "requested_fields": "ts_code,trade_date,suspend_timing,suspend_type",
+      "http_status": 200,
+      "code": 0,
+      "rows": 18,
+      "has_more": false,
+      "count": 0,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "suspend_timing",
+        "suspend_type"
+      ],
+      "nulls": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "suspend_timing": 17,
+        "suspend_type": 0
+      },
+      "duplicate_keys": {
+        "ts_code,trade_date": 0,
+        "ts_code,trade_date,suspend_type": 0,
+        "ts_code,trade_date,suspend_type,suspend_timing": 0
+      },
+      "trade_date_range": [
+        "20200310",
+        "20200310"
+      ]
+    }
+  ]
+}

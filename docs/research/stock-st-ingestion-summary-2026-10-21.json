@@ -1,0 +1,305 @@
+{
+  "steps": [
+    {
+      "command": [
+        "-m",
+        "quant_data",
+        "ingest",
+        "trade_calendar",
+        "--start-date",
+        "20261016",
+        "--end-date",
+        "20261019",
+        "--db",
+        "data/probes/stock-st-ingestion-validation-20261021T212141505980/warehouse.duckdb",
+        "--landing-dir",
+        "data/probes/stock-st-ingestion-validation-20261021T212141505980/landing",
+        "--keep-artifacts"
+      ],
+      "exit_code": 0,
+      "result": {
+        "run_id": "39177fff-852b-45ec-bab9-ca967d2a9ffd",
+        "status": "SUCCESS",
+        "units": [
+          {
+            "unit_key": "SSE:2026-10-16",
+            "status": "PUBLISHED",
+            "stage": "publish"
+          },
+          {
+            "unit_key": "SSE:2026-10-17",
+            "status": "PUBLISHED",
+            "stage": "publish"
+          },
+          {
+            "unit_key": "SSE:2026-10-18",
+            "status": "PUBLISHED",
+            "stage": "publish"
+          },
+          {
+            "unit_key": "SSE:2026-10-19",
+            "status": "PUBLISHED",
+            "stage": "publish"
+          }
+        ],
+        "publications": [
+          {
+            "unit_key": "SSE:2026-10-17",
+            "publication_id": 1,
+            "row_count": 1
+          },
+          {
+            "unit_key": "SSE:2026-10-16",
+            "publication_id": 2,
+            "row_count": 1
+          },
+          {
+            "unit_key": "SSE:2026-10-18",
+            "publication_id": 3,
+            "row_count": 1
+          },
+          {
+            "unit_key": "SSE:2026-10-19",
+            "publication_id": 4,
+            "row_count": 1
+          }
+        ],
+        "error": null,
+        "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/stock-st-ingestion-validation-20261021T212141505980/landing/39177fff-852b-45ec-bab9-ca967d2a9ffd",
+        "artifact_status": "RETAINED",
+        "artifacts_complete": true,
+        "export_errors": []
+      }
+    },
+    {
+      "command": [
+        "-m",
+        "quant_data",
+        "ingest",
+        "stock_st",
+        "--start-date",
+        "20261016",
+        "--end-date",
+        "20261019",
+        "--db",
+        "data/probes/stock-st-ingestion-validation-20261021T212141505980/warehouse.duckdb",
+        "--landing-dir",
+        "data/probes/stock-st-ingestion-validation-20261021T212141505980/landing",
+        "--keep-artifacts"
+      ],
+      "exit_code": 0,
+      "result": {
+        "run_id": "7a8f8d1f-d0ea-4a3c-8c38-72656ead6da5",
+        "status": "SUCCESS",
+        "units": [
+          {
+            "unit_key": "2026-10-16",
+            "status": "PUBLISHED",
+            "stage": "publish"
+          },
+          {
+            "unit_key": "2026-10-17",
+            "status": "OUT_OF_SCOPE",
+            "stage": "scope"
+          },
+          {
+            "unit_key": "2026-10-18",
+            "status": "OUT_OF_SCOPE",
+            "stage": "scope"
+          },
+          {
+            "unit_key": "2026-10-19",
+            "status": "PUBLISHED",
+            "stage": "publish"
+          }
+        ],
+        "publications": [
+          {
+            "unit_key": "2026-10-19",
+            "publication_id": 5,
+            "row_count": 201
+          },
+          {
+            "unit_key": "2026-10-16",
+            "publication_id": 6,
+            "row_count": 201
+          }
+        ],
+        "error": null,
+        "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/stock-st-ingestion-validation-20261021T212141505980/landing/7a8f8d1f-d0ea-4a3c-8c38-72656ead6da5",
+        "artifact_status": "RETAINED",
+        "artifacts_complete": true,
+        "export_errors": []
+      }
+    },
+    {
+      "command": [
+        "-m",
+        "quant_data",
+        "ingest",
+        "stock_st",
+        "--start-date",
+        "20261016",
+        "--end-date",
+        "20261019",
+        "--db",
+        "data/probes/stock-st-ingestion-validation-20261021T212141505980/warehouse.duckdb",
+        "--landing-dir",
+        "data/probes/stock-st-ingestion-validation-20261021T212141505980/landing",
+        "--keep-artifacts"
+      ],
+      "exit_code": 0,
+      "result": {
+        "run_id": "d50b87be-84db-4297-ad31-3cc749027db9",
+        "status": "SUCCESS",
+        "units": [
+          {
+            "unit_key": "2026-10-16",
+            "status": "PUBLISHED",
+            "stage": "publish"
+          },
+          {
+            "unit_key": "2026-10-17",
+            "status": "OUT_OF_SCOPE",
+            "stage": "scope"
+          },
+          {
+            "unit_key": "2026-10-18",
+            "status": "OUT_OF_SCOPE",
+            "stage": "scope"
+          },
+          {
+            "unit_key": "2026-10-19",
+            "status": "PUBLISHED",
+            "stage": "publish"
+          }
+        ],
+        "publications": [
+          {
+            "unit_key": "2026-10-19",
+            "publication_id": 7,
+            "row_count": 201
+          },
+          {
+            "unit_key": "2026-10-16",
+            "publication_id": 8,
+            "row_count": 201
+          }
+        ],
+        "error": null,
+        "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/stock-st-ingestion-validation-20261021T212141505980/landing/d50b87be-84db-4297-ad31-3cc749027db9",
+        "artifact_status": "RETAINED",
+        "artifacts_complete": true,
+        "export_errors": []
+      }
+    },
+    {
+      "command": [
+        "-m",
+        "quant_data",
+        "ingest",
+        "trade_calendar",
+        "--start-date",
+        "20000104",
+        "--end-date",
+        "20000104",
+        "--db",
+        "data/probes/stock-st-ingestion-validation-20261021T212141505980/warehouse.duckdb",
+        "--landing-dir",
+        "data/probes/stock-st-ingestion-validation-20261021T212141505980/landing",
+        "--keep-artifacts"
+      ],
+      "exit_code": 0,
+      "result": {
+        "run_id": "472d92f2-f65d-4bc4-887c-36b13cb75c40",
+        "status": "SUCCESS",
+        "units": [
+          {
+            "unit_key": "SSE:2000-01-04",
+            "status": "PUBLISHED",
+            "stage": "publish"
+          }
+        ],
+        "publications": [
+          {
+            "unit_key": "SSE:2000-01-04",
+            "publication_id": 9,
+            "row_count": 1
+          }
+        ],
+        "error": null,
+        "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/stock-st-ingestion-validation-20261021T212141505980/landing/472d92f2-f65d-4bc4-887c-36b13cb75c40",
+        "artifact_status": "RETAINED",
+        "artifacts_complete": true,
+        "export_errors": []
+      }
+    },
+    {
+      "command": [
+        "-m",
+        "quant_data",
+        "ingest",
+        "stock_st",
+        "--start-date",
+        "20000104",
+        "--end-date",
+        "20000104",
+        "--db",
+        "data/probes/stock-st-ingestion-validation-20261021T212141505980/warehouse.duckdb",
+        "--landing-dir",
+        "data/probes/stock-st-ingestion-validation-20261021T212141505980/landing",
+        "--keep-artifacts"
+      ],
+      "exit_code": 1,
+      "result": {
+        "run_id": "e405000b-5f47-4f5e-a25c-86441a2d124c",
+        "status": "FAILED",
+        "units": [
+          {
+            "unit_key": "2000-01-04",
+            "status": "FAILED",
+            "stage": "validation"
+          }
+        ],
+        "publications": [],
+        "error": null,
+        "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/stock-st-ingestion-validation-20261021T212141505980/landing/e405000b-5f47-4f5e-a25c-86441a2d124c",
+        "artifact_status": "RETAINED",
+        "artifacts_complete": false,
+        "export_errors": []
+      }
+    }
+  ],
+  "facts": [
+    [
+      "2026-10-16",
+      201
+    ],
+    [
+      "2026-10-19",
+      201
+    ]
+  ],
+  "historical_checks": [
+    [
+      "st.nonempty",
+      "validation"
+    ]
+  ],
+  "unchanged_on_repeat": true,
+  "new_versions_on_repeat": true,
+  "checks": {
+    "manifest_files_sha256_verified": 222,
+    "successful_source_rows_match_canonical": true,
+    "historical_empty_delivery_state": "COMPLETE",
+    "historical_empty_coverage": "FAILED",
+    "test_suite": {
+      "total": 65,
+      "passed": 64,
+      "skipped": 1,
+      "stock_st_tests": 9
+    }
+  },
+  "validation_root": "data/probes/stock-st-ingestion-validation-20261021T212141505980",
+  "local_summary_sha256": "58ecdc5f3a32251e898d98e775e42c863fa0cb253da5e4c9fd47bc76fbc82205"
+}

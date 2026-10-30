@@ -1,5 +1,6 @@
 .env
 .env.*
+!.env.example
 .venv/
 __pycache__/
 *.py[cod]
@@ -7,4 +8,12 @@ __pycache__/
 .vscode/
 /*.parquet
 data/raw/**
-research/minute-api/tmp/
+data/downloads/
+research/*/tmp/
+data/probes/
+data/landing/
+*.duckdb
+*.duckdb.wal
+*.audit/
+dbt/target/
+dbt/logs/

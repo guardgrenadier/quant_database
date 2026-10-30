@@ -1,0 +1,170 @@
+{
+  "date": "2026-10-30",
+  "status": "implementation_and_validation_complete",
+  "contract": {
+    "fields": [
+      "ts_code",
+      "trade_date",
+      "adj_factor"
+    ],
+    "factor": "required finite positive original value",
+    "publication_unit": "trade date",
+    "dependencies": [
+      "trade_calendar"
+    ],
+    "empty_market_day": "blocked",
+    "monotonicity_required": false,
+    "normalization_performed": false,
+    "automatic_history_refresh": false
+  },
+  "tests": {
+    "new_tests_run": 9,
+    "new_tests_passed": 9,
+    "environment_check": "PASS",
+    "full_suite_run": 159,
+    "full_suite_passed": 158,
+    "skipped": 1,
+    "skip_reason": "Existing stock_basic local real-response sample absent"
+  },
+  "real_response_replay": [
+    {
+      "start_date": "2026-10-29",
+      "end_date": "2026-10-29",
+      "rows": 5581
+    },
+    {
+      "start_date": "2000-01-04",
+      "end_date": "2000-01-04",
+      "rows": 925
+    },
+    {
+      "start_date": "2017-04-17",
+      "end_date": "2017-04-28",
+      "rows": 10,
+      "case": "suspension"
+    },
+    {
+      "start_date": "2026-06-25",
+      "end_date": "2026-06-29",
+      "rows": 3,
+      "case": "cash event"
+    },
+    {
+      "start_date": "2024-06-25",
+      "end_date": "2024-06-26",
+      "rows": 2,
+      "case": "factor decrease"
+    },
+    {
+      "start_date": "2026-05-07",
+      "end_date": "2026-05-11",
+      "rows": 3,
+      "case": "BSE event"
+    }
+  ],
+  "live_validation": {
+    "evidence_root": "data/probes/adj-factor-ingestion-validation-20261030",
+    "database": "/home/xindingtian/code/quant_data/data/probes/adj-factor-ingestion-validation-20261030/warehouse.duckdb",
+    "params": {
+      "start_date": "20261028",
+      "end_date": "20261029"
+    },
+    "runs": [
+      {
+        "run_id": "bb077ba8-160e-4638-9256-1081bc407d6a",
+        "status": "SUCCESS",
+        "publications": [
+          {
+            "unit_key": "SSE:2026-10-29",
+            "publication_id": 1,
+            "row_count": 1
+          },
+          {
+            "unit_key": "SSE:2026-10-28",
+            "publication_id": 2,
+            "row_count": 1
+          }
+        ],
+        "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/adj-factor-ingestion-validation-20261030/landing/bb077ba8-160e-4638-9256-1081bc407d6a",
+        "artifacts_complete": true
+      },
+      {
+        "run_id": "b6e845f5-e9b2-4a4e-a662-ba1f360933f5",
+        "status": "SUCCESS",
+        "publications": [
+          {
+            "unit_key": "2026-10-29",
+            "publication_id": 3,
+            "row_count": 5581
+          },
+          {
+            "unit_key": "2026-10-28",
+            "publication_id": 4,
+            "row_count": 5580
+          }
+        ],
+        "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/adj-factor-ingestion-validation-20261030/landing/b6e845f5-e9b2-4a4e-a662-ba1f360933f5",
+        "artifacts_complete": true
+      },
+      {
+        "run_id": "2dd2b9b6-3df6-4361-96f9-126d9641d44e",
+        "status": "SUCCESS",
+        "publications": [
+          {
+            "unit_key": "2026-10-29",
+            "publication_id": 5,
+            "row_count": 5581
+          },
+          {
+            "unit_key": "2026-10-28",
+            "publication_id": 6,
+            "row_count": 5580
+          }
+        ],
+        "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/adj-factor-ingestion-validation-20261030/landing/2dd2b9b6-3df6-4361-96f9-126d9641d44e",
+        "artifacts_complete": true
+      }
+    ],
+    "canonical_rows_before_offline_injections": 11161,
+    "canonical_sha256_before_offline_injections": "4244e709c4e1759a8c43d183ea86d31873c08b027edf3d232d23f751607a3f2d",
+    "rerun_equal": true,
+    "source_raw_candidate_canonical_equal": true,
+    "validation_check_count_each_live_run": 0,
+    "verified_manifest_files": 275
+  },
+  "offline_injections": {
+    "no_http": true,
+    "complete_empty": {
+      "run_id": "046bd903-121c-4394-a484-99577920a00b",
+      "status": "FAILED",
+      "old_facts_and_versions_preserved": true
+    },
+    "second_page_failure": {
+      "run_id": "52b1cbeb-0ed4-4a0b-92c4-8123554cd29f",
+      "status": "PARTIAL",
+      "failed_day_old_facts_and_versions_preserved": true,
+      "other_day_replayed_and_published": true
+    },
+    "synthetic_revision": {
+      "no_http": true,
+      "source_revision_synthetic": true,
+      "date": "2026-10-28",
+      "ts_code": "000001.SZ",
+      "old_factor": 142.0699,
+      "new_factor": 71.03495,
+      "other_day_facts_and_versions_unchanged": true,
+      "run_id": "b01aac22-c2b5-4213-aad3-e653b6ca9713",
+      "status": "SUCCESS"
+    }
+  },
+  "shared_interfaces_changed": false,
+  "new_dependencies": [],
+  "default_database_modified": false,
+  "validation_database_final_state": "Contains explicitly synthetic revision; live-equivalence evidence is in live-run snapshots.",
+  "not_implemented": [
+    "adjusted-price Serving",
+    "PIT",
+    "automatic refresh",
+    "full-history ingestion"
+  ]
+}
