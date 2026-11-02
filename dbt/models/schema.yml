@@ -1,0 +1,19 @@
+version: 2
+
+models:
+  - name: stock_daily_with_sw_industry
+    description: >-
+      每条已发布股票日线追加申万一、二、三级行业代码，键仍为 ts_code、trade_date。
+      使用当前已发布的归属历史，out_date 包含当天；历史断档保留为 NULL。
+      上游修订后 View 查询立即使用更新后的事实，不提供 PIT 或历次结果快照。
+    columns:
+      - name: ts_code
+        description: 原始股票日线的证券代码。
+      - name: trade_date
+        description: 原始股票日线的业务日期，不是分类抓取日期。
+      - name: sw_l1_code
+        description: 该业务日所属的申万一级行业代码，未匹配为 NULL。
+      - name: sw_l2_code
+        description: 同一归属记录中的申万二级行业代码，未匹配为 NULL。
+      - name: sw_l3_code
+        description: 同一归属记录中的申万三级行业代码，未匹配为 NULL。

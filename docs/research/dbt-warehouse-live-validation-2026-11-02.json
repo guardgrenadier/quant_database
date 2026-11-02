@@ -1,0 +1,72 @@
+{
+  "database": "/home/xindingtian/code/quant_data/data/warehouse.duckdb",
+  "backup": "/home/xindingtian/code/quant_data/data/warehouse.before-dbt-20261102T120647218730.duckdb",
+  "old_database_sha256": "e8315062d9aacbf9046ff6c305cbe0f43c2cad26a5748d503ca3516e8c0d74ed",
+  "backup_stock_basic_rows": 5921,
+  "candidate_preserved": "/home/xindingtian/code/quant_data/data/probes/warehouse-dbt-preview-20261102T120136922070/warehouse.duckdb",
+  "approved_backup_and_replace": true,
+  "dbt_exit_code": 0,
+  "daily_match_counts": [
+    [
+      "2026-10-29",
+      5570,
+      5570,
+      0
+    ],
+    [
+      "2026-10-30",
+      5571,
+      5571,
+      0
+    ]
+  ],
+  "members_by_is_new": [
+    [
+      "N",
+      2006
+    ],
+    [
+      "Y",
+      5922
+    ]
+  ],
+  "dbt_results": [
+    {
+      "unique_id": "operation.quant_data.quant_data-on-run-start-0",
+      "status": "success",
+      "failures": 0
+    },
+    {
+      "unique_id": "model.quant_data.stock_daily_with_sw_industry",
+      "status": "success",
+      "failures": null
+    },
+    {
+      "unique_id": "test.quant_data.stock_daily_industry_grain",
+      "status": "pass",
+      "failures": 0
+    },
+    {
+      "unique_id": "test.quant_data.stock_daily_industry_unmatched",
+      "status": "pass",
+      "failures": 0
+    }
+  ],
+  "mode": "live Tushare ingestion followed by approved local database replacement and dbt build",
+  "request_attempts_by_dataset": [
+    [
+      "index_member_all",
+      9
+    ],
+    [
+      "stock_daily",
+      2
+    ],
+    [
+      "trade_calendar",
+      1
+    ]
+  ],
+  "original_quote_differences": 0,
+  "data_and_backups_excluded_from_git": true
+}

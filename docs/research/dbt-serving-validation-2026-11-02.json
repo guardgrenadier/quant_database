@@ -1,0 +1,94 @@
+{
+  "mode": "new current-schema warehouse; saved real calendar, daily and industry response replay; no HTTP",
+  "database": "/home/xindingtian/code/quant_data/data/probes/dbt-serving-validation-20261102/warehouse.duckdb",
+  "commands": [
+    {
+      "command": "debug",
+      "returncode": 0
+    },
+    {
+      "command": "build",
+      "returncode": 0
+    }
+  ],
+  "relation_type": "VIEW",
+  "source_rows": {
+    "stock_daily": 5568,
+    "index_member_all": 7928
+  },
+  "feature_rows": 5568,
+  "daily_match_counts": [
+    {
+      "trade_date": "2026-10-21",
+      "rows": 5568,
+      "matched": 5568,
+      "unmatched": 0
+    }
+  ],
+  "unmatched_examples": [],
+  "upstream_versions": [
+    [
+      "index_member_all",
+      "SNAPSHOT",
+      367
+    ],
+    [
+      "stock_daily",
+      "2026-10-21",
+      366
+    ]
+  ],
+  "canonical_and_success_meta_unchanged_by_dbt": true,
+  "default_warehouse_sha256_unchanged": true,
+  "default_warehouse_meta_incompatible": [
+    "meta.run.reconciled_at",
+    "meta.run.audit_state",
+    "meta.run.audit_archive_path"
+  ],
+  "dbt_results": [
+    {
+      "unique_id": "operation.quant_data.quant_data-on-run-start-0",
+      "status": "success",
+      "failures": 0
+    },
+    {
+      "unique_id": "model.quant_data.stock_daily_with_sw_industry",
+      "status": "success",
+      "failures": null
+    },
+    {
+      "unique_id": "test.quant_data.stock_daily_industry_grain",
+      "status": "pass",
+      "failures": 0
+    },
+    {
+      "unique_id": "test.quant_data.stock_daily_industry_unmatched",
+      "status": "pass",
+      "failures": 0
+    }
+  ],
+  "environment": {
+    "dbt-core": "1.12.5",
+    "dbt-duckdb": "1.11.0",
+    "duckdb": "1.5.6",
+    "dbt-adapters": "1.24.5",
+    "dbt-common": "1.39.0"
+  },
+  "downloads": {
+    "install_commands": [],
+    "new_python_packages": [],
+    "dbt_packages": [],
+    "duckdb_extensions": [],
+    "external_data_requests": 0,
+    "installed_distributions_unchanged": 77,
+    "pyproject_and_lock_unchanged": true,
+    "python_runtime_downloaded": false,
+    "system_packages": []
+  },
+  "tests": {
+    "total": 171,
+    "passed": 170,
+    "skipped": 1,
+    "new_serving_tests": 3
+  }
+}

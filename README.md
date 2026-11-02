@@ -6,6 +6,7 @@
 |---|---|
 | 理解核心心智模型、职责与 invariant | [核心架构](docs/design/core_design.md) |
 | 理解当前模型、接口、事务与能力边界 | [技术设计与实现边界](docs/design/ingestion_v3.2_implementation.md) |
+| 运行日频行业特征及查看环境下载清单 | [dbt Serving](dbt/README.md) |
 
 这两份是当前维护文档：先读核心架构，再按需查技术细节。[V3.1.1 归档](docs/design/archive/core_design_v3.1.1.md)保留设计历史与 invariant 对照，不代表当前实现进度。
 
@@ -227,6 +228,21 @@ uv run --frozen python -m quant_data meta retain --db data/warehouse_audit.duckd
 
 本轮 Meta 增加 `reconciled_at`、`audit_state`、`audit_archive_path`；已有缺少这些列的 V3.2 验证库会明确报不兼容，不自动迁移或清空，请使用新库路径。详细规则与验证边界见 [Meta 审计 Spec](docs/design/meta_audit_lifecycle_spec.md)。
 
+## dbt Serving：日线申万行业特征
+
+已提供 `serving.stock_daily_with_sw_industry` View，为每条 stock_daily 追加 `sw_l1_code / sw_l2_code / sw_l3_code`。按完整归属历史及包含 out_date 当天的闭区间匹配，未匹配保留日线并输出 NULL，不改 Canonical、不填充行业断档。
+
+在仓库根目录，显式选择已发布两个来源的数据库：
+
+```bash
+QUANT_DATA_DB="$PWD/data/warehouse.duckdb" \
+  uv run --frozen --no-sync dbt build --project-dir dbt --profiles-dir dbt
+```
+
+上例是本机已准备好的演示库；其他机器须替换为已发布两个来源的已有库。该库真实获取了 2026-10-29～30 的 11,141 条日线及完整 7,928 条申万归属，dbt 验证全部匹配。构建前检查行业 SNAPSHOT 和日线日期的成功 Coverage；结果键/行粒度测试为 ERROR，未匹配行测试为 WARNING。View 随来源修订更新，dbt 测试需要显式运行，测试失败不会自动回滚已创建的 View。
+
+环境搭建复用现有 dbt-core 1.12.5、dbt-duckdb 1.11.0、DuckDB 1.5.6，没有新增软件包、dbt 包或扩展，依赖文件保持原样；搭建阶段使用离线样本，后续演示数据按用户授权实时获取。旧 data/warehouse.duckdb 已在用户确认后完整备份，再启用当前新结构演示库，不做旧 Meta 自动迁移。完整设置、分阶段下载记录及备份位置见 [dbt README](dbt/README.md) 和 [Serving 方案](docs/design/stock_daily_sw_industry_serving.md)。
+
 ## 开发环境与接口探查
 
 使用 uv 管理 Python 3.13、`.venv` 和锁定依赖（Polars、DuckDB、Arrow/Parquet、dbt-duckdb、python-dotenv）。在仓库根目录执行：
@@ -254,7 +270,7 @@ uv run --frozen python scripts/probe_tushare.py --case stock_L --case suspend_20
 - [停复牌正式 Schema](src/quant_data/datasets/suspend_daily.sql) 与[落地验证](docs/research/suspend-daily-ingestion-validation-2026-10-16.md)
 - [银河 vs Tushare 日线质量对照与接入建议](docs/research/galaxy-vs-tushare-daily-quality-2026-10-22.md)（银河接口系列探查见同目录 galaxy-* 报告）
 
-十二个 Dataset 的正式 DDL 位于 [datasets](src/quant_data/datasets)。逐请求摘要由探查报告引用。早期 review、walkthrough 和探查原始产物已于 2026-10-16 清理，可按上述入口重新生成；当前正式切片的证据路径见各自文档。
+十三个 Dataset 的正式 DDL 位于 [datasets](src/quant_data/datasets)。逐请求摘要由探查报告引用。早期 review、walkthrough 和探查原始产物已于 2026-10-16 清理，可按上述入口重新生成；当前正式切片的证据路径见各自文档。
 
 ## 数据商接口
 

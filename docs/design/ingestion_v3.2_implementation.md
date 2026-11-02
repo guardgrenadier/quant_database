@@ -1,6 +1,6 @@
 # 个人量化数据库技术设计与实现边界 V3.2
 
-**更新：2026-11-02｜范围：统一验收内核与十三个正式 Dataset**
+**更新：2026-11-02｜范围：统一验收内核、十三个正式 Dataset 与首个 dbt Serving View**
 
 本文说明已落地的模型、接口、执行机制和能力边界，与[核心架构](core_design.md)配套。内容依据当前代码；不重新定义冻结的架构与 invariant，也不把规划中的 Dataset 或 Serving 写成已实现能力。后续实现变化时同步更新对应章节。
 
@@ -45,6 +45,7 @@
 | [`sources/tushare/index_member_all.py`](../../src/quant_data/sources/tushare/index_member_all.py) | Y/N 分别分页、可信状态核对与严格日期准备，共同交付完整快照 |
 | [`sources/galaxy/client.py`](../../src/quant_data/sources/galaxy/client.py)、[`worker.py`](../../src/quant_data/sources/galaxy/worker.py) | 银河单会话 worker、并发/超时/熔断及当前 Run 证据恢复 |
 | [`sources/galaxy/stock_1min.py`](../../src/quant_data/sources/galaxy/stock_1min.py) | 分钟/快照交付、930 扣减、完整网格、停牌与参考价构造 |
+| [`dbt/`](../../dbt/README.md) | 项目内连接配置、来源发布状态 Hook、日线申万行业 View 及粒度/未匹配 SQL 测试 |
 
 采用对象组合与普通函数。Protocol 表达现有接口，不要求具体类继承；没有 Dataset 注册框架、通用分页框架或规则 DSL。
 
@@ -383,9 +384,21 @@ trade_calendar / suspend_daily / stock_st / stock_daily / daily_basic / adj_fact
 | 依赖管理 | 检查已有成功版本，准备和发布前复核；不自动运行上游或传播失效 |
 | 执行与数据规模 | 单连接、单内存批次；Tushare 串行请求，银河单会话 worker 并行 2/4；仅支持当前 Run 的证据恢复，不支持通用跨 Run 恢复、超内存流式处理或分布式执行 |
 | 并发 | Ingestion、dbt、外部研究进程按运行约定错开访问同一文件；未实现锁协调服务 |
-| Serving | dbt 默认 View 是已确认路线；环境脚本验证过 dbt View，但尚无正式 Serving/Mart 模型 |
+| Serving | 已提供 dbt 日线申万行业 View，按日期匹配并保留 NULL；无独立成功版本、原子测试发布或 PIT 镜像 |
 | 历史与运维 | 未实现 PIT、全面历史版本、自动备份恢复、调度、补数规划或增量修订重算 |
 
 后续接入 Dataset 时，先确认 Schema / Record Key、依赖与 Scope、Unit、完整替换范围、零行语义、交付证明及 ERROR / WARNING 规则，再实现专属 Dataset 与 Adapter。沿用现有内核；需要改变共享接口或冻结语义时，先提出方案确认。
 
 V3.1.1 的[原始设计稿](个人量化数据库架构冻结稿_V3.1.1_增量修订版.md)和[归档及 invariant 对照](archive/core_design_v3.1.1.md)作为历史参考。其中“尚未验证”等进度及早期供应商假设不作为当前能力说明；当前实现以本文及代码为依据，架构约束以核心架构为准，发现冲突时需显式讨论。
+
+## 十、dbt Serving：股票日线申万行业特征
+
+首个正式模型为 `serving.stock_daily_with_sw_industry`，在同库 stock_daily 的 11 列上追加 sw_l1_code/sw_l2_code/sw_l3_code。按证券和包含 out_date 当天的闭区间 LEFT JOIN 完整 index_member_all，不筛 is_new、不展开日历、不补历史断档。结果键仍为代码日；未匹配保留三列 NULL 并告警，多重匹配通过粒度测试失败。
+
+项目路径为 dbt/，profiles 从显式 QUANT_DATA_DB 读取路径，输出 serving、单线程、上海时区。on-run-start 要求行业 SNAPSHOT 及日线实际日期已有成功 Coverage，缺上游阻断且不自动获取。普通 View 随来源修订更新；构建后数据测试不提供 ingestion Publisher 的原子提交语义，不新增 Serving Publication 或 Coverage。调用方继续按运行约定错开同文件的 ingestion、dbt 与研究进程。
+
+2026-11-02 环境复用已安装 dbt-core 1.12.5、dbt-duckdb 1.11.0、DuckDB 1.5.6，无新下载/安装，77 个 distribution 前后相同，pyproject.toml/uv.lock 未改。新增 3 项 dbt 子进程链路测试通过；全套 171 项中 170 通过、1 项旧样本缺失跳过。独立新库重放既有真实日历、日线和行业响应后，dbt debug/build 均通过，2026-10-21 日线 5,568 行全部匹配，结果行数相同，来源事实与成功元数据未改，主库哈希不变。当时检查的 data/warehouse_v3_2.duckdb 缺行业表且 Meta 缺审计生命周期三字段，不自动迁移或部署。
+
+安装/下载清单及命令见 [dbt README](../../dbt/README.md)，设计与验收边界见 [Serving 方案](stock_daily_sw_industry_serving.md)。
+
+随后用户授权准备实时演示并确认备份替换旧 `data/warehouse.duckdb`：该路径现为当前结构，保存 2026-10-29～30 的 11,141 条日线及 7,928 条申万归属，正式 dbt build 在最终路径通过，全部日线匹配。旧库的 stock_basic 5,921 行及审计完整保存在带时间戳的本地备份中；不迁移旧 Meta，也不将旧审计拼接进新库。下载共 12 次 HTTP，软件依赖不变，数据库及备份不入 Git。详见 [实时库验收](../research/dbt-warehouse-live-validation-2026-11-02.json)。

@@ -1,0 +1,16 @@
+version: 2
+
+sources:
+  - name: canonical
+    schema: canonical
+    description: 已由 ingestion 验收及原子发布的当前业务事实；dbt 不负责获取或修订。
+    tables:
+      - name: stock_daily
+        description: 全市场未复权股票日线，键为 ts_code、trade_date。
+      - name: index_member_all
+        description: 完整 Y+N 申万归属历史，out_date 包含当天；不代表历史当时可得版本。
+  - name: meta
+    schema: meta
+    tables:
+      - name: coverage
+        description: 当前权威成功版本指针，用于构建前检查上游发布状态。

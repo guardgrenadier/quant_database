@@ -1,6 +1,6 @@
 # 个人量化数据库核心架构 V3.2（统一验收修订）
 
-**更新：2026-11-02（补充 index_member_all 已落地范围）｜状态：核心架构与 invariant 已确认**
+**更新：2026-11-02（补充 index_member_all 与首个 dbt Serving 模型）｜状态：核心架构与 invariant 已确认**
 
 本文定义项目的核心心智模型、职责与可靠性保证。当前十三个切片采用“获取、集中标准化、统一验收、原子发布”的设计；当前接口与阶段见[技术设计与实现边界](ingestion_v3.2_implementation.md)。实现细节调整不改变本文的架构约束；约束变更需另行讨论确认。
 
@@ -8,7 +8,7 @@
 
 建设面向个人量化研究的数据平台，将供应商数据转为可追溯、可修订、可靠发布的标准业务事实，供研究与回测使用。
 
-当前已落地 `stock_basic` 完整快照、SSE `trade_calendar` 自然日日历、`suspend_daily` 停复牌、`stock_st` 每日名单、`index_basic` 目标指数快照、`index_member_all` 申万行业归属完整快照、`stock_daily` 未复权股票日线、`daily_basic` 每日指标、`adj_factor` 原始复权因子、`index_daily` universe 内指数日线、`stk_limit` 每日涨跌停价格、`bse_mapping` 北交所代码映射和 `stock_1min` 完整分钟研究网格。指数目标为宽基白名单及供应商按类别／发布方报告的申万行业集合。多 Unit、部分成功、合法零行替换、上游版本复核与分钟派生网格已有正式切片及测试；正式 Serving 尚未接入。专属契约见[ST](stock_st_ingestion_proposal.md)、[指数快照](index_basic_ingestion_proposal.md)、[申万归属](index_member_all_ingestion_proposal.md)、[股票日线](stock_daily_ingestion_proposal.md)、[每日指标](daily_basic_ingestion_proposal.md)、[复权因子](adj_factor_ingestion_proposal.md)、[指数日线](index_daily_ingestion_proposal.md)、[涨跌停价格](stk_limit_ingestion_proposal.md)、[BJ 映射](bse_mapping_ingestion_proposal.md)及[股票分钟](stock_1min_ingestion_proposal.md)。
+当前已落地 `stock_basic` 完整快照、SSE `trade_calendar` 自然日日历、`suspend_daily` 停复牌、`stock_st` 每日名单、`index_basic` 目标指数快照、`index_member_all` 申万行业归属完整快照、`stock_daily` 未复权股票日线、`daily_basic` 每日指标、`adj_factor` 原始复权因子、`index_daily` universe 内指数日线、`stk_limit` 每日涨跌停价格、`bse_mapping` 北交所代码映射和 `stock_1min` 完整分钟研究网格。指数目标为宽基白名单及供应商按类别／发布方报告的申万行业集合。多 Unit、部分成功、合法零行替换、上游版本复核与分钟派生网格已有正式切片及测试；正式 Serving 已提供股票日线逐行匹配三级行业代码的 [dbt View](stock_daily_sw_industry_serving.md)。专属契约见[ST](stock_st_ingestion_proposal.md)、[指数快照](index_basic_ingestion_proposal.md)、[申万归属](index_member_all_ingestion_proposal.md)、[股票日线](stock_daily_ingestion_proposal.md)、[每日指标](daily_basic_ingestion_proposal.md)、[复权因子](adj_factor_ingestion_proposal.md)、[指数日线](index_daily_ingestion_proposal.md)、[涨跌停价格](stk_limit_ingestion_proposal.md)、[BJ 映射](bse_mapping_ingestion_proposal.md)及[股票分钟](stock_1min_ingestion_proposal.md)。
 
 ## 二、职责分工
 
@@ -74,7 +74,7 @@ Runner 管机制，Dataset 管业务语义，Adapter 管供应商交付与准备
 | Python | 流程组织、业务契约与供应商接入 |
 | Polars | 内存业务批次的列式处理 |
 | DuckDB | 权威数据与元数据存储、集合查询和事务发布 |
-| dbt | Serving 的 SQL 依赖与转换，默认 View；正式模型待接入 |
+| dbt | Serving 的 SQL 依赖与转换，默认 View；已接入日线申万行业特征 |
 | Arrow / Parquet | 列式数据交换、暂存、导出与备份 |
 
 首版采用单个 DuckDB 权威库承载 Canonical 与元数据，并受控串行访问。Ingestion、dbt 和外部研究进程按运行约定错开访问同一文件。

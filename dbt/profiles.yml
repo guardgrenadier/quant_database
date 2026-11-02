@@ -1,0 +1,14 @@
+quant_data:
+  target: local
+  outputs:
+    local:
+      type: duckdb
+      # 显式选择数据库，不默认打开另一个空库；从仓库根目录运行并使用绝对路径。
+      path: "{{ env_var('QUANT_DATA_DB') }}"
+      schema: serving
+      threads: 1
+      # 只处理本地已发布事实，不自动下载安装 DuckDB 扩展。
+      config_options:
+        autoinstall_known_extensions: false
+      settings:
+        TimeZone: Asia/Shanghai

@@ -1,0 +1,20 @@
+name: quant_data
+version: '1.0'
+config-version: 2
+profile: quant_data
+require-dbt-version: ['>=1.12.0', '<2.0.0']
+
+model-paths: ['models']
+macro-paths: ['macros']
+test-paths: ['tests']
+clean-targets: ['target', 'logs']
+
+flags:
+  send_anonymous_usage_stats: false
+
+on-run-start:
+  - '{{ require_published_industry_sources() }}'
+
+models:
+  quant_data:
+    +materialized: view
