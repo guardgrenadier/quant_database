@@ -1,0 +1,112 @@
+{
+  "live": [
+    {
+      "label": "first",
+      "run_id": "47694fc3-57b8-4aea-b8d6-7098c4b6853f",
+      "rows": 7928,
+      "requests": 9,
+      "publication_id": 1,
+      "warnings": 1,
+      "all_stages_equal": true,
+      "artifacts_complete": true
+    },
+    {
+      "label": "repeat",
+      "run_id": "35862946-1f7f-4193-b5c7-93177060ba54",
+      "rows": 7928,
+      "requests": 9,
+      "publication_id": 2,
+      "warnings": 1,
+      "all_stages_equal": true,
+      "artifacts_complete": true
+    }
+  ],
+  "experiments": [
+    {
+      "label": "empty_history",
+      "mode": "offline injection",
+      "result": {
+        "run_id": "db3e5135-2453-4b5d-9daa-ad235cd6d706",
+        "status": "FAILED",
+        "units": [
+          {
+            "unit_key": "SNAPSHOT",
+            "status": "FAILED",
+            "stage": "validation"
+          }
+        ],
+        "publications": [],
+        "error": null,
+        "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/index-member-all-ingestion-validation-20261102/experiments/db3e5135-2453-4b5d-9daa-ad235cd6d706",
+        "artifact_status": "RETAINED",
+        "artifacts_complete": false,
+        "export_errors": []
+      },
+      "old_snapshot_preserved": true
+    },
+    {
+      "label": "later_history_page_failure",
+      "mode": "offline injection",
+      "result": {
+        "run_id": "1beb3638-465c-48d4-a9f7-ecae95ee11d6",
+        "status": "FAILED",
+        "units": [
+          {
+            "unit_key": "SNAPSHOT",
+            "status": "FAILED",
+            "stage": "validation"
+          }
+        ],
+        "publications": [],
+        "error": null,
+        "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/index-member-all-ingestion-validation-20261102/experiments/1beb3638-465c-48d4-a9f7-ecae95ee11d6",
+        "artifact_status": "RETAINED",
+        "artifacts_complete": false,
+        "export_errors": []
+      },
+      "old_snapshot_preserved": true
+    },
+    {
+      "label": "classification_migration",
+      "mode": "offline synthetic event",
+      "result": {
+        "run_id": "fa8290b4-8c36-4a7b-ac8d-abb07204559e",
+        "status": "SUCCESS",
+        "units": [
+          {
+            "unit_key": "SNAPSHOT",
+            "status": "PUBLISHED",
+            "stage": "publish"
+          }
+        ],
+        "publications": [
+          {
+            "unit_key": "SNAPSHOT",
+            "publication_id": 3,
+            "row_count": 7929
+          }
+        ],
+        "error": null,
+        "artifact_dir": "/home/xindingtian/code/quant_data/data/probes/index-member-all-ingestion-validation-20261102/experiments/fa8290b4-8c36-4a7b-ac8d-abb07204559e",
+        "artifact_status": "RETAINED",
+        "artifacts_complete": true,
+        "export_errors": []
+      },
+      "inclusive_boundary_verified": true
+    }
+  ],
+  "verified_artifact_hashes": 256,
+  "live_database_contains_only_real_source_data": true,
+  "shared_interfaces_changed": false,
+  "verification": {
+    "unittest": {
+      "total": 168,
+      "passed": 167,
+      "skipped": 1,
+      "new_tests": 9
+    },
+    "environment_check": "PASS",
+    "default_warehouse_modified": false,
+    "out_date_contract": "inclusive; accepted by user from 2006 adjacent membership observations"
+  }
+}

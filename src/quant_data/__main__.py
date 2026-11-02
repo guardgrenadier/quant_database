@@ -23,6 +23,7 @@ from quant_data.datasets.adj_factor import AdjFactorDataset
 from quant_data.datasets.stk_limit import StkLimitDataset
 from quant_data.datasets.index_daily import IndexDailyDataset
 from quant_data.datasets.bse_mapping import BseMappingDataset
+from quant_data.datasets.index_member_all import IndexMemberAllDataset
 from quant_data.datasets.stock_1min import Stock1MinDataset
 from quant_data.sources.tushare.client import TushareClient
 from quant_data.sources.tushare.stock_basic import TushareStockBasicAdapter
@@ -36,6 +37,7 @@ from quant_data.sources.tushare.adj_factor import TushareAdjFactorAdapter
 from quant_data.sources.tushare.stk_limit import TushareStkLimitAdapter
 from quant_data.sources.tushare.index_daily import TushareIndexDailyAdapter
 from quant_data.sources.tushare.bse_mapping import TushareBseMappingAdapter
+from quant_data.sources.tushare.index_member_all import TushareIndexMemberAllAdapter
 from quant_data.sources.galaxy.client import GalaxyClient
 from quant_data.sources.galaxy.stock_1min import GalaxyStock1MinAdapter
 
@@ -68,7 +70,7 @@ def main():
     parser = argparse.ArgumentParser(description="Personal quantitative database ingestion")
     commands = parser.add_subparsers(dest="command", required=True)
     ingest = commands.add_parser("ingest")
-    ingest.add_argument("dataset", choices=["stock_basic", "trade_calendar", "suspend_daily", "stock_st", "index_basic", "stock_daily", "index_daily", "bse_mapping", "stock_1min", "stk_limit", "daily_basic", "adj_factor"])
+    ingest.add_argument("dataset", choices=["stock_basic", "trade_calendar", "suspend_daily", "stock_st", "index_basic", "stock_daily", "index_daily", "bse_mapping", "stock_1min", "stk_limit", "daily_basic", "adj_factor", "index_member_all"])
     ingest.add_argument("--db", type=Path, default=Path("data/warehouse.duckdb"))
     ingest.add_argument("--landing-dir", type=Path, default=Path("data/landing"))
     ingest.add_argument("--keep-artifacts", action="store_true", help="保留完整阶段产物供 walkthrough")
@@ -158,6 +160,10 @@ def main():
         elif args.dataset == "bse_mapping":
             dataset = BseMappingDataset()
             adapter = TushareBseMappingAdapter(TushareClient(token))
+        elif args.dataset == "index_member_all":
+            # 业务装配：当前与历史共同构成完整快照，无日历或当前证券名单依赖。
+            dataset = IndexMemberAllDataset()
+            adapter = TushareIndexMemberAllAdapter(TushareClient(token))
         elif args.dataset == "stock_1min":
             dataset = Stock1MinDataset()
             adapter = GalaxyStock1MinAdapter(GalaxyClient(parallel=params["parallel"]))

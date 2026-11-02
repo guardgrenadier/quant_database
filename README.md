@@ -1,6 +1,6 @@
 # quant_data
 
-个人量化数据库，已接入 `stock_basic` 完整快照、SSE `trade_calendar`、`suspend_daily` 停复牌、`stock_st` 名单、`index_basic` 目标指数快照、`stock_daily` 未复权股票日线、`daily_basic` 每日指标、`adj_factor` 原始复权因子、`index_daily` universe 内指数日线、`stk_limit` 每日涨跌停价格、`bse_mapping` 北交所代码映射，以及 `stock_1min` 完整分钟研究网格：获取及证据 → 集中准备 Candidate → 统一验收 → Canonical 和 Meta 原子发布。
+个人量化数据库，已接入 `stock_basic` 完整快照、SSE `trade_calendar`、`suspend_daily` 停复牌、`stock_st` 名单、`index_basic` 目标指数快照、`index_member_all` 申万行业归属完整快照、`stock_daily` 未复权股票日线、`daily_basic` 每日指标、`adj_factor` 原始复权因子、`index_daily` universe 内指数日线、`stk_limit` 每日涨跌停价格、`bse_mapping` 北交所代码映射，以及 `stock_1min` 完整分钟研究网格：获取及证据 → 集中准备 Candidate → 统一验收 → Canonical 和 Meta 原子发布。
 
 | 阅读目的 | 文档 |
 |---|---|
@@ -102,6 +102,19 @@ uv run --frozen python -m quant_data ingest index_basic \
 宽基缺记录、申万过滤结果零行或源交付／准备／验收失败均阻断并保护旧版。合格后单 SNAPSHOT 整表替换，重跑生成新版本、不累加，并删除非目标旧记录。申万保留历史／已终止记录，不再按 SW2021 或一二三级重建目标和检查各层完整性。
 
 market/category/index_type 为开放字符串；日期和基点允许 NULL，0 基点合法，负基点只告警，不要求基期早于发布日期。成功表示符合供应商交付及项目验收契约，不保证跨页同一时点或历史 PIT。完整规则与真实验收见 [index_basic 文档](docs/design/index_basic_ingestion_proposal.md)。
+
+## index_member_all 申万行业归属
+
+完整获取最新 Y 与历史 N 两组 11 字段，以单个 SNAPSHOT 验收并整表原子替换；无需日历、股票或指数基础表，不接受日期、证券或行业过滤。
+
+```bash
+uv run --frozen python -m quant_data ingest index_member_all \
+  --db data/probes/my-index-member/warehouse.duckdb --keep-artifacts
+```
+
+两状态分别按 1,000 行分页，短页且明确 has_more=false 才完成，满页 false 继续取尾页。任一状态请求/分页/准备失败、重复业务键、状态日期矛盾、闭区间重叠或任一状态整组零行均阻断整快照，保护旧事实及成功版本。主键 `(l3_code, ts_code, in_date)`；保留源名称和历史断档，缺名称及早于 1990 年的纳入日期仅告警。
+
+`out_date` **包含当天**，归属区间为 `[in_date,out_date]`，NULL 表示没有报告结束日。每次完整刷新同步分类迁移、历史修订和删除；建议每个交易日盘后运行同一入口，年度及临时调整后可再次刷新。本切片没有自动调度、每日归属物化或 PIT 历史版本。完整规则及端点依据见 [index_member_all 方案](docs/design/index_member_all_ingestion_proposal.md)。
 
 ## 股票与指数日线
 
