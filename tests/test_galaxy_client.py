@@ -16,8 +16,8 @@ def request(request_id="r1", kind="kline", code="000001.SZ"):
     codes = (code,) if isinstance(code, str) else tuple(code)
     return GalaxyRequest(
         request_id, kind, codes, 20260903, 20260903,
-        900 if kind == "kline" else 92457000,
-        1700 if kind == "kline" else 92530000,
+        900 if kind == "kline" else 92457000 if kind == "snapshot" else 0,
+        1700 if kind == "kline" else 92530000 if kind == "snapshot" else 0,
     )
 
 
@@ -55,6 +55,33 @@ class FakeTgw:
         callback(rows, status)
         return True, 0
 
+    def GetTaskID(self):
+        return 101
+
+    def SetThirdInfoParam(self, task_id, name, value):
+        self.state["third_params"].setdefault(task_id, {})[name] = value
+        return self.state["param_status"]
+
+    def QueryThirdInfo(self, task_id, query_spi, return_df_format):
+        params = self.state["third_params"][task_id]
+        self.state["third_calls"].append(dict(params))
+        status = self.state["weight_status"]
+        if self.state["weight_rows"] is None:
+            rows = [] if status else [
+                {"INDEX_CODE": params["index_code"], "CON_CODE": "000001.SZ",
+                 "TRADE_DATE": params["start_date"], "TOTAL_SHR": 1000,
+                 "FREE_SHR_RATIO": None, "CALC_SHR": 500, "WEIGHT_FACTOR": 1,
+                 "WEIGHT": 60.0, "CLOSE": 10.0},
+                {"INDEX_CODE": params["index_code"], "CON_CODE": "600000.SH",
+                 "TRADE_DATE": params["start_date"], "TOTAL_SHR": 2000,
+                 "FREE_SHR_RATIO": None, "CALC_SHR": 1000, "WEIGHT_FACTOR": 1,
+                 "WEIGHT": 40.0, "CLOSE": 20.0},
+            ]
+        else:
+            rows = self.state["weight_rows"]
+        query_spi(rows, status)
+        return True, 0
+
 
 class FakeBaseData:
     def __init__(self, state):
@@ -89,7 +116,8 @@ class FakeSdkFactory:
         self.state = state or {
             "logins": 0, "closes": 0, "calendar_calls": 0, "kline_calls": [],
             "snapshot_calls": [], "statuses": {}, "delay": 0, "snapshot_custom": None,
-            "force_logout": [],
+            "force_logout": [], "third_calls": [], "third_params": {},
+            "weight_status": 0, "weight_rows": None, "param_status": 0,
         }
 
     def __call__(self):
@@ -242,6 +270,35 @@ class GalaxyClientTest(unittest.TestCase):
         self.assertEqual(self.state["closes"], 1)
         json.dumps(control_data((responses, attempts)), allow_nan=False)
 
+    def test_index_weight_contract_and_evidence_recovery(self):
+        req = request(kind="index_weight", code="000300.SH")
+        responses, attempts = self.client(parallel=1).fetch([req], self.artifacts)
+        self.assertEqual(responses[0].state, "COMPLETE")
+        self.assertEqual(len(responses[0].rows), 2)
+        self.assertNotIn("ts_code", responses[0].rows[0])
+        self.assertEqual(attempts[0].api_name, "tgw.QueryThirdInfo")
+        self.assertEqual(attempts[0].params, {"function_id": "A010200005", "index_code": "000300.SH",
+                                               "start_date": "20260903", "end_date": "20260903"})
+        self.assertEqual(self.state["calendar_calls"], 0)
+        recovered, recovered_attempts = self.client(parallel=1).fetch([req], self.artifacts)
+        self.assertEqual(recovered, responses)
+        self.assertEqual(recovered_attempts, attempts)
+        self.assertEqual(len(self.state["third_calls"]), 1)
+
+    def test_index_weight_empty_and_parameter_failure(self):
+        self.state["weight_status"] = -76
+        empty = self.client(parallel=1).fetch(
+            [request("empty", "index_weight", "000300.SH")], self.artifacts,
+        )[0][0]
+        self.assertEqual((empty.state, empty.provider_code, empty.rows), ("COMPLETE", -76, ()))
+        self.state["param_status"] = -1
+        failed = self.client(parallel=1).fetch(
+            [request("bad-param", "index_weight", "000300.SH")],
+            Artifacts(Path(self.directory.name) / "bad-param-run", True),
+        )[0][0]
+        self.assertEqual(failed.state, "FAILED")
+        self.assertIn("parameter function_id", failed.error)
+
     def test_kline_none_callback_status_is_success(self):
         self.state["statuses"]["000001"] = None
         response = self.client().fetch([request()], self.artifacts)[0][0]
@@ -356,6 +413,11 @@ class GalaxyClientTest(unittest.TestCase):
             self.client().fetch([request(code=("000001.SZ", "600519.SH"))], self.artifacts)
         with self.assertRaises(ValueError):
             self.client().fetch([request(kind="snapshot", code=[f"{i:06d}.SZ" for i in range(201)])], self.artifacts)
+        with self.assertRaises(ValueError):
+            self.client().fetch([request(kind="index_weight", code=("000300.SH", "000905.SH"))], self.artifacts)
+        with self.assertRaises(ValueError):
+            self.client().fetch([GalaxyRequest("bad-time", "index_weight", ("000300.SH",),
+                                               20260903, 20260903, 900, 1700)], self.artifacts)
 
 
 if __name__ == "__main__":

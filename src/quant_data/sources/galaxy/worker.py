@@ -58,13 +58,15 @@ def run_worker(requests, artifacts, options, sdk_factory):
         cfg, api_mode, _ = set_cfg(username, password, host, port, force_logout=False)
         if not tgw.Login(cfg, api_mode):
             raise _SessionFailure("Galaxy login failed")
-        calendar_date = max(request.end_date for request in requests)
-        calendar = [int(value) for value in ad.BaseData().get_calendar(
-            data_type="str", market="SH", date=calendar_date,
-        )]
-        if not calendar:
-            raise _SessionFailure("Galaxy calendar prewarm returned no dates")
-        market_data = ad.MarketData(calendar)
+        market_data = None
+        if any(request.kind != "index_weight" for request in requests):
+            calendar_date = max(request.end_date for request in requests)
+            calendar = [int(value) for value in ad.BaseData().get_calendar(
+                data_type="str", market="SH", date=calendar_date,
+            )]
+            if not calendar:
+                raise _SessionFailure("Galaxy calendar prewarm returned no dates")
+            market_data = ad.MarketData(calendar)
         try:
             _execute_requests(
                 requests, artifacts, options, ad, tgw, market_data, (username, password),
@@ -115,7 +117,7 @@ def _execute_one(request, attempt_number, artifacts, ad, tgw, market_data, timeo
     """执行一个逻辑请求并先落证据，再向调度器交付响应。
 
     记录请求时间、耗时、源状态码和原始行。快照仅在明确 -76 时形成历史不可得
-    的 COMPLETE 降级；其他失败保留脱敏错误，绝不把空响应当作合法零成交。
+    的 COMPLETE 降级；权重 -76 留给专属 Adapter 解释，不在这里伪装成合法集合。
     """
     requested_at = datetime.now(timezone.utc)
     started = time.monotonic()
@@ -123,8 +125,10 @@ def _execute_one(request, attempt_number, artifacts, ad, tgw, market_data, timeo
     try:
         if request.kind == "kline":
             rows, provider_code = _query_kline(ad, tgw, request, timeout)
-        else:
+        elif request.kind == "snapshot":
             rows, provider_code = _query_snapshot(market_data, request, timeout)
+        else:
+            rows, provider_code = _query_index_weight(tgw, request, timeout)
         response = GalaxyResponse(request, "COMPLETE", rows, None, provider_code)
     except Exception as exc:
         fatal = isinstance(exc, _SessionFailure)
@@ -201,6 +205,50 @@ def _query_kline(ad, tgw, request, timeout):
         return (), status
     if status != 0:
         raise _ProviderError(f"Galaxy kline provider status {status}", status)
+    return rows, status
+
+
+def _query_index_weight(tgw, request, timeout):
+    """按单指数单日获取第三方资讯原始九列，保留底层空响应状态。"""
+    task_id = tgw.GetTaskID()
+    params = (
+        ("function_id", "A010200005"), ("index_code", request.codes[0]),
+        ("start_date", str(request.start_date)), ("end_date", str(request.end_date)),
+    )
+    for name, value in params:
+        # 协议检查：每个参数都必须被 SDK 接受，不能将设置失败误当服务端空集合。
+        param_status = tgw.SetThirdInfoParam(task_id, name, value)
+        if param_status != 0:
+            raise _ProviderError(f"Galaxy index_weight parameter {name} was rejected",
+                                 _provider_code(param_status))
+    finished = threading.Event()
+    state = {}
+
+    def callback(result, status):
+        state["result"], state["status"] = result, status
+        finished.set()
+
+    accepted, immediate_error = tgw.QueryThirdInfo(task_id, query_spi=callback, return_df_format=False)
+    if accepted is not True:
+        raise _ProviderError("Galaxy index_weight request was not accepted", _provider_code(immediate_error))
+    if not finished.wait(timeout):
+        raise TimeoutError(f"Galaxy index_weight callback exceeded {timeout}s")
+    status = state.get("status")
+    if status is None:
+        status = 0
+    if type(status) is not int:
+        raise ValueError("Galaxy index_weight callback returned no valid provider status")
+    raw_rows = state.get("result") or []
+    if not isinstance(raw_rows, (list, tuple)) or any(not isinstance(row, dict) for row in raw_rows):
+        raise ValueError("Galaxy index_weight response is not a sequence of raw objects")
+    # 原始行只保留源字段；指数和成分身份由 Adapter 核对，不补分钟语义中的 ts_code。
+    rows = tuple({str(key): _json_value(value) for key, value in row.items()} for row in raw_rows)
+    if status == -76:
+        if rows:
+            raise ValueError("Galaxy index_weight empty response unexpectedly contained rows")
+        return (), status
+    if status != 0:
+        raise _ProviderError(f"Galaxy index_weight provider status {status}", status)
     return rows, status
 
 

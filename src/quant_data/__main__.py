@@ -25,6 +25,7 @@ from quant_data.datasets.index_daily import IndexDailyDataset
 from quant_data.datasets.bse_mapping import BseMappingDataset
 from quant_data.datasets.index_member_all import IndexMemberAllDataset
 from quant_data.datasets.stock_1min import Stock1MinDataset
+from quant_data.datasets.index_weight import IndexWeightDataset
 from quant_data.sources.tushare.client import TushareClient
 from quant_data.sources.tushare.stock_basic import TushareStockBasicAdapter
 from quant_data.sources.tushare.trade_calendar import TushareTradeCalendarAdapter
@@ -40,6 +41,7 @@ from quant_data.sources.tushare.bse_mapping import TushareBseMappingAdapter
 from quant_data.sources.tushare.index_member_all import TushareIndexMemberAllAdapter
 from quant_data.sources.galaxy.client import GalaxyClient
 from quant_data.sources.galaxy.stock_1min import GalaxyStock1MinAdapter
+from quant_data.sources.galaxy.index_weight import GalaxyIndexWeightAdapter
 
 
 def _maintain(args):
@@ -70,13 +72,14 @@ def main():
     parser = argparse.ArgumentParser(description="Personal quantitative database ingestion")
     commands = parser.add_subparsers(dest="command", required=True)
     ingest = commands.add_parser("ingest")
-    ingest.add_argument("dataset", choices=["stock_basic", "trade_calendar", "suspend_daily", "stock_st", "index_basic", "stock_daily", "index_daily", "bse_mapping", "stock_1min", "stk_limit", "daily_basic", "adj_factor", "index_member_all"])
+    ingest.add_argument("dataset", choices=["stock_basic", "trade_calendar", "suspend_daily", "stock_st", "index_basic", "stock_daily", "index_daily", "bse_mapping", "stock_1min", "stk_limit", "daily_basic", "adj_factor", "index_member_all", "index_weight"])
     ingest.add_argument("--db", type=Path, default=Path("data/warehouse.duckdb"))
     ingest.add_argument("--landing-dir", type=Path, default=Path("data/landing"))
     ingest.add_argument("--keep-artifacts", action="store_true", help="保留完整阶段产物供 walkthrough")
     ingest.add_argument("--start-date", help="日期型 Dataset 开始日期，YYYYMMDD")
     ingest.add_argument("--end-date", help="日期型 Dataset 结束日期，YYYYMMDD，包含当日")
     ingest.add_argument("--ts-code", action="append", help="仅 index_daily：选择已发布 universe 内代码，可重复")
+    ingest.add_argument("--index-code", action="append", help="仅 index_weight：选择支持的指数，可重复")
     ingest.add_argument("--parallel", type=int, choices=(2, 4), help="仅 stock_1min：银河单会话请求并行度")
     meta = commands.add_parser("meta", help="独立审计收尾与留存维护")
     maintenance_commands = meta.add_subparsers(dest="meta_command", required=True)
@@ -91,7 +94,7 @@ def main():
         return _maintain(args)
     # CLI 边界：按日期发布的数据必须显式给出完整区间，完整快照不能接受子集日期。
     params = {}
-    if args.dataset in ("trade_calendar", "suspend_daily", "stock_st", "stock_daily", "index_daily", "stock_1min", "stk_limit", "daily_basic", "adj_factor"):
+    if args.dataset in ("trade_calendar", "suspend_daily", "stock_st", "stock_daily", "index_daily", "stock_1min", "stk_limit", "daily_basic", "adj_factor", "index_weight"):
         # 业务检查：不猜测任何日集合的目标起止日期，必须同时给出区间两端。
         if args.start_date is None or args.end_date is None:
             parser.error(f"{args.dataset} requires --start-date and --end-date")
@@ -105,6 +108,10 @@ def main():
         if args.dataset != "index_daily":
             parser.error("--ts-code is only supported for index_daily")
         params["ts_codes"] = args.ts_code
+    if args.index_code is not None:
+        if args.dataset != "index_weight":
+            parser.error("--index-code is only supported for index_weight")
+        params["index_codes"] = args.index_code
     if args.parallel is not None and args.dataset != "stock_1min":
         parser.error("--parallel is only supported for stock_1min")
     if args.dataset == "stock_1min":
@@ -114,7 +121,7 @@ def main():
     token = (values.get("TUSHARE_TOKEN") or os.environ.get("TUSHARE_TOKEN", "")).strip()
     ad_username = (values.get("AD_USERNAME") or os.environ.get("AD_USERNAME", "")).strip()
     ad_password = (values.get("AD_PASSWORD") or os.environ.get("AD_PASSWORD", "")).strip()
-    if args.dataset == "stock_1min":
+    if args.dataset in ("stock_1min", "index_weight"):
         if not ad_username or not ad_password:
             parser.error("Set AD_USERNAME and AD_PASSWORD in the project .env or environment")
         os.environ["AD_USERNAME"], os.environ["AD_PASSWORD"] = ad_username, ad_password
@@ -167,6 +174,10 @@ def main():
         elif args.dataset == "stock_1min":
             dataset = Stock1MinDataset()
             adapter = GalaxyStock1MinAdapter(GalaxyClient(parallel=params["parallel"]))
+        elif args.dataset == "index_weight":
+            # 业务装配：权重单日响应未验证并发，内部固定串行，不开放分钟并行参数。
+            dataset = IndexWeightDataset()
+            adapter = GalaxyIndexWeightAdapter(GalaxyClient(parallel=1))
         else:
             dataset = IndexDailyDataset()
             adapter = TushareIndexDailyAdapter(TushareClient(token))

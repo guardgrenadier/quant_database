@@ -19,11 +19,11 @@ ResponseState = Literal["COMPLETE", "FAILED", "INCOMPLETE"]
 class GalaxyRequest:
     """一个可恢复、可审计的银河逻辑请求。
 
-    K 线 codes 必须为单只，快照最多 200 只且只覆盖单日。日期采用 YYYYMMDD；
-    K 线时间为 HHMM，快照窄窗为 HHMMSSmmm，均按市场本地时间解释。
+    K 线 codes 必须为单只，快照最多 200 只且只覆盖单日；指数权重为单指数单日。
+    日期采用 YYYYMMDD；K 线时间为 HHMM，快照窄窗为 HHMMSSmmm，权重时间字段置零。
     """
     request_id: str
-    kind: Literal["kline", "snapshot"]
+    kind: Literal["kline", "snapshot", "index_weight"]
     codes: tuple[str, ...]
     start_date: int
     end_date: int
@@ -36,7 +36,7 @@ class GalaxyResponse:
     """一个逻辑请求的最终交付及原始行，不直接等于业务验收通过。
 
     COMPLETE 只表示请求与已知终止条件完成；FAILED/INCOMPLETE 仍保留错误和
-    provider_code。rows 保存原始 K 线整数或快照源字段，供证据恢复重建 Raw。
+    provider_code。rows 保存原始源字段，供证据恢复重建 Raw。
     """
     request: GalaxyRequest
     state: ResponseState
@@ -61,14 +61,23 @@ def _request_params(request, kind=None):
             "end_date": request.end_date, "begin_time": request.begin_time,
             "end_time": request.end_time, "cyc_type": "min1", "auto_complete": 0, "cq_flag": 0,
         }
+    if selected == "snapshot":
+        return {
+            "codes": list(request.codes), "start_date": request.start_date,
+            "end_date": request.end_date, "begin_time": request.begin_time, "end_time": request.end_time,
+        }
     return {
-        "codes": list(request.codes), "start_date": request.start_date,
-        "end_date": request.end_date, "begin_time": request.begin_time, "end_time": request.end_time,
+        "function_id": "A010200005", "index_code": request.codes[0],
+        "start_date": str(request.start_date), "end_date": str(request.end_date),
     }
 
 
 def _api_name(kind):
-    return "tgw.QueryKline" if kind == "kline" else "AmazingData.MarketData.query_snapshot"
+    if kind == "kline":
+        return "tgw.QueryKline"
+    if kind == "snapshot":
+        return "AmazingData.MarketData.query_snapshot"
+    return "tgw.QueryThirdInfo"
 
 
 def _response_data(response):
@@ -206,14 +215,14 @@ def _reject_json_constant(value):
 
 
 class GalaxyClient:
-    """分钟 Adapter 的公开获取接口；父进程不登录，默认以 spawn 启动单会话 worker。"""
+    """银河 Adapter 的公开获取接口；父进程不登录，默认以 spawn 启动单会话 worker。"""
 
     def __init__(self, *, parallel=2, query_timeout=30.0, hard_timeout=3600.0,
                  respawn_wait=60.0, shutdown_timeout=5.0, max_respawns=2,
                  sdk_factory=None, worker_factory=None):
-        # 并发只开放探查验证过的 2/4；会话故障最多新增两个进程，不能无限登录。
-        if parallel not in (2, 4) or max_respawns not in (0, 1, 2):
-            raise ValueError("parallel must be 2 or 4; max_respawns must be between 0 and 2")
+        # 分钟 CLI 仍只开放 2/4；权重在内部使用串行 1，会话故障最多新增两个进程。
+        if parallel not in (1, 2, 4) or max_respawns not in (0, 1, 2):
+            raise ValueError("parallel must be 1, 2 or 4; max_respawns must be between 0 and 2")
         if min(query_timeout, hard_timeout, shutdown_timeout) <= 0 or respawn_wait < 0:
             raise ValueError("Timeouts must be positive and respawn_wait nonnegative")
         self.parallel = parallel
@@ -292,22 +301,24 @@ class GalaxyClient:
             if (not request.request_id or "/" in request.request_id
                     or "\\" in request.request_id):
                 raise ValueError("Invalid Galaxy request identity")
-            if request.kind not in ("kline", "snapshot") or not request.codes:
+            if request.kind not in ("kline", "snapshot", "index_weight") or not request.codes:
                 raise ValueError("Galaxy request kind and codes are required")
             if any(not isinstance(code, str) or code.count(".") != 1 for code in request.codes):
                 raise ValueError("Galaxy codes must be full ts_code values")
             if len(set(request.codes)) != len(request.codes):
                 raise ValueError("Galaxy request codes must be unique")
-            # K 线接口的批量语义未纳入契约；快照单批不得超过供应商已验证的 200 只。
-            if request.kind == "kline" and len(request.codes) != 1:
-                raise ValueError("A Galaxy kline request must contain exactly one code")
+            # K 线和权重都为单代码请求；快照单批不得超过供应商已验证的 200 只。
+            if request.kind in ("kline", "index_weight") and len(request.codes) != 1:
+                raise ValueError(f"A Galaxy {request.kind} request must contain exactly one code")
             if request.kind == "snapshot" and len(request.codes) > 200:
                 raise ValueError("A Galaxy snapshot request cannot exceed 200 codes")
             if request.start_date > request.end_date:
                 raise ValueError("Galaxy start_date cannot exceed end_date")
-            # 快照按交易日批量交付；跨日缺席无法在单个响应中可靠区分零成交与漏数。
-            if request.kind == "snapshot" and request.start_date != request.end_date:
-                raise ValueError("A Galaxy snapshot request must cover exactly one date")
+            # 快照和权重都按日交付；权重时间字段没有业务含义，固定为零避免伪造成交易时段。
+            if request.kind in ("snapshot", "index_weight") and request.start_date != request.end_date:
+                raise ValueError(f"A Galaxy {request.kind} request must cover exactly one date")
+            if request.kind == "index_weight" and (request.begin_time != 0 or request.end_time != 0):
+                raise ValueError("A Galaxy index_weight request must have zero time fields")
 
     def _start_worker(self, requests, artifacts, options):
         """以 spawn 创建唯一活动 worker，避免继承父进程锁和 SDK 会话状态。"""

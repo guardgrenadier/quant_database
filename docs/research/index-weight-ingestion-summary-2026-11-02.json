@@ -1,0 +1,49 @@
+{
+  "dataset": "index_weight",
+  "date": "2026-11-02",
+  "implementation": {
+    "provider": "Galaxy",
+    "api": "tgw.QueryThirdInfo",
+    "function_id": "A010200005",
+    "request_unit": "one index and one trade date",
+    "publication_unit": "index_code:YYYY-MM-DD",
+    "parallel": 1,
+    "core_protocol_or_meta_changed": false,
+    "new_dependencies": []
+  },
+  "tests": {
+    "targeted_galaxy_and_index_weight": {"run": 29, "passed": 29, "failed": 0},
+    "full_suite": {"run": 185, "passed": 184, "skipped": 1, "failed": 0},
+    "skip_reason": "既有股票真实响应样本不随 Git 分发"
+  },
+  "live_validation": {
+    "root": "data/probes/index-weight-ingestion-validation-20261102T151220",
+    "database": "data/probes/index-weight-ingestion-validation-20261102T151220/warehouse.duckdb",
+    "trade_date": "2026-09-07",
+    "upstream": {"trade_calendar_rows": 1, "index_basic_rows": 793},
+    "runs": [
+      {"run_id": "7dca3969-1dd7-428f-82dd-4c46c197fa8f", "status": "SUCCESS", "request_attempts": 5, "rows": 2650, "artifacts_complete": true},
+      {"run_id": "a5f5e4d9-803b-436f-b60f-f4dcd35460dd", "status": "SUCCESS", "request_attempts": 5, "rows": 2650, "artifacts_complete": true}
+    ],
+    "per_index": [
+      {"index_code": "000016.SH", "rows": 50, "weight_sum": 100.0001, "free_share_ratio_nulls": 0},
+      {"index_code": "000300.SH", "rows": 300, "weight_sum": 99.9994, "free_share_ratio_nulls": 300},
+      {"index_code": "000852.SH", "rows": 1000, "weight_sum": 99.9994, "free_share_ratio_nulls": 0},
+      {"index_code": "000905.SH", "rows": 500, "weight_sum": 100.0007, "free_share_ratio_nulls": 0},
+      {"index_code": "000906.SH", "rows": 800, "weight_sum": 100.0011, "free_share_ratio_nulls": 0}
+    ],
+    "source_raw_candidate_canonical_equal": true,
+    "rerun_equal_no_accumulation": true,
+    "manifest_files_sha256_verified": 208,
+    "default_authoritative_database_written": false,
+    "full_history_downloaded": false
+  },
+  "offline_failure_injection": {
+    "database_copy": "data/probes/index-weight-ingestion-validation-20261102T151220/warehouse-failure.duckdb",
+    "failed_unit": "000300.SH:2026-09-07",
+    "run_status": "PARTIAL",
+    "other_units_published": 4,
+    "old_facts_coverage_publication_preserved": true,
+    "http_requests": 0
+  }
+}

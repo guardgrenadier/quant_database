@@ -1,12 +1,12 @@
 # 个人量化数据库技术设计与实现边界 V3.2
 
-**更新：2026-11-02｜范围：统一验收内核、十三个正式 Dataset 与首个 dbt Serving View**
+**更新：2026-11-02｜范围：统一验收内核、十四个正式 Dataset 与首个 dbt Serving View**
 
 本文说明已落地的模型、接口、执行机制和能力边界，与[核心架构](core_design.md)配套。内容依据当前代码；不重新定义冻结的架构与 invariant，也不把规划中的 Dataset 或 Serving 写成已实现能力。后续实现变化时同步更新对应章节。
 
 ## 一、实现范围与代码地图
 
-正式入口已有 `stock_basic` 完整快照、SSE `trade_calendar`、`suspend_daily` 停复牌、`stock_st` 名单、`index_basic` 目标指数快照、`index_member_all` 申万行业归属完整快照、`stock_daily` 未复权股票日线、`daily_basic` 每日指标、`adj_factor` 原始复权因子、`index_daily` universe 内指数日线、`stk_limit` 每日涨跌停价格及 `bse_mapping` 北交所代码映射，均使用官方 Tushare；`stock_1min` 使用银河 K 线与快照并构造完整研究网格。快照与日历无已发布上游依赖；日集合依赖成功 SSE 日历，指数日线另固定 index_basic，分钟另固定 suspend_daily、stock_daily、stock_basic 与 bse_mapping。零行由各 Dataset 自己定义，均复用统一验收和原子发布内核。
+正式入口已有 `stock_basic` 完整快照、SSE `trade_calendar`、`suspend_daily` 停复牌、`stock_st` 名单、`index_basic` 目标指数快照、`index_member_all` 申万行业归属完整快照、`stock_daily` 未复权股票日线、`daily_basic` 每日指标、`adj_factor` 原始复权因子、`index_daily` universe 内指数日线、`stk_limit` 每日涨跌停价格及 `bse_mapping` 北交所代码映射，均使用官方 Tushare；`stock_1min` 使用银河 K 线与快照并构造完整研究网格，`index_weight` 使用银河第三方资讯保存五宽基日权重。快照与日历无已发布上游依赖；日集合依赖成功 SSE 日历，指数日线和指数权重另固定 index_basic，分钟另固定 suspend_daily、stock_daily、stock_basic 与 bse_mapping。零行由各 Dataset 自己定义，均复用统一验收和原子发布内核。
 
 | 位置 | 职责与边界 |
 |---|---|
@@ -27,6 +27,7 @@
 | [`datasets/adj_factor.py`](../../src/quant_data/datasets/adj_factor.py)、[DDL](../../src/quant_data/datasets/adj_factor.sql) | 原始三字段复权因子、有限正数、全市场按日替换 |
 | [`datasets/stk_limit.py`](../../src/quant_data/datasets/stk_limit.py)、[DDL](../../src/quant_data/datasets/stk_limit.sql) | 全市场日涨跌停价格七字段、源昨收 NULL/0、开市日非空 |
 | [`datasets/index_daily.py`](../../src/quant_data/datasets/index_daily.py)、[DDL](../../src/quant_data/datasets/index_daily.sql) | 固定 universe 代码日、受限子集、合法零行 |
+| [`datasets/index_weight.py`](../../src/quant_data/datasets/index_weight.py)、[DDL](../../src/quant_data/datasets/index_weight.sql) | 五宽基九列日权重、指数日非空、唯一键与权重和验收 |
 | [`datasets/index_member_all.py`](../../src/quant_data/datasets/index_member_all.py)、[DDL](../../src/quant_data/datasets/index_member_all.sql) | 申万 Y+N 完整归属快照、包含结束日的闭区间验收 |
 | [`datasets/daily.py`](../../src/quant_data/datasets/daily.py) | 两种日线共用字段、日期／日历读取、数值规则的普通函数 |
 | [`datasets/bse_mapping.py`](../../src/quant_data/datasets/bse_mapping.py)、[DDL](../../src/quant_data/datasets/bse_mapping.sql) | BJ 新旧代码完整快照、双键唯一与非空契约 |
@@ -45,6 +46,7 @@
 | [`sources/tushare/index_member_all.py`](../../src/quant_data/sources/tushare/index_member_all.py) | Y/N 分别分页、可信状态核对与严格日期准备，共同交付完整快照 |
 | [`sources/galaxy/client.py`](../../src/quant_data/sources/galaxy/client.py)、[`worker.py`](../../src/quant_data/sources/galaxy/worker.py) | 银河单会话 worker、并发/超时/熔断及当前 Run 证据恢复 |
 | [`sources/galaxy/stock_1min.py`](../../src/quant_data/sources/galaxy/stock_1min.py) | 分钟/快照交付、930 扣减、完整网格、停牌与参考价构造 |
+| [`sources/galaxy/index_weight.py`](../../src/quant_data/sources/galaxy/index_weight.py) | 单指数单日第三方资讯交付、严格九列解码、请求身份核对与标准化 |
 | [`dbt/`](../../dbt/README.md) | 项目内连接配置、来源发布状态 Hook、日线申万行业 View 及粒度/未匹配 SQL 测试 |
 
 采用对象组合与普通函数。Protocol 表达现有接口，不要求具体类继承；没有 Dataset 注册框架、通用分页框架或规则 DSL。
@@ -271,6 +273,14 @@ Adapter 每日以 limit=3000、offset=0 开始分页。短页且 has_more=false 
 
 每页 1,000，满页 false 续取，短页明确 false 才完成；无序重复页、缺标记及空页 true 等阻断，严格字符串解码及日期诊断与 COMPLETE 分开表达。每次刷新同步迁移、历史修订和删除；日常建议每日运行，但不新增调度、PIT 或 Serving。共享接口、内核及 Meta 未变。完整规则见 [index_member_all 方案](index_member_all_ingestion_proposal.md)。
 
+### 5.13 index_weight 银河每日指数权重
+
+保存银河 `QueryThirdInfo / A010200005` 的九列日权重，主键 `(index_code,con_code,trade_date)`，首版仅支持 000016/000300/000905/000906/000852.SH。输入为显式日期闭区间，可重复 --index-code 选择子集；依赖固定 index_basic / SNAPSHOT 和逐自然日 SSE 日历。开市指数日 IN_SCOPE，Unit 为 `index_code:YYYY-MM-DD`，按日完整替换，不使用当前股票名单裁剪成分。
+
+每个 Unit 一次单指数单日请求，内部串行；不使用已实测会重复及缺行的多日范围响应。Raw 保留底层 `TOTAL_SHR/FREE_SHR_RATIO/CALC_SHR` 等字段及请求标签，Candidate 映射为九列 Canonical；股本为股、比例及权重为百分数，不换算、不归一化或补造。只有 free_share_ratio 可空。
+
+`-76`、空集合、缺字段、坏类型、错代码/日期、重复键、非法数值及权重和超出 `[99.9,100.1]` 均阻断所属指数日并保护旧版；free_share_ratio 缺失、零权重及 calc_share>total_share 为 WARNING。纯权重 worker 不预热高层日历，分钟2/4并行政策不变。共享 Protocol、Runner、Validator、Publisher 和 Meta 未改，未新增调度、PIT 或全历史覆盖承诺。完整契约及真实验收见 [index_weight 文档](index_weight_ingestion_proposal.md)。
+
 ## 六、元数据与状态语义
 
 七张表的完整定义见 [`core/meta.sql`](../../src/quant_data/core/meta.sql)。
@@ -350,7 +360,7 @@ CLI 默认库路径仍为 `data/warehouse.duckdb`，landing_root 默认为 `data
 
 CLI 输出 RunResult JSON，业务 SUCCESS 返回 0，FAILED / PARTIAL 返回 1；诊断不完整独立表达，可能仍返回 0。walkthrough 脚本额外要求 `artifacts_complete=True`，否则返回非零。
 
-trade_calendar / suspend_daily / stock_st / stock_daily / daily_basic / adj_factor / index_daily / stk_limit / stock_1min 必须提供 `--start-date` / `--end-date`（ASCII YYYYMMDD）；stock_basic / index_basic / index_member_all / bse_mapping 拒绝日期过滤。--ts-code 仅用于 index_daily、可重复且只能选择已发布 universe 内代码；不改变股票全市场日集合政策。
+trade_calendar / suspend_daily / stock_st / stock_daily / daily_basic / adj_factor / index_daily / index_weight / stk_limit / stock_1min 必须提供 `--start-date` / `--end-date`（ASCII YYYYMMDD）；stock_basic / index_basic / index_member_all / bse_mapping 拒绝日期过滤。--ts-code 仅用于 index_daily、可重复且只能选择已发布 universe 内代码；--index-code 仅用于 index_weight、可重复且只能选择五个支持指数；不改变股票全市场日集合政策。
 
 2026-10-16 验证：47 项测试中 46 项通过，1 项因本地股票真实响应样本缺失跳过。新增 11 项停复牌场景覆盖跨 Dataset 日历依赖、休市排除、实际事实缺失 UNKNOWN、零行替换、错日隔离、键冲突、已排除日修订后的版本复核、回滚与 CLI。其余测试覆盖股票、日历、通用机制与诊断故障。100 / 5,000 Unit 的机制测试 SQL 调用数均为 28，后者处理约 120 万行；这不等同于正式分钟 ingestion 的性能验收。环境脚本的正式 DDL、Arrow/Parquet 和 dbt View 检查通过。
 
@@ -376,13 +386,15 @@ trade_calendar / suspend_daily / stock_st / stock_daily / daily_basic / adj_fact
 
 2026-11-02 index_member_all 接入：申万最新与历史归属以 Y/N 分别分页、单 SNAPSHOT 原子替换，按用户确认将 out_date 解释为包含当天。新增 9 项链路测试通过，全套 168 项中 167 通过、1 项既有样本缺失跳过，环境检查通过。独立库正式 CLI 两次各 9 请求、7,928 行，事实一致不累加，9 条异常早日期保留并汇总告警。原始响应/Raw/Candidate/Canonical 及 256 个产物哈希核对通过；独立实验副本验证历史组零行、后页失败保护整表，以及合成分类迁移的闭区间边界。共享接口、内核与 Meta 未变，未新增调度或 Serving。详见 [index_member_all 验收](index_member_all_ingestion_proposal.md#7-实现验收记录)。
 
+2026-11-02 index_weight 接入：新增五宽基九列日权重、单指数单日 QueryThirdInfo、串行银河执行和专属 Adapter，复用固定上游、统一验收与原子发布。29 项目标测试通过，全套 185 项中184通过、1项既有样本缺失跳过。独立库正式 CLI 在2026-09-07两次各发5个请求、发布2,650行，重跑逐字段一致不累加；源/Raw/Candidate/Canonical 及208个产物哈希核对通过。数据库副本明确离线注入单指数失败，其他四指数发布成功，失败指数旧事实和成功指针不变。未写默认权威库、未下载全历史。详见 [index_weight 验收](index_weight_ingestion_proposal.md#5-验收记录)。
+
 ## 九、当前边界与后续接入
 
 | 方面 | 当前边界 |
 |---|---|
-| 正式 Dataset | stock_basic、SSE trade_calendar、suspend_daily、stock_st、index_basic、index_member_all、stock_daily、daily_basic、adj_factor、index_daily、stk_limit、bse_mapping 与 stock_1min |
+| 正式 Dataset | stock_basic、SSE trade_calendar、suspend_daily、stock_st、index_basic、index_member_all、stock_daily、daily_basic、adj_factor、index_daily、index_weight、stk_limit、bse_mapping 与 stock_1min |
 | 依赖管理 | 检查已有成功版本，准备和发布前复核；不自动运行上游或传播失效 |
-| 执行与数据规模 | 单连接、单内存批次；Tushare 串行请求，银河单会话 worker 并行 2/4；仅支持当前 Run 的证据恢复，不支持通用跨 Run 恢复、超内存流式处理或分布式执行 |
+| 执行与数据规模 | 单连接、单内存批次；Tushare 串行请求，银河分钟单会话 worker 并行 2/4、指数权重串行；仅支持当前 Run 的证据恢复，不支持通用跨 Run 恢复、超内存流式处理或分布式执行 |
 | 并发 | Ingestion、dbt、外部研究进程按运行约定错开访问同一文件；未实现锁协调服务 |
 | Serving | 已提供 dbt 日线申万行业 View，按日期匹配并保留 NULL；无独立成功版本、原子测试发布或 PIT 镜像 |
 | 历史与运维 | 未实现 PIT、全面历史版本、自动备份恢复、调度、补数规划或增量修订重算 |
