@@ -1,0 +1,62 @@
+{
+  "attempt": {
+    "request_id": "cash_event_sh",
+    "attempt": 1,
+    "api_name": "adj_factor",
+    "params": {
+      "ts_code": "600519.SH",
+      "start_date": "20260625",
+      "end_date": "20260629"
+    },
+    "fields": [
+      "ts_code",
+      "trade_date",
+      "adj_factor"
+    ],
+    "requested_at": "2026-10-30T00:39:10.783669+00:00",
+    "elapsed_seconds": 0.195,
+    "http_status": 200,
+    "provider_code": 0,
+    "returned_fields": [
+      "ts_code",
+      "trade_date",
+      "adj_factor"
+    ],
+    "row_count": 3,
+    "has_more": false,
+    "error": null,
+    "evidence_path": "data/probes/adj-factor-onboarding-20261030T083849971994/requests/cash_event_sh-attempt-01.json"
+  },
+  "response": {
+    "request_id": "0a5fc3f0-7021-4d51-a4f0-a7ed6278ea10",
+    "code": 0,
+    "data": {
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "items": [
+        [
+          "600519.SH",
+          "20260629",
+          8.6463
+        ],
+        [
+          "600519.SH",
+          "20260626",
+          8.6463
+        ],
+        [
+          "600519.SH",
+          "20260625",
+          8.4464
+        ]
+      ],
+      "has_more": false,
+      "count": 0
+    },
+    "msg": "",
+    "detail": "..."
+  }
+}

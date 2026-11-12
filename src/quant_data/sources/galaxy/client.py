@@ -36,13 +36,15 @@ class GalaxyResponse:
     """一个逻辑请求的最终交付及原始行，不直接等于业务验收通过。
 
     COMPLETE 只表示请求与已知终止条件完成；FAILED/INCOMPLETE 仍保留错误和
-    provider_code。rows 保存原始源字段，供证据恢复重建 Raw。
+    provider_code。rows 保存原始源字段，供证据恢复重建 Raw。unit_retryable
+    只允许分钟 Adapter 追加一层单股单日补取，不改变 Client 自身重试预算。
     """
     request: GalaxyRequest
     state: ResponseState
     rows: tuple[dict, ...]
     error: str | None
     provider_code: int | None
+    unit_retryable: bool = False
 
 
 def _worker_entry(requests, artifacts, options, sdk_factory):
@@ -90,6 +92,7 @@ def _response_data(response):
         },
         "state": response.state, "rows": response.rows,
         "error": response.error, "provider_code": response.provider_code,
+        "unit_retryable": response.unit_retryable,
     }
 
 
@@ -110,7 +113,8 @@ def _request_from_data(value):
 
 
 def _response_from_data(value):
-    if not isinstance(value, dict) or set(value) != {"request", "state", "rows", "error", "provider_code"}:
+    required = {"request", "state", "rows", "error", "provider_code", "unit_retryable"}
+    if not isinstance(value, dict) or set(value) != required:
         raise ValueError("Invalid Galaxy response evidence")
     request = _request_from_data(value["request"])
     state, rows = value["state"], value["rows"]
@@ -125,7 +129,11 @@ def _response_from_data(value):
         raise ValueError("Invalid Galaxy provider code evidence")
     if state == "COMPLETE" and error is not None or state != "COMPLETE" and error is None:
         raise ValueError("Inconsistent Galaxy response state and error")
-    return GalaxyResponse(request, state, tuple(rows), error, code)
+    retryable = value["unit_retryable"]
+    # 补取标记是明确的执行控制信息；完整响应或字符串真值均不得混入恢复链。
+    if type(retryable) is not bool or state == "COMPLETE" and retryable:
+        raise ValueError("Invalid Galaxy unit retry evidence")
+    return GalaxyResponse(request, state, tuple(rows), error, code, retryable)
 
 
 def _datetime_from_evidence(value):
@@ -140,8 +148,8 @@ def _datetime_from_evidence(value):
     return parsed
 
 
-def _load_evidence(requests, root):
-    """严格恢复当前 Run；坏证据和身份不符直接阻断，绝不降级为空响应。"""
+def _load_evidence(requests, root, allow_unrelated=False):
+    """严格恢复当前 Run；多波次只忽略其他请求，当前请求仍全部核验。"""
     by_id = {request.request_id: request for request in requests}
     found = {request.request_id: [] for request in requests}
     folder = Path(root) / "requests"
@@ -149,7 +157,12 @@ def _load_evidence(requests, root):
         return {}, []
     for path in sorted(folder.glob("*.json")):
         match = re.fullmatch(r"(.+)-attempt-(\d+)\.json", path.name)
-        if match is None or match.group(1) not in by_id:
+        if match is None:
+            raise ValueError(f"Unknown Galaxy evidence filename: {path.name}")
+        if match.group(1) not in by_id:
+            # 同一 Run 的补取波次会读到父请求证据；仅显式多波次模式允许跳过。
+            if allow_unrelated:
+                continue
             raise ValueError(f"Unknown Galaxy evidence filename: {path.name}")
         request_id, number = match.group(1), int(match.group(2))
         try:
@@ -234,18 +247,21 @@ class GalaxyClient:
         self.sdk_factory = sdk_factory
         self.worker_factory = worker_factory
 
-    def fetch(self, requests, artifacts):
+    def fetch(self, requests, artifacts, *, allow_unrelated_evidence=False):
         """执行请求并返回原始响应与完整尝试序列。
 
         每次调用先恢复 artifacts.root 当前 Run 已落盘的有效响应，再只调度
         未完成请求。worker 故障时销毁旧会话并有限换新，恢复必须同时包含 Raw、
         请求身份和连续 attempt；预算耗尽则明确 INCOMPLETE，不伪造空成功。
+        allow_unrelated_evidence 仅供同 Run 的显式补取波次跳过其他请求证据。
         """
         requests = tuple(requests)
         self._validate_requests(requests)
         if not requests:
             return (), ()
-        recovered, old_attempts = _load_evidence(requests, artifacts.root)
+        recovered, old_attempts = _load_evidence(
+            requests, artifacts.root, allow_unrelated_evidence,
+        )
         attempts = list(old_attempts)
         next_attempt = {request.request_id: 1 for request in requests}
         for attempt in old_attempts:
@@ -266,7 +282,7 @@ class GalaxyClient:
             if process.is_alive():
                 self._destroy(process)
             self._close(process)
-            latest, loaded = _load_evidence(requests, artifacts.root)
+            latest, loaded = _load_evidence(requests, artifacts.root, allow_unrelated_evidence)
             recovered, attempts = latest, loaded
             next_attempt = {request.request_id: 1 for request in requests}
             for attempt in attempts:
@@ -283,7 +299,7 @@ class GalaxyClient:
                     f"Galaxy worker did not complete after {self.max_respawns} respawns",
                 )
                 recovered[request.request_id] = response
-            _, attempts = _load_evidence(requests, artifacts.root)
+            _, attempts = _load_evidence(requests, artifacts.root, allow_unrelated_evidence)
         positions = {request.request_id: index for index, request in enumerate(requests)}
         ordered_attempts = sorted(
             attempts, key=lambda attempt: (positions[attempt.request_id], attempt.attempt),

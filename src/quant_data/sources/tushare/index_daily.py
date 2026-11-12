@@ -9,7 +9,11 @@ from quant_data.core.models import Check, Delivery, UnitDelivery
 from quant_data.datasets.index_daily import IndexDailyDataset
 from quant_data.sources.tushare.daily import raw_frame
 
-REQUEST_INTERVAL = 1.3
+# 当前账号 10000 积分，常规接口 500 次/分钟；0.13 秒约 462 次/分钟，保留频次余量。
+# 官方依据：https://tushare.pro/document/1?doc_id=290（2026-11-06 核对）。
+REQUEST_INTERVAL = 0.13
+# 2024 回填实测 sw_daily 返回 200 次/分钟限制；用户确认仅此路由采用约 171 次/分钟。
+SW_REQUEST_INTERVAL = 0.35
 
 
 class TushareIndexDailyAdapter:
@@ -42,7 +46,9 @@ class TushareIndexDailyAdapter:
             params = {"ts_code": code, "start_date": start, "end_date": end} if code is not None else {"trade_date": start}
             request_id, state = f"index-daily-{code or 'sw'}-{period}", "COMPLETE"
             if last is not None:
-                time.sleep(max(0, REQUEST_INTERVAL - (time.monotonic() - last)))
+                # 申万按其实际限额等待；宽基仍沿用已确认的常规接口间隔。
+                interval = SW_REQUEST_INTERVAL if api == "sw_daily" else REQUEST_INTERVAL
+                time.sleep(max(0, interval - (time.monotonic() - last)))
             last = time.monotonic()
             try:
                 body = self.client.query(api, params, fields, request_id=request_id, on_attempt=record)

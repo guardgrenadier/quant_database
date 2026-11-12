@@ -235,10 +235,9 @@ class StockStTest(unittest.TestCase):
 
     def test_saved_real_responses_publish_the_same_facts(self):
         """离线重放已存真实信封，经正式 Runner 发布后与源五字段逐条核对。"""
-        paths = [Path(f"data/probes/st-index-20261020-main/requests/st_{day}-p000-attempt-01.json")
+        # 固定夹具缺失应直接失败，不能在清理探查目录后静默跳过真实响应回放。
+        paths = [Path(__file__).with_name("fixtures") / "stock_st" / f"st_{day}-p000-attempt-01.json"
                  for day in ("20261016", "20261019")]
-        if not all(p.is_file() for p in paths):
-            self.skipTest("本地真实响应样本不随 Git 分发")
         bodies = {day: json.loads(path.read_text())["response"] for day, path in zip(("20261016", "20261019"), paths)}
         expected = []
         for body in bodies.values():

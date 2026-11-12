@@ -23,7 +23,8 @@ from quant_data.sources.tushare.adj_factor import TushareAdjFactorAdapter
 from quant_data.sources.tushare.trade_calendar import TushareTradeCalendarAdapter
 from tests.test_suspend_daily import ProviderClient as CalendarClient
 
-SAMPLES = Path('data/probes/adj-factor-onboarding-20261030T083849971994/requests')
+# 真实响应作为仓库固定夹具保存，清理探查目录不影响离线回放。
+SAMPLES = Path(__file__).with_name('fixtures') / 'adj_factor'
 
 
 def row(code='000001.SZ', day='20200312', **changes):
@@ -263,7 +264,6 @@ class AdjFactorTest(unittest.TestCase):
                 with self.assertRaises(SystemExit):
                     main()
 
-    @unittest.skipUnless(SAMPLES.exists(),'本地真实 adj_factor 信封不随 Git 分发')
     def test_saved_real_market_halt_event_and_factor_decrease(self):
         bodies = {name:json.loads((SAMPLES/f'{name}-attempt-01.json').read_text())['response']
                   for name in ('recent','page0','page1','historic_2000','halt','cash_event_sh','dividend_2024','share_event_bj')}

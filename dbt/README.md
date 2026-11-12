@@ -1,6 +1,6 @@
 # dbt Serving
 
-本项目使用仓库锁定的 dbt Core 和 dbt-duckdb，将已发布 Canonical 事实组合为 DuckDB `serving` Schema 下的普通 View。首个模型为 `serving.stock_daily_with_sw_industry`，保留股票日线所有字段，追加 `sw_l1_code / sw_l2_code / sw_l3_code`。
+本项目使用仓库锁定的 dbt Core 和 dbt-duckdb，将已发布 Canonical 事实组合为 DuckDB `serving` Schema 下的普通 View。现有模型为 `serving.stock_daily_with_sw_industry`（日线追加三级行业代码）和 `serving.stock_1min_with_reference`（分钟十列事实按需追加派生 `reference_price`）。
 
 ## 环境与运行
 
@@ -17,19 +17,23 @@ uv run --frozen --no-sync dbt build --project-dir dbt --profiles-dir dbt
 
 先确认 `test -f` 成功再运行 dbt，防止路径笔误使 DuckDB 创建新的空文件。`debug` 仅检查配置和连接；`build` 才执行发布状态门禁、创建 View 并运行数据测试。`--no-sync` 使用已有环境，缺包时明确失败；首次安装后再运行。
 
-环境搭建阶段检查的 `data/warehouse_v3_2.duckdb` 缺行业表且 Meta 为旧布局，保持原状。用户随后指定向 `data/warehouse.duckdb` 准备演示数据；该旧库同样不兼容，因此先在新库完成实时获取和验证，经用户确认完整备份旧库后，再切换到 `data/warehouse.duckdb`。当前该路径已有日线、行业归属和 Serving View，可直接执行上面的命令。
+截至 2026-11-03，`data/warehouse.duckdb` 已重新创建为生产权威库，具有 14 张 Canonical 表及 7 张 Meta 表。五项基础数据、2026-10-30 的七项 Tushare 日频及银河分钟均已成功发布，共 11,493 个成功 Unit；完整行业归属为 7,928 行、当日 stock_daily 为 5,571 行、分钟为 1,344,709 行。index_weight 的五个当日 Unit 因供应商滞后仍为 FAILED，本日缺口独立保留，未放宽验收规则。
 
-初次环境验证的独立库也保留，可单独运行：
+C 阶段已实际执行生产 `dbt build`：发布门禁、View 模型和两项数据测试全部通过，5,571 条日线全部匹配三级行业，无重复键或原行情字段差异，21 张 Canonical/Meta 表的构建前后集合摘要不变。首次构建因 VS Code 只读连接持锁而失败；用户断开连接后，沿用原配置重试成功。当前已存在 `serving.stock_daily_with_sw_industry` 普通 View。权重不是本模型的依赖，权重缺口不计入本次 Serving 成功；后续 `dbt build` 仍须通过既有门禁及测试。阶段记录见[交接及验收说明](../docs/operations/galaxy_validation_20261030.md)。
 
-```bash
-QUANT_DATA_DB="$PWD/data/probes/dbt-serving-validation-20261102/warehouse.duckdb" \
-  uv run --frozen --no-sync dbt build --project-dir dbt --profiles-dir dbt
-```
+上述数量及全匹配结论是 2026-10-30 链路 C 阶段的历史验收基线。随后 2013-01-04 的 P1 A 阶段增加七项日频，stock_daily 新增 2,406 行；不能将原单日全匹配结论外推到其他日期。P1 早期材料保留于[P1 交接说明](../docs/operations/galaxy_pilot_20130104.md)。
+
+**2026-11-06 最新验收：** 2025 年七项日频也已回填完成，覆盖 243 个开市日。当前 View 共 2,407,154 行：2025 年 1,313,898 行、2026 年 1,090,850 行、2013 年样本 2,406 行；原行情字段双向一致、重复键为零，月度和年度验收均通过，dbt 无 ERROR。行业未匹配总计 893 行：2025 年 691、2026 年 116、2013 年 86，均按用户决定保留 NULL 和 WARN、不阻断。完整 2025 年清单和唯一滚动备份见[年度验收](../docs/operations/daily_backfill_2025_validation_20261106.md)。
+
+2026-11-05 阶段已完成 2026-01-01～2026-10-30 的 198 个开市日；当时 View 为 1,093,256 行、行业未匹配 202 行，该统计现已随 2025 年来源扩展。历史结果见[2026 年验收](../docs/operations/daily_backfill_2026_completion_20261105.md)。分钟和指数权重仍不在本日频任务范围。
+
+旧 `data/warehouse_v3_2.duckdb`、2026-11-02 的演示库、带时间戳的旧备份及 `data/probes/` 中的验证库／原始产物已清理，不再提供可直接运行的旧验证库。下面的下载与演示记录保留为历史说明；其中提到的本地证据路径已不存在。离线真实响应测试改用仓库内的 [tests/fixtures](../tests/fixtures/README.md)。
 
 `profiles.yml` 固定单线程、`serving` Schema、上海时区，关闭 DuckDB 扩展自动安装。项目关闭 dbt 匿名使用统计，没有远程数据库、扩展或外部 dbt 包配置。Ingestion、dbt、外部研究进程应错开访问同一个文件；单线程不提供跨进程锁协调。
 
 ## 模型契约
 
+- `stock_1min_with_reference` 保留分钟 Canonical 的十列和原行粒度，追加 `reference_price`：当日 TRADED close 向前继承，初始值来自当前已发布 `stock_daily.pre_close`；无可靠值时为 NULL。该 View 不固定历史 publication_id，日线修订可改变派生结果。参考价计算包含窗口函数，只有需要该列的查询才应读取此 View。
 - 基准是实际已发布的 `stock_daily` 行，不生成交易日历网格，也不改 Canonical。
 - 按 ts_code 和业务日期匹配完整 Y+N 归属：`in_date <= trade_date`，且结束日为空或 `trade_date <= out_date`。结束日包含当天。
 - 三级代码来自同一条归属记录，不筛 is_new，不按当前股票表或最新名称填历史。
@@ -62,7 +66,7 @@ ORDER BY trade_date, ts_code LIMIT 20;
 
 这里不新增 Serving 的 Publication/Coverage，不固定跨查询的来源版本，也不保留历史结果镜像。分类历史修订可能改变过去日期的特征值；本模型不是 PIT。dbt 日志和 manifest/run_results 在 `dbt/logs/`、`dbt/target/`，这些诊断文件不进入 Git，也不代替 ingestion Meta。
 
-## 本次搭建的下载记录（2026-11-02）
+## 历史搭建下载记录（2026-11-02，产物已清理）
 
 **没有执行安装命令，没有新增软件下载或数据下载。** 全程复用现有 `.venv`，执行命令使用 `uv run --frozen --no-sync` 或现有 dbt 可执行文件。
 
@@ -75,13 +79,13 @@ ORDER BY trade_date, ts_code LIMIT 20;
 | Tushare/银河数据 | 无；独立新库通过正式 Runner 离线重放既有真实日历、日线和行业响应 |
 | 官方资料 | 在线查阅 dbt 官方说明，没有将第三方软件或资料包下载进仓库 |
 
-复用的主要版本：dbt-core **1.12.5**、dbt-duckdb **1.11.0**、DuckDB **1.5.6**、dbt-adapters **1.24.5**、dbt-common **1.39.0**。`pyproject.toml` 和 `uv.lock` 保持原样；本地环境前后清单与验收记录位于 `data/probes/dbt-serving-validation-20261102/`。
+复用的主要版本：dbt-core **1.12.5**、dbt-duckdb **1.11.0**、DuckDB **1.5.6**、dbt-adapters **1.24.5**、dbt-common **1.39.0**。`pyproject.toml` 和 `uv.lock` 保持原样；本地环境前后清单与验收产物原位于 `data/probes/dbt-serving-validation-20261102/`，已于 2026-11-03 删除。
 
-## 后续实时演示数据（2026-11-02，用户单独授权）
+## 历史实时演示数据（2026-11-02，演示库已清理）
 
 本阶段通过正式 ingestion CLI 向新结构库实时获取数据，共 12 次 Tushare HTTP 尝试：SSE 日历 1 次、stock_daily 2 次、index_member_all 9 次。日线为 2026-10-29 的 5,570 行及 10-30 的 5,571 行；申万 Y 5,922 行、N 2,006 行。dbt build 在最终 `data/warehouse.duckdb` 路径成功，11,141 条日线全部匹配，无重复或行情字段差异。
 
-原库完整备份为 `data/warehouse.before-dbt-20261102T120647218730.duckdb`，其中原有 stock_basic 5,921 行和旧审计保留，备份 SHA-256 与切换前相同。这是用户确认后的整库备份及路径切换，没有迁移或重定义旧审计；新演示库没有复制 stock_basic。候选库和原始响应仍保留于 `data/probes/warehouse-dbt-preview-20261102T120136922070/`。数据库、备份、响应及 dbt 运行产物均不上传 Git。
+当时原库完整备份为 `data/warehouse.before-dbt-20261102T120647218730.duckdb`，包含原有 stock_basic 5,921 行和旧审计，备份 SHA-256 与切换前相同。这是用户确认后的整库备份及路径切换，没有迁移或重定义旧审计；当时新演示库没有复制 stock_basic。候选库和原始响应原位于 `data/probes/warehouse-dbt-preview-20261102T120136922070/`。这些备份、演示库、候选库及响应均已于 2026-11-03 经确认永久删除，同一路径的当前生产库没有复制其事实或审计。数据库及运行产物不上传 Git。
 
 本阶段新增的是市场数据获取，没有新增软件、dbt 包或 DuckDB 扩展。机器摘要见 [最终库验收](../docs/research/dbt-warehouse-live-validation-2026-11-02.json)。
 

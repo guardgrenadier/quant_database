@@ -12,7 +12,9 @@ from quant_data.datasets.suspend_daily import SuspendDailyDataset
 ROW_LIMIT = 5000
 # 供应商覆盖边界：官方只声明此日起的历史，之前的空响应不能证明完整日集合。
 HISTORY_START = "2000-01-03"
-REQUEST_INTERVAL = 1.3
+# 当前账号 10000 积分，常规接口 500 次/分钟；0.13 秒约 462 次/分钟，保留频次余量。
+# 官方依据：https://tushare.pro/document/1?doc_id=290（2026-11-06 核对）。
+REQUEST_INTERVAL = 0.13
 
 
 class TushareSuspendDailyAdapter:

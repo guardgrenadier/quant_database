@@ -17,3 +17,10 @@ models:
         description: 同一归属记录中的申万二级行业代码，未匹配为 NULL。
       - name: sw_l3_code
         description: 同一归属记录中的申万三级行业代码，未匹配为 NULL。
+  - name: stock_1min_with_reference
+    description: >-
+      分钟 Canonical 的十列事实加按需派生 reference_price。参考价由当日 TRADED close
+      向前继承，并以当前已发布 stock_daily.pre_close 初始化；不固定上游历史版本。
+    columns:
+      - name: reference_price
+        description: 连续参考价；TRADED 等于 close，其他状态继承最近参考价，无可靠值时为 NULL。

@@ -1,0 +1,97 @@
+{
+  "attempt": {
+    "request_id": "halt",
+    "attempt": 1,
+    "api_name": "adj_factor",
+    "params": {
+      "ts_code": "300104.SZ",
+      "start_date": "20170417",
+      "end_date": "20170428"
+    },
+    "fields": [
+      "ts_code",
+      "trade_date",
+      "adj_factor"
+    ],
+    "requested_at": "2026-10-30T00:38:59.753564+00:00",
+    "elapsed_seconds": 0.196,
+    "http_status": 200,
+    "provider_code": 0,
+    "returned_fields": [
+      "ts_code",
+      "trade_date",
+      "adj_factor"
+    ],
+    "row_count": 10,
+    "has_more": false,
+    "error": null,
+    "evidence_path": "data/probes/adj-factor-onboarding-20261030T083849971994/requests/halt-attempt-01.json"
+  },
+  "response": {
+    "request_id": "100cd149-6fe6-4f1d-baad-3d7e2eea1a25",
+    "code": 0,
+    "data": {
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "items": [
+        [
+          "300104.SZ",
+          "20170428",
+          17.593
+        ],
+        [
+          "300104.SZ",
+          "20170427",
+          17.593
+        ],
+        [
+          "300104.SZ",
+          "20170426",
+          17.593
+        ],
+        [
+          "300104.SZ",
+          "20170425",
+          17.593
+        ],
+        [
+          "300104.SZ",
+          "20170424",
+          17.593
+        ],
+        [
+          "300104.SZ",
+          "20170421",
+          17.593
+        ],
+        [
+          "300104.SZ",
+          "20170420",
+          17.593
+        ],
+        [
+          "300104.SZ",
+          "20170419",
+          17.593
+        ],
+        [
+          "300104.SZ",
+          "20170418",
+          17.593
+        ],
+        [
+          "300104.SZ",
+          "20170417",
+          17.593
+        ]
+      ],
+      "has_more": false,
+      "count": 0
+    },
+    "msg": "",
+    "detail": "..."
+  }
+}

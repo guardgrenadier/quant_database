@@ -84,6 +84,10 @@ def initialize(con, dataset):
         with registered(con, "_schema_check", pl.DataFrame(schema=dataset.schema)) as source:
             expected = [(r[0], r[1]) for r in con.execute(f"DESCRIBE SELECT * FROM {source}").fetchall()]
         actual = [(r[0], r[1]) for r in con.execute(f"DESCRIBE {relation(dataset.table)}").fetchall()]
+        # Polars Time 只有纳秒表示；Canonical 可显式选择微秒 TIME，除此之外仍不允许类型漂移。
+        if len(expected) == len(actual):
+            expected = [(name, "TIME" if kind == "TIME_NS" and actual_kind == "TIME" else kind)
+                        for (name, kind), (_, actual_kind) in zip(expected, actual)]
         # 业务检查：现有 Canonical 的列顺序、名称和 SQL 类型须符合 Dataset；不自动迁移或强转。
         if actual != expected:
             raise ValueError(f"Existing {dataset.table} schema differs from the dataset contract; no automatic migration")

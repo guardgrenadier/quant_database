@@ -9,4 +9,5 @@ from {{ source('canonical', 'stock_daily') }} as d
 left join {{ source('canonical', 'index_member_all') }} as m
     on d.ts_code = m.ts_code
     and d.trade_date >= m.in_date
-    and (m.out_date is null or d.trade_date <= m.out_date)
+    -- NULL 结束日仍表示无上界；原生无限日期避免 OR 条件退化为块嵌套循环。
+    and d.trade_date <= coalesce(m.out_date, date 'infinity')

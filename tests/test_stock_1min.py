@@ -52,7 +52,7 @@ class MinuteClient:
             rows = []
             for code in request.codes:
                 days = (DAYS if request.kind == "kline" and request.start_date == 20200312
-                        else (str(request.start_date),))
+                        and request.end_date != 20200312 else (str(request.start_date),))
                 for day in days:
                     day = day if isinstance(day, str) else str(day)
                     if request.kind == "kline":
@@ -64,6 +64,22 @@ class MinuteClient:
                 response = self.transform(request, response)
             responses.append(response)
         return tuple(responses), ()
+
+
+class RetryClient(MinuteClient):
+    """主波次和补取波次分别注入响应；正常子请求沿用完整样本。"""
+
+    def __init__(self, primary_transform, retry_transform=None):
+        super().__init__()
+        self.primary_transform = primary_transform
+        self.retry_transform = retry_transform
+        self.retry_calls = 0
+
+    def fetch(self, requests, artifacts, allow_unrelated_evidence=False):
+        # 只有分钟 Adapter 的补取波次允许多波次证据，测试同时核对调用方向。
+        self.transform = self.retry_transform if allow_unrelated_evidence else self.primary_transform
+        self.retry_calls += int(allow_unrelated_evidence)
+        return super().fetch(requests, artifacts)
 
 
 class Stock1MinTest(unittest.TestCase):
@@ -103,7 +119,8 @@ class Stock1MinTest(unittest.TestCase):
 
     def ingest(self, client=None, params=None):
         self.client = client or MinuteClient()
-        return runner.run(self.con, self.dataset, GalaxyStock1MinAdapter(self.client),
+        mapping = dict(self.con.execute("SELECT n_code,o_code FROM canonical.bse_mapping").fetchall())
+        return runner.run(self.con, self.dataset, GalaxyStock1MinAdapter(self.client, mapping),
                           params or {"start_date": "20200312", "end_date": "20200314", "parallel": 2},
                           RunOptions(self.root / "landing"))
 
@@ -112,18 +129,30 @@ class Stock1MinTest(unittest.TestCase):
         self.assertEqual(result.status, "SUCCESS", result)
         self.assertEqual(len(result.publications), 4)
         self.assertEqual(self.con.execute("SELECT count(*) FROM canonical.stock_1min").fetchone()[0], 962)
+        # 物理存储只保留十列分钟事实；逻辑键由验收保证，不再创建 ART。
+        storage = self.con.execute("""
+            SELECT data_type FROM duckdb_columns()
+            WHERE schema_name='canonical' AND table_name='stock_1min' AND column_name='bar_time'
+        """).fetchone()[0]
+        self.assertEqual(storage, "TIME")
+        self.assertEqual(self.con.execute("SELECT index_count,has_primary_key FROM duckdb_tables() "
+                                          "WHERE table_name='stock_1min'").fetchone(), (0, False))
+        canonical_columns = [r[0] for r in self.con.execute(
+            "SELECT column_name FROM duckdb_columns() WHERE table_name='stock_1min'").fetchall()]
+        self.assertNotIn("reference_price", canonical_columns)
+        self.assertEqual(len(canonical_columns), 10)
         first = self.con.execute("""
-            SELECT bar_time,status,open,close,volume,amount,reference_price FROM canonical.stock_1min
+            SELECT bar_time,status,open,close,volume,amount FROM canonical.stock_1min
             WHERE ts_code='000001.SZ' AND trade_date='2020-03-12' AND bar_time IN ('09:25','09:30','09:31','09:32')
             ORDER BY bar_time
         """).fetchall()
         self.assertEqual([r[1] for r in first], ["TRADED", "TRADED", "TRADED", "NO_TRADE"])
-        self.assertEqual(first[0][4:], (200, 2000.0, 10.0))
-        self.assertEqual(first[1][4:], (800, 8000.0, 10.5))
+        self.assertEqual(first[0][4:], (200, 2000.0))
+        self.assertEqual(first[1][4:], (800, 8000.0))
         self.assertEqual(first[3][2], first[3][3])
-        self.assertEqual(first[3][6], 10.5)
+        self.assertEqual(first[3][2], 10.5)
         suspended = self.con.execute("""
-            SELECT status,count(*),count(reference_price),sum(volume) FROM canonical.stock_1min
+            SELECT status,count(*),count(close),sum(volume) FROM canonical.stock_1min
             WHERE ts_code='000002.SZ' GROUP BY status
         """).fetchall()
         self.assertEqual(suspended, [("SUSPENDED", 480, 0, 0)])
@@ -132,6 +161,33 @@ class Stock1MinTest(unittest.TestCase):
         self.assertEqual(self.con.execute("""
             SELECT count(*) FROM meta.run_unit WHERE scope_decision='OUT_OF_SCOPE'
         """).fetchone()[0], 2)
+
+    def test_ts_code_subset_limits_requests_publication_and_audit(self):
+        result = self.ingest(params={"start_date": "20200312", "end_date": "20200314", "parallel": 2,
+                                     "ts_codes": ["000001.SZ"]})
+        self.assertEqual(result.status, "SUCCESS", result)
+        # 业务边界：子集只包含选中代码；周末保留一条排除审计，其他股票不产生请求、发布或本次审计。
+        self.assertEqual({p.unit_key for p in result.publications},
+                         {"000001.SZ:2020-03-12", "000001.SZ:2020-03-13"})
+        self.assertEqual(self.con.execute("SELECT count(*) FROM canonical.stock_1min").fetchone()[0], 482)
+        self.assertEqual(self.con.execute("SELECT scope_decision,count(*) FROM meta.run_unit WHERE run_id=? GROUP BY ALL ORDER BY ALL",
+                                          [result.run_id]).fetchall(), [("IN_SCOPE", 2), ("OUT_OF_SCOPE", 1)])
+        self.assertTrue(self.client.requests)
+        self.assertTrue(all(set(r.codes) == {"000001.SZ"} for r in self.client.requests))
+
+    def test_ts_code_subset_rejects_invalid_or_unresolved_codes(self):
+        for codes in ([], ["000001.SZ", "000001.SZ"]):
+            with self.subTest(codes=codes), self.assertRaises(ValueError):
+                self.dataset.dependencies({"start_date": "20200312", "end_date": "20200314",
+                                           "parallel": 2, "ts_codes": codes}, self.con)
+        with self.assertRaises(ValueError):
+            self.dataset.dependencies({"start_date": "20200312", "end_date": "20200312",
+                                       "source": {"type": "LOCAL_PARQUET"}, "ts_codes": ["000001.SZ"]}, self.con)
+        result = self.ingest(params={"start_date": "20200312", "end_date": "20200314", "parallel": 2,
+                                     "ts_codes": ["000003.SZ"]})
+        self.assertEqual(result.status, "FAILED")
+        self.assertIn("outside resolved membership", result.error)
+        self.assertEqual(self.client.requests, [])
 
     def test_zero_continuous_930_becomes_no_trade(self):
         def transform(request, response):
@@ -142,10 +198,10 @@ class Stock1MinTest(unittest.TestCase):
         result = self.ingest(MinuteClient(transform))
         self.assertEqual(result.status, "SUCCESS", result)
         row = self.con.execute("""
-            SELECT status,open,close,volume,amount,reference_price FROM canonical.stock_1min
+            SELECT status,open,close,volume,amount FROM canonical.stock_1min
             WHERE ts_code='000001.SZ' AND trade_date='2020-03-12' AND bar_time='09:30'
         """).fetchone()
-        self.assertEqual(row, ("NO_TRADE", 10.0, 10.0, 0, 0.0, 10.0))
+        self.assertEqual(row, ("NO_TRADE", 10.0, 10.0, 0, 0.0))
 
     def test_auction_without_raw_930_blocks_unit(self):
         def transform(request, response):
@@ -169,6 +225,58 @@ class Stock1MinTest(unittest.TestCase):
               AND bar_time IN ('09:30','09:31','09:33','09:34','10:03','10:04') ORDER BY bar_time
         """).fetchall()
         self.assertEqual([r[1] for r in rows], ["TRADED", "TRADED", "NO_TRADE", "SUSPENDED", "SUSPENDED", "NO_TRADE"])
+
+    def test_multisegment_seconds_and_unordered_suspension_use_full_minutes(self):
+        self.con.execute("""
+            INSERT INTO canonical.suspend_daily VALUES (
+                '000001.SZ','2020-03-12','S',
+                '10:05:50-10:15:50,9:34-9:35,09:35-09:36,09:31-09:32,10:16-10:17,11:00:10-11:00:50'
+            )
+        """)
+        result = self.ingest()
+        self.assertEqual(result.status, "SUCCESS", result)
+        rows = self.con.execute("""
+            SELECT bar_time,status FROM canonical.stock_1min
+            WHERE ts_code='000001.SZ' AND trade_date='2020-03-12'
+              AND bar_time IN ('09:31','09:33','09:34','09:35','09:36','10:05','10:06','10:14','10:15','10:16','10:17','11:00')
+            ORDER BY bar_time
+        """).fetchall()
+        self.assertEqual([r[1] for r in rows], [
+            "TRADED", "NO_TRADE", "SUSPENDED", "SUSPENDED", "NO_TRADE",
+            "NO_TRADE", "SUSPENDED", "SUSPENDED", "NO_TRADE", "SUSPENDED", "NO_TRADE", "NO_TRADE",
+        ])
+
+    def test_reverse_nonpadded_suspension_remains_blocked(self):
+        self.con.execute("INSERT INTO canonical.suspend_daily VALUES ('000001.SZ','2020-03-12','S','13:00-9:30')")
+        result = self.ingest()
+        self.assertEqual(result.status, "PARTIAL", result)
+        self.assertIn("suspend.timing_range", {r[0] for r in self.con.execute(
+            "SELECT rule FROM meta.validation_check WHERE level='ERROR'").fetchall()})
+        self.assertEqual(self.con.execute("""
+            SELECT count(*) FROM canonical.stock_1min WHERE ts_code='000001.SZ' AND trade_date='2020-03-12'
+        """).fetchone()[0], 0)
+
+    def test_same_day_resume_with_positive_daily_allows_requests(self):
+        for day in DAYS:
+            self.con.execute("INSERT INTO canonical.suspend_daily VALUES ('000002.SZ',?,'R',NULL)", [day])
+            self.con.execute("INSERT INTO canonical.stock_daily VALUES ('000002.SZ',?,10,11,9,10.5,9.5,1,10,10,100)", [day])
+        result = self.ingest()
+        self.assertEqual(result.status, "SUCCESS", result)
+        # 业务边界：R 与正成交日线共同解除全天停牌，两个代码都正常请求和发布。
+        self.assertEqual(len(result.publications), 4)
+        self.assertEqual(self.con.execute("SELECT count(*) FROM canonical.stock_1min").fetchone()[0], 964)
+        self.assertEqual({r.codes[0] for r in self.client.requests if r.kind == "kline"}, {"000001.SZ", "000002.SZ"})
+
+    def test_same_day_resume_without_daily_keeps_full_suspension(self):
+        for day in DAYS:
+            self.con.execute("INSERT INTO canonical.suspend_daily VALUES ('000002.SZ',?,'R',NULL)", [day])
+        result = self.ingest()
+        self.assertEqual(result.status, "SUCCESS", result)
+        # 业务边界：R 单独不能解除全天停牌，无日线时仍只发布本地 SUSPENDED 网格。
+        self.assertEqual({r.codes[0] for r in self.client.requests if r.kind == "kline"}, {"000001.SZ"})
+        self.assertEqual(self.con.execute("""
+            SELECT status,count(*) FROM canonical.stock_1min WHERE ts_code='000002.SZ' GROUP BY status
+        """).fetchall(), [("SUSPENDED", 480)])
 
     def test_full_day_conflict_is_unknown_and_does_not_request(self):
         self.con.execute("""
@@ -236,6 +344,121 @@ class Stock1MinTest(unittest.TestCase):
         rules = {r[0] for r in self.con.execute(
             "SELECT rule FROM meta.validation_check WHERE run_id=? AND level='ERROR'", [result.run_id]).fetchall()}
         self.assertEqual(rules, {"source.request"})
+
+    def test_kline_request_retry_recovers_each_stock_day(self):
+        def fail_parent(request, response):
+            if request.kind == "kline":
+                # 父请求携带部分行，最终只能消费逐日子响应，不能重复进入 Raw。
+                return GalaxyResponse(request, "FAILED", response.rows, "multi-day failure", -1, True)
+            return response
+        client = RetryClient(fail_parent)
+        result = self.ingest(client)
+        self.assertEqual(result.status, "SUCCESS", result)
+        self.assertEqual(len(result.publications), 4)
+        self.assertEqual(client.retry_calls, 1)
+        children = [r for r in client.requests if "-retry-" in r.request_id]
+        self.assertEqual(len(children), 2)
+        self.assertTrue(all(r.kind == "kline" and len(r.codes) == 1 and r.start_date == r.end_date
+                            for r in children))
+        self.assertEqual(self.con.execute("SELECT count(*) FROM canonical.stock_1min").fetchone()[0], 962)
+        self.assertEqual(self.con.execute(
+            "SELECT count(*) FROM meta.validation_check WHERE run_id=? AND level='ERROR'", [result.run_id],
+        ).fetchone()[0], 0)
+        self.assertEqual(self.con.execute(
+            "SELECT count(*) FROM meta.validation_check WHERE run_id=? AND rule='source.request_retry'",
+            [result.run_id],
+        ).fetchone()[0], 1)
+        lineage = dict(self.con.execute(
+            "SELECT unit_key,request_ids FROM meta.run_unit WHERE run_id=? AND scope_decision='IN_SCOPE' "
+            "AND unit_key LIKE '000001.SZ:%'",
+            [result.run_id],
+        ).fetchall())
+        self.assertEqual(len(lineage), 2)
+        for encoded in lineage.values():
+            request_ids = json.loads(encoded)
+            self.assertEqual(len(request_ids), 3)
+            self.assertEqual(sum("-retry-" in request_id for request_id in request_ids), 1)
+
+    def test_snapshot_request_retry_recovers_complete_units(self):
+        self.con.execute("""
+            INSERT INTO canonical.stock_basic(ts_code,symbol,name,exchange,list_status,list_date)
+            VALUES ('000003.SZ','000003','第三股票','SZSE','L','1991-04-03')
+        """)
+        for day in DAYS:
+            self.con.execute("INSERT INTO canonical.stock_daily VALUES ('000003.SZ',?,10,11,9,10.5,9.5,1,10,10,100)", [day])
+
+        def missing_parent(request, response):
+            if request.kind == "snapshot":
+                return GalaxyResponse(request, "INCOMPLETE", response.rows[:1], "missing codes", None, True)
+            return response
+        client = RetryClient(missing_parent)
+        result = self.ingest(client)
+        self.assertEqual(result.status, "SUCCESS", result)
+        self.assertEqual(len(result.publications), 6)
+        children = [r for r in client.requests if "-retry-" in r.request_id]
+        self.assertEqual(len(children), 4)
+        self.assertTrue(all(r.kind == "snapshot" and len(r.codes) == 1 and r.start_date == r.end_date
+                            for r in children))
+        self.assertEqual(self.con.execute("SELECT count(*) FROM canonical.stock_1min").fetchone()[0], 1444)
+        self.assertEqual(self.con.execute(
+            "SELECT count(*) FROM meta.validation_check WHERE run_id=? AND level='ERROR'", [result.run_id],
+        ).fetchone()[0], 0)
+        self.assertEqual(self.con.execute(
+            "SELECT count(*) FROM meta.validation_check WHERE run_id=? AND rule='source.request_retry'",
+            [result.run_id],
+        ).fetchone()[0], 2)
+
+    def test_retry_failure_blocks_only_child_unit_and_preserves_old_data(self):
+        self.con.execute("""
+            INSERT INTO canonical.stock_basic(ts_code,symbol,name,exchange,list_status,list_date)
+            VALUES ('000003.SZ','000003','第三股票','SZSE','L','1991-04-03')
+        """)
+        for day in DAYS:
+            self.con.execute("INSERT INTO canonical.stock_daily VALUES ('000003.SZ',?,10,11,9,10.5,9.5,1,10,10,100)", [day])
+        self.ingest()
+        failed_unit = "000003.SZ:2020-03-13"
+        before = self.con.execute("""
+            SELECT * FROM canonical.stock_1min WHERE ts_code='000003.SZ' AND trade_date='2020-03-13'
+            ORDER BY bar_time
+        """).fetchall()
+
+        def missing_parent(request, response):
+            if request.kind == "snapshot":
+                return GalaxyResponse(request, "INCOMPLETE", response.rows[:1], "missing codes", None, True)
+            return response
+
+        def fail_one_child(request, response):
+            if request.kind == "snapshot" and request.codes == ("000003.SZ",) and request.start_date == 20200313:
+                return GalaxyResponse(request, "FAILED", (), "child failure", -1, True)
+            return response
+        result = self.ingest(RetryClient(missing_parent, fail_one_child))
+        self.assertEqual(result.status, "PARTIAL", result)
+        self.assertEqual(len(result.publications), 5)
+        self.assertEqual(self.con.execute(
+            "SELECT status FROM meta.run_unit WHERE run_id=? AND unit_key=?", [result.run_id, failed_unit],
+        ).fetchone()[0], "FAILED")
+        errors = self.con.execute(
+            "SELECT units FROM meta.validation_check WHERE run_id=? AND rule='source.request' AND level='ERROR'",
+            [result.run_id],
+        ).fetchall()
+        self.assertEqual(len(errors), 1)
+        self.assertEqual(json.loads(errors[0][0]), [failed_unit])
+        after = self.con.execute("""
+            SELECT * FROM canonical.stock_1min WHERE ts_code='000003.SZ' AND trade_date='2020-03-13'
+            ORDER BY bar_time
+        """).fetchall()
+        self.assertEqual(before, after)
+
+    def test_nonretryable_primary_failure_suppresses_retry_wave(self):
+        def mixed_failures(request, response):
+            if request.kind == "kline":
+                return GalaxyResponse(request, "FAILED", (), "session failure", -1, False)
+            return GalaxyResponse(request, "INCOMPLETE", (), "missing codes", None, True)
+        client = RetryClient(mixed_failures)
+        result = self.ingest(client)
+        self.assertEqual(result.status, "PARTIAL", result)
+        self.assertEqual(client.retry_calls, 0)
+        self.assertFalse(any("-retry-" in r.request_id for r in client.requests))
 
     def test_complete_empty_kline_still_reports_real_conflict(self):
         """完整空交付具备比较前提，不能随失败获取一起抑制真实冲突。"""
@@ -387,7 +610,7 @@ class Stock1MinTest(unittest.TestCase):
             SELECT count(*) FROM canonical.stock_1min WHERE ts_code='000001.SZ' AND trade_date='2020-03-12'
         """).fetchone()[0], 0)
 
-    def test_bse_mapping_drives_era_codes(self):
+    def test_bse_old_requests_publish_under_current_code(self):
         self.con.execute("UPDATE canonical.stock_basic SET delist_date='2020-03-14'")
         self.con.execute("""
             INSERT INTO canonical.stock_basic(ts_code,symbol,name,exchange,list_status,list_date)
@@ -398,15 +621,15 @@ class Stock1MinTest(unittest.TestCase):
             self.con.execute("INSERT INTO canonical.trade_calendar VALUES ('SSE',?,false,NULL)", [day])
             self.con.execute("INSERT INTO meta.coverage VALUES ('trade_calendar',?,'PUBLISHED',1,current_timestamp,NULL)",
                              [f"SSE:{day}"])
-        for code, day in (("832000.BJ", "2025-09-30"), ("920000.BJ", "2025-10-09")):
+        for day in ("2025-09-30", "2025-10-09"):
             self.con.execute("INSERT INTO canonical.trade_calendar VALUES ('SSE',?,true,NULL)", [day])
             self.con.execute("INSERT INTO meta.coverage VALUES ('trade_calendar',?,'PUBLISHED',1,current_timestamp,NULL)",
                              [f"SSE:{day}"])
             for dataset in ("suspend_daily", "stock_daily"):
                 self.con.execute("INSERT INTO meta.coverage VALUES (?,?,'PUBLISHED',1,current_timestamp,NULL)", [dataset, day])
             self.con.execute("""
-                INSERT INTO canonical.stock_daily VALUES (?,?,10,11,9,10.5,9.5,1,10,10,100)
-            """, [code, day])
+                INSERT INTO canonical.stock_daily VALUES ('920000.BJ',?,10,11,9,10.5,9.5,1,10,10,100)
+            """, [day])
         def with_bse_close(request, response):
             if request.kind == "kline" and request.codes[0].endswith(".BJ"):
                 day = str(request.start_date)
@@ -416,10 +639,10 @@ class Stock1MinTest(unittest.TestCase):
         result = self.ingest(MinuteClient(with_bse_close),
                              params={"start_date": "20250930", "end_date": "20251009", "parallel": 2})
         self.assertEqual(result.status, "SUCCESS", result)
-        self.assertEqual({p.unit_key for p in result.publications}, {"832000.BJ:2025-09-30", "920000.BJ:2025-10-09"})
+        self.assertEqual({p.unit_key for p in result.publications}, {"920000.BJ:2025-09-30", "920000.BJ:2025-10-09"})
         self.assertEqual(self.con.execute("""
             SELECT ts_code,count(*) FROM canonical.stock_1min GROUP BY ts_code ORDER BY ts_code
-        """).fetchall(), [("832000.BJ", 243), ("920000.BJ", 243)])
+        """).fetchall(), [("920000.BJ", 486)])
         self.assertEqual({r.codes[0] for r in self.client.requests if r.kind == "kline"}, {"832000.BJ", "920000.BJ"})
 
     def test_cli_assembles_galaxy_and_parallel(self):

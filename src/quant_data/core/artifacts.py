@@ -14,6 +14,12 @@ from quant_data.db import relation
 META_TABLES = ("run", "run_unit", "run_dependency", "request_attempt", "validation_check", "publication", "coverage")
 
 
+def _digest(path):
+    """流式计算产物摘要，避免大文件进入 Python 内存。"""
+    with path.open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
 class Artifacts:
     """原始尝试即时留档；可选完整阶段导出，错误不污染已经提交的业务结果。"""
 
@@ -119,7 +125,7 @@ class Artifacts:
         try:
             # 为当前已导出的文件记录大小和摘要，方便人工核对产物一致性；清单不对自身做摘要。
             files = [{"path": str(p.relative_to(self.root)), "bytes": p.stat().st_size,
-                      "sha256": hashlib.sha256(p.read_bytes()).hexdigest()} for p in sorted(self.root.rglob("*")) if p.is_file()]
+                      "sha256": _digest(p)} for p in sorted(self.root.rglob("*")) if p.is_file()]
             self._json(self.root / "manifest.json", {"run_id": result.run_id, "complete": self.complete, "errors": self.errors, "files": files})
         except Exception as exc:
             self.complete = False

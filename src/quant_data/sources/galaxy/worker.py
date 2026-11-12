@@ -139,7 +139,9 @@ def _execute_one(request, attempt_number, artifacts, ad, tgw, market_data, timeo
         else:
             state = "INCOMPLETE" if isinstance(exc, _IncompleteSnapshot) else "FAILED"
             rows = exc.rows if isinstance(exc, _IncompleteSnapshot) else ()
-            response = GalaxyResponse(request, state, rows, _safe_error(exc, secrets), provider_code)
+            # 普通请求/交付失败可由分钟 Adapter 拆成单股单日；会话和熔断故障不得借此绕过保护。
+            retryable = request.kind in ("kline", "snapshot") and not fatal and provider_code not in CIRCUIT_CODES
+            response = GalaxyResponse(request, state, rows, _safe_error(exc, secrets), provider_code, retryable)
     elapsed = round(time.monotonic() - started, 3)
     returned_fields = tuple(sorted({key for row in response.rows for key in row}))
     attempt = RequestAttempt(

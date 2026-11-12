@@ -1,0 +1,149 @@
+{
+  "attempt": {
+    "request_id": "ima_N_pages-p002",
+    "attempt": 1,
+    "api_name": "index_member_all",
+    "params": {
+      "is_new": "N",
+      "limit": 1000,
+      "offset": 2000
+    },
+    "fields": [
+      "l1_code",
+      "l1_name",
+      "l2_code",
+      "l2_name",
+      "l3_code",
+      "l3_name",
+      "ts_code",
+      "name",
+      "in_date",
+      "out_date",
+      "is_new"
+    ],
+    "requested_at": "2026-11-02T02:43:12.041174+00:00",
+    "elapsed_seconds": 0.209,
+    "http_status": 200,
+    "provider_code": 0,
+    "returned_fields": [
+      "l1_code",
+      "l1_name",
+      "l2_code",
+      "l2_name",
+      "l3_code",
+      "l3_name",
+      "ts_code",
+      "name",
+      "in_date",
+      "out_date",
+      "is_new"
+    ],
+    "row_count": 6,
+    "has_more": false,
+    "error": null,
+    "evidence_path": "data/probes/index-member-all-onboarding-20261102/requests/ima_N_pages-p002-attempt-01.json"
+  },
+  "response": {
+    "request_id": "729241c2-bb89-47d7-ba0d-3505983a5e1b",
+    "code": 0,
+    "data": {
+      "fields": [
+        "l1_code",
+        "l1_name",
+        "l2_code",
+        "l2_name",
+        "l3_code",
+        "l3_name",
+        "ts_code",
+        "name",
+        "in_date",
+        "out_date",
+        "is_new"
+      ],
+      "items": [
+        [
+          "801880.SI",
+          "汽车",
+          "801093.SI",
+          "汽车零部件",
+          "850923.SI",
+          "底盘与发动机系统",
+          "300391.SZ",
+          "长药退(退市)",
+          "20140207",
+          "20220728",
+          "N"
+        ],
+        [
+          "801180.SI",
+          "房地产",
+          "801181.SI",
+          "房地产开发",
+          "851811.SI",
+          "住宅开发",
+          "000616.SZ",
+          "*ST海投(退市)",
+          "20030512",
+          "20220728",
+          "N"
+        ],
+        [
+          "801050.SI",
+          "有色金属",
+          "801055.SI",
+          "工业金属",
+          "850552.SI",
+          "铜",
+          "603003.SH",
+          "退市龙宇(退市)",
+          "20120109",
+          "20210729",
+          "N"
+        ],
+        [
+          "801150.SI",
+          "医药生物",
+          "801151.SI",
+          "化学制药",
+          "851512.SI",
+          "化学制剂",
+          "002898.SZ",
+          "赛隆退(退市)",
+          "20170828",
+          "20260630",
+          "N"
+        ],
+        [
+          "801030.SI",
+          "基础化工",
+          "801036.SI",
+          "塑料",
+          "850351.SI",
+          "其他塑料制品",
+          "002464.SZ",
+          "众应退(退市)",
+          "20100201",
+          "20170628",
+          "N"
+        ],
+        [
+          "801180.SI",
+          "房地产",
+          "801181.SI",
+          "房地产开发",
+          "851811.SI",
+          "住宅开发",
+          "000502.SZ",
+          "绿景退(退市)",
+          "20030512",
+          "20210729",
+          "N"
+        ]
+      ],
+      "has_more": false,
+      "count": 0
+    },
+    "msg": "",
+    "detail": "..."
+  }
+}

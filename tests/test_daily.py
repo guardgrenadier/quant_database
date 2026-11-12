@@ -17,7 +17,7 @@ import polars as pl
 from quant_data import db
 from quant_data.__main__ import main
 from quant_data.core import runner
-from quant_data.core.models import RequestAttempt, RunOptions
+from quant_data.core.models import RequestAttempt, RunOptions, Scope
 from quant_data.datasets.index_basic import BROAD_CODES, SW_CATEGORY, SW_PUBLISHER, IndexBasicDataset
 from quant_data.datasets.index_daily import IndexDailyDataset
 from quant_data.datasets.stock_daily import StockDailyDataset
@@ -29,7 +29,8 @@ from quant_data.sources.tushare.trade_calendar import TushareTradeCalendarAdapte
 from tests.test_index_basic import ProviderClient as BasicClient, row as basic_row
 from tests.test_suspend_daily import ProviderClient as CalendarClient
 
-SAMPLE = Path('data/probes/daily-onboarding-20261022T012318968173/requests')
+# 真实响应作为仓库固定夹具保存，清理探查目录不影响离线回放。
+SAMPLE = Path(__file__).with_name('fixtures') / 'daily'
 CODES = ('000300.SH', '801010.SI', '801011.SI')
 
 
@@ -74,6 +75,8 @@ class DailyTest(unittest.TestCase):
         for module in ('trade_calendar','index_basic','stock_daily','index_daily'):
             setting = patch(f'quant_data.sources.tushare.{module}.REQUEST_INTERVAL',0)
             setting.start(); self.addCleanup(setting.stop)
+        setting = patch('quant_data.sources.tushare.index_daily.SW_REQUEST_INTERVAL',0)
+        setting.start(); self.addCleanup(setting.stop)
         self.params = {'start_date':'20200312','end_date':'20200315'}
         calendar = TradeCalendarDataset(); db.initialize(self.con,calendar)
         r = runner.run(self.con,calendar,TushareTradeCalendarAdapter(CalendarClient()),
@@ -345,7 +348,6 @@ class DailyTest(unittest.TestCase):
         with patch('sys.argv',['quant_data','ingest','stock_daily','--start-date','20200312','--end-date','20200313','--ts-code','x']),redirect_stderr(io.StringIO()):
             with self.assertRaises(SystemExit):main()
 
-    @unittest.skipUnless((SAMPLE/'stock_day-attempt-01.json').exists(),'本地真实响应不随 Git 分发')
     def test_saved_real_stock_and_index_signals(self):
         """新完整信封重放；独立解释日期/单位，与真实规范化结果逐字段对照。"""
         class Replay:
@@ -371,3 +373,34 @@ class DailyTest(unittest.TestCase):
                     expected.append(r)
             actual=self.con.execute(f'SELECT * FROM canonical.{name} ORDER BY ts_code,trade_date').pl()
             self.assertTrue(actual.equals(pl.DataFrame(expected,schema=self.datasets[name].schema).sort('ts_code','trade_date')))
+
+
+class IndexRateTest(unittest.TestCase):
+    def test_sw_limit_and_broad_limit_across_route_changes(self):
+        """串行请求含处理耗时；申万与宽基切换后分别遵守 0.35/0.13 秒间隔。"""
+        clock = [0.0]
+        starts = []
+        client = QuoteClient()
+        original = client.query
+
+        def query(api, *args, **kwargs):
+            starts.append((api, clock[0]))
+            result = original(api, *args, **kwargs)
+            clock[0] += 0.05
+            return result
+
+        client.query = query
+        artifacts = Mock()
+        artifacts.record_attempt.side_effect = lambda attempt, payload: attempt
+        scope = Scope(('000300.SH:2020-03-12', '000001.SH:2020-03-12',
+                       '801010.SI:2020-03-12', '801010.SI:2020-03-13',
+                       '000300.SH:2021-01-04'))
+        with patch('quant_data.sources.tushare.index_daily.time.monotonic', side_effect=lambda: clock[0]), \
+             patch('quant_data.sources.tushare.index_daily.time.sleep',
+                   side_effect=lambda seconds: clock.__setitem__(0, clock[0] + seconds)):
+            delivery = TushareIndexDailyAdapter(client).fetch(scope, artifacts)
+        self.assertFalse(delivery.checks)
+        self.assertEqual([api for api, _ in starts],
+                         ['index_daily', 'index_daily', 'sw_daily', 'sw_daily', 'index_daily'])
+        for (_, actual), expected in zip(starts, (0.0, 0.13, 0.48, 0.83, 0.96)):
+            self.assertAlmostEqual(actual, expected)

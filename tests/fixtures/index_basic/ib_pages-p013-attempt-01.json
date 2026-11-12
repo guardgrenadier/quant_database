@@ -1,0 +1,75 @@
+{
+  "attempt": {
+    "request_id": "ib_pages-p013",
+    "attempt": 1,
+    "api_name": "index_basic",
+    "params": {
+      "limit": 1000,
+      "offset": 13000
+    },
+    "fields": [
+      "ts_code",
+      "name",
+      "fullname",
+      "market",
+      "publisher",
+      "index_type",
+      "category",
+      "base_date",
+      "base_point",
+      "list_date",
+      "weight_rule",
+      "desc",
+      "exp_date"
+    ],
+    "requested_at": "2026-10-21T14:09:17.533700+00:00",
+    "elapsed_seconds": 0.177,
+    "http_status": 200,
+    "provider_code": 0,
+    "returned_fields": [
+      "ts_code",
+      "name",
+      "fullname",
+      "market",
+      "publisher",
+      "index_type",
+      "category",
+      "base_date",
+      "base_point",
+      "list_date",
+      "weight_rule",
+      "desc",
+      "exp_date"
+    ],
+    "row_count": 0,
+    "has_more": false,
+    "error": null,
+    "evidence_path": "/home/xindingtian/code/quant_data/data/probes/st-index-20261021T220900218316/requests/ib_pages-p013-attempt-01.json"
+  },
+  "response": {
+    "request_id": "6b156ba5-2a58-4d86-8d1a-f51bc1d6086b",
+    "code": 0,
+    "data": {
+      "fields": [
+        "ts_code",
+        "name",
+        "fullname",
+        "market",
+        "publisher",
+        "index_type",
+        "category",
+        "base_date",
+        "base_point",
+        "list_date",
+        "weight_rule",
+        "desc",
+        "exp_date"
+      ],
+      "items": [],
+      "has_more": false,
+      "count": 0
+    },
+    "msg": "",
+    "detail": "..."
+  }
+}

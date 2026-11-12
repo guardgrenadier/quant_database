@@ -96,14 +96,20 @@ def record_checks(con, run_id, checks):
                           ("id", "level", "rule", "stage", "units", "detail"))
     with registered(con, "_checks", frame) as source:
         con.execute(f"INSERT INTO meta.validation_check SELECT ?,id::INTEGER,level,rule,stage,units::JSON,detail::JSON FROM {source}", [run_id])
-    # 业务关联：全局检查关联所有 IN_SCOPE Unit，局部检查只关联列出的 Unit，详情不重复复制。
+    # 局部检查展开为去重键，保持原 list_contains 的集合语义，避免同一 Unit 重复引用检查。
+    # 全局检查仍关联全部 IN_SCOPE；排除/未知 Unit 不参与关联，详情继续只存一份。
     con.execute(
-        "UPDATE meta.run_unit AS u SET check_ids=x.ids FROM "
-        "(SELECT u.unit_key,to_json(list(c.check_id ORDER BY c.check_id)) AS ids "
-        "FROM meta.run_unit u JOIN meta.validation_check c ON u.run_id=c.run_id "
-        "AND (c.units IS NULL OR list_contains(c.units::VARCHAR[],u.unit_key)) "
-        "WHERE u.run_id=? AND u.scope_decision='IN_SCOPE' GROUP BY u.unit_key) x "
-        "WHERE u.run_id=? AND u.unit_key=x.unit_key", [run_id, run_id])
+        "WITH units AS (SELECT unit_key FROM meta.run_unit "
+        "WHERE run_id=? AND scope_decision='IN_SCOPE'), "
+        "checks AS (SELECT check_id,units FROM meta.validation_check WHERE run_id=?), "
+        "local_keys AS (SELECT DISTINCT check_id,unnest(units::VARCHAR[]) AS unit_key "
+        "FROM checks WHERE units IS NOT NULL), "
+        "links AS (SELECT u.unit_key,c.check_id FROM units u JOIN local_keys c USING(unit_key) "
+        "UNION ALL SELECT u.unit_key,c.check_id FROM units u CROSS JOIN checks c WHERE c.units IS NULL), "
+        "associations AS (SELECT unit_key,to_json(list(check_id ORDER BY check_id)) AS ids "
+        "FROM links GROUP BY unit_key) "
+        "UPDATE meta.run_unit AS u SET check_ids=x.ids FROM associations x "
+        "WHERE u.run_id=? AND u.unit_key=x.unit_key", [run_id, run_id, run_id])
 
 
 def failure(con, run_id, units, stage, error=None):

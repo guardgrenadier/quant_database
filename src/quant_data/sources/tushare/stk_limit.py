@@ -11,7 +11,9 @@ from quant_data.core.models import Check, Delivery, UnitDelivery
 from quant_data.datasets.stk_limit import StkLimitDataset
 
 PAGE_SIZE = 3000
-REQUEST_INTERVAL = 1.3
+# 当前账号 10000 积分，常规接口 500 次/分钟；0.13 秒约 462 次/分钟，保留频次余量。
+# 官方依据：https://tushare.pro/document/1?doc_id=290（2026-11-06 核对）。
+REQUEST_INTERVAL = 0.13
 TEXT_FIELDS = ("ts_code", "trade_date", "asset_type", "exchange")
 
 

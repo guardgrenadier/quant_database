@@ -23,7 +23,8 @@ from quant_data.sources.tushare.daily_basic import TushareDailyBasicAdapter
 from quant_data.sources.tushare.trade_calendar import TushareTradeCalendarAdapter
 from tests.test_suspend_daily import ProviderClient as CalendarClient
 
-SAMPLES = Path('data/probes/daily-basic-onboarding-20261030T081207214252/requests')
+# 真实响应作为仓库固定夹具保存，清理探查目录不影响离线回放。
+SAMPLES = Path(__file__).with_name('fixtures') / 'daily_basic'
 
 
 def row(code='000001.SZ', day='20200312', **changes):
@@ -269,7 +270,6 @@ class DailyBasicTest(unittest.TestCase):
                 with self.assertRaises(SystemExit):
                     main()
 
-    @unittest.skipUnless(SAMPLES.exists(),'本地真实 daily_basic 信封不随 Git 分发')
     def test_saved_real_pages_history_and_ipo(self):
         # 指标响应来自真实信封；日历为明确的测试夹具，不混称实时获取。
         bodies = {name:json.loads((SAMPLES/f'{name}-attempt-01.json').read_text())['response']

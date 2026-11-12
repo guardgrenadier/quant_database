@@ -285,6 +285,17 @@ class StockIngestionTest(unittest.TestCase):
         self.assertEqual(candidate.schema, self.dataset.schema)
         self.assertEqual(candidate.to_dicts()[0]["symbol"], "000001")
 
+    def test_manifest_hashes_are_streamed(self):
+        """Manifest 不得为计算哈希而把完整产物读入内存。"""
+        with patch.object(Path, "read_bytes", side_effect=AssertionError("full-file read")):
+            result = self.ingest([stock_row()], keep=True)
+        self.assertTrue(result.artifacts_complete, result)
+        root = Path(result.artifact_dir)
+        manifest = json.loads((root / "manifest.json").read_text())
+        for item in manifest["files"]:
+            with (root / item["path"]).open("rb") as stream:
+                self.assertEqual(hashlib.file_digest(stream, "sha256").hexdigest(), item["sha256"])
+
     def test_export_failure_does_not_revoke_publication(self):
         """诊断不完整独立报告，业务状态和成功版本保留。"""
         with patch.object(pl.DataFrame, "write_parquet", side_effect=OSError("export injected")):
@@ -380,6 +391,56 @@ class MechanismTest(unittest.TestCase):
             "SELECT units,detail FROM meta.validation_check WHERE run_id=?", [result.run_id]).fetchone()
         self.assertIsNone(units)
         self.assertEqual(json.loads(detail)["unresolved_units"], ["outside"])
+        self.assertEqual(self.con.execute(
+            "SELECT unit_key,check_ids FROM meta.run_unit WHERE run_id=? ORDER BY unit_key",
+            [result.run_id]).fetchall(), [("a", "[0]"), ("b", "[0]")])
+
+    def test_check_references_preserve_scope_set_semantics_and_run_isolation(self):
+        """全局/局部混合、重复目标、无关目标均保持引用语义，并隔离其他 Run。"""
+        scope = Scope(("a", "b", "c"), (ScopeReason("out", "closed"),),
+                      (ScopeReason("unknown", "missing"),))
+        first, _ = audit.begin(self.con, self.dataset.name, {}, self.root)
+        audit.scope(self.con, first, self.dataset.name, scope, ())
+        second, _ = audit.begin(self.con, self.dataset.name, {}, self.root)
+        audit.scope(self.con, second, self.dataset.name, scope, ())
+        checks = (
+            Check("WARNING", "global.warning", "validation"),
+            Check("ERROR", "local.error", "validation", ("b", "a", "b")),
+            Check("WARNING", "local.warning", "validation", ("c", "out", "unknown", "absent")),
+            Check("WARNING", "unmatched.warning", "validation", ("absent",)),
+            Check("ERROR", "global.error", "validation"),
+        )
+        audit.record_checks(self.con, first, checks)
+        actual = self.con.execute(
+            "SELECT unit_key,check_ids FROM meta.run_unit WHERE run_id=? ORDER BY unit_key", [first]).fetchall()
+        self.assertEqual(actual, [("a", "[0,1,4]"), ("b", "[0,1,4]"), ("c", "[0,2,4]"),
+                                  ("out", "[]"), ("unknown", "[]")])
+        self.assertEqual(self.con.execute(
+            "SELECT unit_key,check_ids FROM meta.run_unit WHERE run_id=? ORDER BY unit_key", [second]).fetchall(),
+            [("a", "[]"), ("b", "[]"), ("c", "[]"), ("out", "[]"), ("unknown", "[]")])
+        # 无匹配目标的检查也要保存一次；不修改其原始单位列表或详情来换取关联性能。
+        self.assertEqual(self.con.execute(
+            "SELECT check_id,units FROM meta.validation_check WHERE run_id=? ORDER BY check_id", [first]).fetchall(),
+            [(0, None), (1, '["b", "a", "b"]'),
+             (2, '["c", "out", "unknown", "absent"]'), (3, '["absent"]'), (4, None)])
+
+    def test_check_references_allow_no_checks_and_no_in_scope_units(self):
+        """无检查不写记录；没有 IN_SCOPE 时仍保存诊断，不给排除/未知 Unit 附检查。"""
+        rid, _ = audit.begin(self.con, self.dataset.name, {}, self.root)
+        scope = Scope((), (ScopeReason("out", "closed"),), (ScopeReason("unknown", "missing"),))
+        audit.scope(self.con, rid, self.dataset.name, scope, ())
+        audit.record_checks(self.con, rid, ())
+        self.assertEqual(self.con.execute(
+            "SELECT count(*) FROM meta.validation_check WHERE run_id=?", [rid]).fetchone()[0], 0)
+        audit.record_checks(self.con, rid, (
+            Check("ERROR", "global", "validation"),
+            Check("WARNING", "local", "validation", ("out", "unknown")),
+        ))
+        self.assertEqual(self.con.execute(
+            "SELECT count(*) FROM meta.validation_check WHERE run_id=?", [rid]).fetchone()[0], 2)
+        self.assertEqual(self.con.execute(
+            "SELECT unit_key,check_ids FROM meta.run_unit WHERE run_id=? ORDER BY unit_key", [rid]).fetchall(),
+            [("out", "[]"), ("unknown", "[]")])
 
     def test_validation_preserves_diagnostic_policy(self):
         """重排检查顺序不改变既有报错保留、告警保留与范围越界的阻断语义。"""
@@ -572,6 +633,34 @@ class BatchScaleTest(unittest.TestCase):
         small = self.exercise(100)
         large = self.exercise(5000)
         self.assertLessEqual(abs(large - small), 5)
+
+
+class StorageContractTest(unittest.TestCase):
+    def test_growing_canonical_tables_do_not_create_art(self):
+        """六张持续增长表保留逻辑键验收，但不随历史回填累积 ART 存储。"""
+        from quant_data.datasets.adj_factor import AdjFactorDataset
+        from quant_data.datasets.daily_basic import DailyBasicDataset
+        from quant_data.datasets.index_daily import IndexDailyDataset
+        from quant_data.datasets.stk_limit import StkLimitDataset
+        from quant_data.datasets.stock_1min import Stock1MinDataset
+        from quant_data.datasets.stock_daily import StockDailyDataset
+
+        datasets = (Stock1MinDataset(), StockDailyDataset(), DailyBasicDataset(),
+                    AdjFactorDataset(), StkLimitDataset(), IndexDailyDataset())
+        with duckdb.connect(":memory:") as con:
+            for dataset in datasets:
+                db.initialize(con, dataset)
+            actual = dict(con.execute("""
+                SELECT table_name,index_count FROM duckdb_tables()
+                WHERE schema_name='canonical' AND table_name IN
+                ('stock_1min','stock_daily','daily_basic','adj_factor','stk_limit','index_daily')
+            """).fetchall())
+            self.assertEqual(actual, {dataset.name: 0 for dataset in datasets})
+            self.assertEqual(con.execute("""
+                SELECT count(*) FROM duckdb_constraints()
+                WHERE schema_name='canonical' AND constraint_type='PRIMARY KEY' AND table_name IN
+                ('stock_1min','stock_daily','daily_basic','adj_factor','stk_limit','index_daily')
+            """).fetchone()[0], 0)
 
 
 if __name__ == "__main__":

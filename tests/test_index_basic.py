@@ -21,7 +21,8 @@ from quant_data.core.models import RequestAttempt, RunOptions
 from quant_data.datasets.index_basic import BROAD_CODES, SW_CATEGORY, SW_PUBLISHER, IndexBasicDataset
 from quant_data.sources.tushare.index_basic import TushareIndexBasicAdapter
 
-REFERENCE = Path('data/probes/st-index-20261021T220900218316/requests')
+# 真实响应作为仓库固定夹具保存，清理探查目录不影响离线回放。
+REFERENCE = Path(__file__).with_name('fixtures') / 'index_basic'
 
 
 def row(**changes):
@@ -187,7 +188,6 @@ class IndexBasicTest(unittest.TestCase):
                 patch('quant_data.__main__.TushareClient',return_value=ProviderClient(records)),redirect_stdout(output):
                 self.assertEqual(main(),expected)
 
-    @unittest.skipUnless(REFERENCE.exists(),'真实基础响应不随 Git 分发')
     def test_saved_real_filtered_replay(self):
         """用真实源记录生成明确过滤响应，独立比较全部目标，不再需要分类接口样本。"""
         source=[]

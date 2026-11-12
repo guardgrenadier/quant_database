@@ -7,6 +7,8 @@ sources:
     tables:
       - name: stock_daily
         description: 全市场未复权股票日线，键为 ts_code、trade_date。
+      - name: stock_1min
+        description: 完整分钟研究网格；连续参考价由 Serving View 按需派生，不在 Canonical 重复存储。
       - name: index_member_all
         description: 完整 Y+N 申万归属历史，out_date 包含当天；不代表历史当时可得版本。
   - name: meta

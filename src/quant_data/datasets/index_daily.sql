@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS canonical.index_daily (
     pct_chg DOUBLE CHECK (isfinite(pct_chg)),
     vol DOUBLE CHECK (isfinite(vol) AND vol>=0),
     amount DOUBLE CHECK (isfinite(amount) AND amount>=0),
-    PRIMARY KEY (ts_code,trade_date),
+    -- 逻辑键由 Dataset 验收，不为持续增长的大表物化 ART 主键。
     -- 业务最终防线：部分缺值合法，不能是九个数值全空的伪行情；四价齐全才比较。
     CHECK (coalesce(open,high,low,close,pre_close,change,pct_chg,vol,amount) IS NOT NULL),
     CHECK (open IS NULL OR high IS NULL OR low IS NULL OR close IS NULL OR

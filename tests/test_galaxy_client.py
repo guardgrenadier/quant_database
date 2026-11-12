@@ -328,6 +328,34 @@ class GalaxyClientTest(unittest.TestCase):
         self.assertEqual(response.state, "INCOMPLETE")
         self.assertIn("600519.SH", response.error)
         self.assertEqual(response.rows, ())
+        self.assertTrue(response.unit_retryable)
+
+    def test_retryable_evidence_and_staged_request_wave(self):
+        self.state["snapshot_custom"] = lambda codes, day: {day: {codes[0]: []}}
+        parent = request("parent", "snapshot", ("000001.SZ", "600519.SH"))
+        original = self.client().fetch([parent], self.artifacts)[0][0]
+        self.assertTrue(original.unit_retryable)
+        recovered = self.client().fetch([parent], self.artifacts)[0][0]
+        self.assertEqual(recovered, original)
+
+        self.state["snapshot_custom"] = None
+        children = [request("child1", "snapshot", "000001.SZ"),
+                    request("child2", "snapshot", "600519.SH")]
+        # 默认模式仍拒绝其他 request_id；只有显式补取波次可以跳过父请求证据。
+        with self.assertRaisesRegex(ValueError, "Unknown Galaxy evidence"):
+            self.client().fetch(children, self.artifacts)
+        responses, attempts = self.client().fetch(
+            children, self.artifacts, allow_unrelated_evidence=True,
+        )
+        self.assertEqual([r.state for r in responses], ["COMPLETE", "COMPLETE"])
+        self.assertEqual(len(attempts), 2)
+        self.assertEqual(len(self.state["snapshot_calls"]), 3)
+        recovered_children, recovered_attempts = self.client().fetch(
+            children, self.artifacts, allow_unrelated_evidence=True,
+        )
+        self.assertEqual(recovered_children, responses)
+        self.assertEqual(recovered_attempts, attempts)
+        self.assertEqual(len(self.state["snapshot_calls"]), 3)
 
     def test_snapshot_provider_empty_is_complete_for_history_fallback(self):
         def unavailable(codes, day):
@@ -353,11 +381,13 @@ class GalaxyClientTest(unittest.TestCase):
         )[0][0]
         self.assertEqual(response.state, "FAILED")
         self.assertIn("exceeded", response.error)
+        self.assertTrue(response.unit_retryable)
 
     def test_snapshot_timeout_replaces_session_and_preserves_remaining(self):
         requests = [request("snap", "snapshot", "HANG.SZ"), request("later"), request("pending")]
         responses, attempts = self.client(query_timeout=0.01, max_respawns=0).fetch(requests, self.artifacts)
         self.assertEqual([response.state for response in responses], ["FAILED", "COMPLETE", "INCOMPLETE"])
+        self.assertFalse(any(response.unit_retryable for response in responses))
         self.assertEqual(len(attempts), 3)
         self.assertEqual(self.state["kline_calls"], ["000001"])
 
@@ -367,6 +397,7 @@ class GalaxyClientTest(unittest.TestCase):
         responses, attempts = self.client().fetch(requests, self.artifacts)
         self.assertEqual(responses[0].provider_code, -82)
         self.assertEqual([response.state for response in responses[2:]], ["INCOMPLETE", "INCOMPLETE"])
+        self.assertFalse(any(response.unit_retryable for response in responses))
         self.assertEqual(self.state["kline_calls"], ["000001", "000002"])
         self.assertEqual(len(attempts), 4)
 

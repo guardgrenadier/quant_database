@@ -19,7 +19,8 @@ from quant_data.core.models import RequestAttempt, RunOptions
 from quant_data.datasets.index_member_all import IndexMemberAllDataset
 from quant_data.sources.tushare.index_member_all import TushareIndexMemberAllAdapter
 
-SAMPLES = Path("data/probes/index-member-all-onboarding-20261102/requests")
+# 真实响应作为仓库固定夹具保存，清理探查目录不影响离线回放。
+SAMPLES = Path(__file__).with_name("fixtures") / "index_member_all"
 
 
 def row(code="000001.SZ", **changes):
@@ -271,7 +272,6 @@ class IndexMemberAllTest(unittest.TestCase):
                 with self.assertRaises(SystemExit):
                     main()
 
-    @unittest.skipUnless(SAMPLES.exists(), "本地真实 index_member_all 信封不随 Git 分发")
     def test_saved_real_y_and_n_replay_matches_all_stages(self):
         bodies, records = {}, []
         for path in sorted(SAMPLES.glob("*.json")):

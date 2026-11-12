@@ -1,0 +1,62 @@
+{
+  "attempt": {
+    "request_id": "share_event_bj",
+    "attempt": 1,
+    "api_name": "adj_factor",
+    "params": {
+      "ts_code": "920037.BJ",
+      "start_date": "20260507",
+      "end_date": "20260511"
+    },
+    "fields": [
+      "ts_code",
+      "trade_date",
+      "adj_factor"
+    ],
+    "requested_at": "2026-10-30T00:39:13.797184+00:00",
+    "elapsed_seconds": 0.208,
+    "http_status": 200,
+    "provider_code": 0,
+    "returned_fields": [
+      "ts_code",
+      "trade_date",
+      "adj_factor"
+    ],
+    "row_count": 3,
+    "has_more": false,
+    "error": null,
+    "evidence_path": "data/probes/adj-factor-onboarding-20261030T083849971994/requests/share_event_bj-attempt-01.json"
+  },
+  "response": {
+    "request_id": "0c6fb49e-9f81-462d-a594-4379c9cf0101",
+    "code": 0,
+    "data": {
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "items": [
+        [
+          "920037.BJ",
+          "20260511",
+          1.4226
+        ],
+        [
+          "920037.BJ",
+          "20260508",
+          1.4226
+        ],
+        [
+          "920037.BJ",
+          "20260507",
+          1.0077
+        ]
+      ],
+      "has_more": false,
+      "count": 0
+    },
+    "msg": "",
+    "detail": "..."
+  }
+}

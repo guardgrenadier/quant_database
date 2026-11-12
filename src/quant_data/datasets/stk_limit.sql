@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS canonical.stk_limit (
     -- 开放源分类，可空，不以当前样本固化全集枚举。
     asset_type VARCHAR,
     exchange VARCHAR,
-    PRIMARY KEY (ts_code,trade_date),
+    -- 逻辑键由 Dataset 验收，不为持续增长的大表物化 ART 主键。
     -- 最终业务约束只检查上下限顺序，不限制幅度或与昨收的关系。
     CHECK (up_limit>=down_limit)
 );

@@ -42,6 +42,7 @@ from quant_data.sources.tushare.index_member_all import TushareIndexMemberAllAda
 from quant_data.sources.galaxy.client import GalaxyClient
 from quant_data.sources.galaxy.stock_1min import GalaxyStock1MinAdapter
 from quant_data.sources.galaxy.index_weight import GalaxyIndexWeightAdapter
+from quant_data.sources.local.stock_1min import LocalParquetStock1MinAdapter
 
 
 def _maintain(args):
@@ -78,9 +79,10 @@ def main():
     ingest.add_argument("--keep-artifacts", action="store_true", help="保留完整阶段产物供 walkthrough")
     ingest.add_argument("--start-date", help="日期型 Dataset 开始日期，YYYYMMDD")
     ingest.add_argument("--end-date", help="日期型 Dataset 结束日期，YYYYMMDD，包含当日")
-    ingest.add_argument("--ts-code", action="append", help="仅 index_daily：选择已发布 universe 内代码，可重复")
+    ingest.add_argument("--ts-code", action="append", help="index_daily、stock_1min 银河：选择代码，可重复")
     ingest.add_argument("--index-code", action="append", help="仅 index_weight：选择支持的指数，可重复")
     ingest.add_argument("--parallel", type=int, choices=(2, 4), help="仅 stock_1min：银河单会话请求并行度")
+    ingest.add_argument("--source-parquet", type=Path, help="仅 stock_1min：使用单日网盘本地 Parquet，不请求银河")
     meta = commands.add_parser("meta", help="独立审计收尾与留存维护")
     maintenance_commands = meta.add_subparsers(dest="meta_command", required=True)
     reconcile = maintenance_commands.add_parser("reconcile", help="收尾遗留 RUNNING，不重新获取或发布")
@@ -103,10 +105,10 @@ def main():
     elif args.start_date is not None or args.end_date is not None:
         # 业务检查：快照只能整表替换，禁止将日期子集误作完整快照。
         parser.error(f"{args.dataset} does not accept date filters")
-    # 业务边界：指数子集不能改变其他 Dataset 的完整日/快照政策；成员由 Dataset 同快照核对。
+    # 业务边界：指数/银河分钟子集不能改变其他 Dataset 的完整日/快照政策；成员由 Dataset 核对。
     if args.ts_code is not None:
-        if args.dataset != "index_daily":
-            parser.error("--ts-code is only supported for index_daily")
+        if args.dataset not in ("index_daily", "stock_1min"):
+            parser.error("--ts-code is only supported for index_daily and Galaxy stock_1min")
         params["ts_codes"] = args.ts_code
     if args.index_code is not None:
         if args.dataset != "index_weight":
@@ -114,14 +116,34 @@ def main():
         params["index_codes"] = args.index_code
     if args.parallel is not None and args.dataset != "stock_1min":
         parser.error("--parallel is only supported for stock_1min")
-    if args.dataset == "stock_1min":
+    local_minute = args.source_parquet is not None
+    if local_minute:
+        # 本地契约固定一日一文件；文件名是计划边界，内部日期仍在 prepare 复核。
+        if args.dataset != "stock_1min":
+            parser.error("--source-parquet is only supported for stock_1min")
+        if args.parallel is not None:
+            parser.error("--parallel is not supported with --source-parquet")
+        if args.ts_code is not None:
+            parser.error("--ts-code is not supported with --source-parquet")
+        if args.start_date != args.end_date:
+            parser.error("--source-parquet requires start_date=end_date")
+        if args.source_parquet.name != f"{args.start_date}.parquet":
+            parser.error("Local Parquet filename must be YYYYMMDD.parquet and match --start-date")
+        try:
+            params["source"] = LocalParquetStock1MinAdapter.inspect(args.source_parquet)
+        except (ValueError, OSError) as exc:
+            print(json.dumps({"status": "FAILED", "error": str(exc)}, ensure_ascii=False))
+            return 1
+    elif args.dataset == "stock_1min":
         params["parallel"] = args.parallel or 2
-    # 凭据优先使用项目 .env，再取环境变量；仅交给 Client，输出错误和结果时再次脱敏。
+    # 凭据优先使用项目 .env，再取环境变量；本地文件 Run 不加载任何供应商凭据要求。
     values = dotenv_values(".env")
     token = (values.get("TUSHARE_TOKEN") or os.environ.get("TUSHARE_TOKEN", "")).strip()
     ad_username = (values.get("AD_USERNAME") or os.environ.get("AD_USERNAME", "")).strip()
     ad_password = (values.get("AD_PASSWORD") or os.environ.get("AD_PASSWORD", "")).strip()
-    if args.dataset in ("stock_1min", "index_weight"):
+    if local_minute:
+        pass
+    elif args.dataset in ("stock_1min", "index_weight"):
         if not ad_username or not ad_password:
             parser.error("Set AD_USERNAME and AD_PASSWORD in the project .env or environment")
         os.environ["AD_USERNAME"], os.environ["AD_PASSWORD"] = ad_username, ad_password
@@ -173,7 +195,10 @@ def main():
             adapter = TushareIndexMemberAllAdapter(TushareClient(token))
         elif args.dataset == "stock_1min":
             dataset = Stock1MinDataset()
-            adapter = GalaxyStock1MinAdapter(GalaxyClient(parallel=params["parallel"]))
+            if local_minute:
+                adapter = LocalParquetStock1MinAdapter(params["source"])
+            else:
+                adapter = None
         elif args.dataset == "index_weight":
             # 业务装配：权重单日响应未验证并发，内部固定串行，不开放分钟并行参数。
             dataset = IndexWeightDataset()
@@ -185,6 +210,14 @@ def main():
             db.initialize(con, dataset)
             # 只在独立 CLI 启动、登记新 Run 前收尾；Runner 的普通调用不扫描活动运行。
             reconciled = audit.reconcile(con)
+            if args.dataset == "stock_1min" and not local_minute:
+                # 组合根显式读取映射；Runner 随后仍通过正式依赖检查固定并复核其版本。
+                has_mapping = con.execute("""
+                    SELECT count(*) FROM information_schema.tables
+                    WHERE table_schema='canonical' AND table_name='bse_mapping'
+                """).fetchone()[0]
+                mapping = dict(con.execute("SELECT n_code,o_code FROM canonical.bse_mapping").fetchall()) if has_mapping else {}
+                adapter = GalaxyStock1MinAdapter(GalaxyClient(parallel=params["parallel"]), mapping)
             result = run(con, dataset, adapter, params, RunOptions(args.landing_dir, args.keep_artifacts))
     except (ValueError, OSError, duckdb.Error) as exc:
         message = str(exc)

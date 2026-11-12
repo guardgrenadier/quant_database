@@ -1,9 +1,8 @@
 """银河分钟与快照交付，以及单一完整研究网格的集中构造。"""
 
-from datetime import date, datetime, time
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from zoneinfo import ZoneInfo
-import re
 
 import polars as pl
 
@@ -13,11 +12,12 @@ from quant_data.core.validation import blocked_units
 from quant_data.datasets.stock_1min import Stock1MinDataset
 from quant_data.db import registered, transaction
 from quant_data.sources.galaxy.client import GalaxyRequest
+from quant_data.sources.stock_1min_common import build_candidate, suspension_intervals
 
 PRICE_SCALE = 1_000_000
 VOLUME_SCALE = 100
 AMOUNT_SCALE = 100_000
-TIMING = re.compile(r"^([01][0-9]|2[0-3]):([0-5][0-9])-([01][0-9]|2[0-3]):([0-5][0-9])$")
+BSE_MIGRATION = "2025-10-09"
 
 
 def _unit(code, day):
@@ -64,63 +64,73 @@ class GalaxyStock1MinAdapter:
     """组织银河请求并将原始交付转换为完整分钟 Candidate。
 
     获取阶段保留 Raw、请求身份和 Unit 影响关系；准备阶段才结合固定上游事实
-    生成派生行。一次请求失败只影响其覆盖 Unit，全天停牌 Unit 则无请求本地交付。
+    生成派生行。批量失败经一层单股单日补取后只阻断最终失败 Unit，全天停牌
+    Unit 则无请求本地交付；熔断和会话级故障仍按原影响范围处理。
     """
 
-    def __init__(self, client):
+    def __init__(self, client, bse_mapping=None):
         self.client = client
         self.dataset = Stock1MinDataset()
+        # Canonical 始终使用 n_code；仅银河改代码前的请求路由使用 o_code。
+        self._bse_mapping = dict(bse_mapping or {})
+        self._bse_current = {old: new for new, old in self._bse_mapping.items()}
         self._responses = {}
 
     def fetch(self, scope, artifacts):
-        """按股票十日分片 K 线、按交易日批量快照，并返回完整 Unit Delivery。
+        """批量优先获取，失败时以一层单股单日补取确定最终 Unit 交付。
 
-        request_units 决定外部请求，owners 保留请求到 code×date 的影响映射。
-        scope.units 中每个 Unit 都有交付状态：无请求的全天停牌为 COMPLETE 且
-        request_ids 为空，不能用有行或无行反推获取状态。
+        父、子请求都保留审计，但 prepare 只消费最终响应；被替换父请求的部分行
+        不与补取行重复进入 Raw。熔断和会话级故障不启动额外补取会话。
         """
         requested = scope.units if scope.request_units is None else scope.request_units
-        by_code, by_day = {}, {}
-        for unit in requested:
-            code, day = unit.rsplit(":", 1)
-            by_code.setdefault(code, []).append(day)
-            by_day.setdefault(day, []).append(code)
-        requests, owners = [], {}
-        for code, days in sorted(by_code.items()):
-            days = sorted(days)
-            for offset in range(0, len(days), 10):
-                part = days[offset:offset + 10]
-                request_id = f"minute-kline-{code}-{part[0]}-{part[-1]}"
-                request = GalaxyRequest(request_id, "kline", (code,), int(part[0].replace("-", "")),
-                                        int(part[-1].replace("-", "")), 900, 1700)
-                requests.append(request)
-                owners[request_id] = tuple(f"{code}:{day}" for day in part)
-        for day, codes in sorted(by_day.items()):
-            codes = sorted(codes)
-            for offset in range(0, len(codes), 200):
-                part = tuple(codes[offset:offset + 200])
-                request_id = f"minute-snapshot-{day}-{offset // 200 + 1}"
-                request = GalaxyRequest(request_id, "snapshot", part, int(day.replace("-", "")),
-                                        int(day.replace("-", "")), 92457000, 92530000)
-                requests.append(request)
-                owners[request_id] = tuple(f"{code}:{day}" for code in part)
-        responses, attempts = self.client.fetch(requests, artifacts) if requests else ((), ())
+        requests, owners = self._request_plan(requested)
+        primary, primary_attempts = self.client.fetch(requests, artifacts) if requests else ((), ())
+        retry_requests, retry_owners, retry_parents = self._retry_plan(primary, owners)
+        retries, retry_attempts = self.client.fetch(
+            retry_requests, artifacts, allow_unrelated_evidence=True,
+        ) if retry_requests else ((), ())
+
+        # 最终响应只包括未被替换的父响应和补取子响应，准备阶段不会误用父批次 partial Raw。
+        retried_parents = set(retry_parents.values())
+        responses = tuple(r for r in primary if r.request.request_id not in retried_parents) + retries
+        attempts = tuple(primary_attempts) + tuple(retry_attempts)
         self._responses = {r.request.request_id: r for r in responses}
-        self._owners = owners
-        checks = []
+        self._owners = {r.request.request_id: owners[r.request.request_id]
+                        for r in primary if r.request.request_id not in retried_parents}
+        self._owners.update(retry_owners)
+
         states = {unit: "COMPLETE" for unit in scope.units}
         request_ids = {unit: [] for unit in scope.units}
+        for response in primary:
+            for unit in owners[response.request.request_id]:
+                request_ids[unit].append(response.request.request_id)
+        for response in retries:
+            for unit in retry_owners[response.request.request_id]:
+                request_ids[unit].append(response.request.request_id)
+
+        checks = []
+        primary_by_id = {r.request.request_id: r for r in primary}
+        for parent_id in sorted(retried_parents):
+            parent = primary_by_id[parent_id]
+            retry_count = sum(value == parent_id for value in retry_parents.values())
+            # 父请求失败只作补取审计；最终失败由对应子请求单独阻断，成功补取不残留父级 ERROR。
+            checks.append(Check("WARNING", "source.request_retry", "fetch", owners[parent_id], {
+                "request_id": parent_id, "error": parent.error,
+                "provider_code": parent.provider_code, "retry_requests": retry_count,
+            }))
         for response in responses:
             request_id = response.request.request_id
-            affected = owners[request_id]
+            affected = self._owners[request_id]
+            if response.state == "COMPLETE":
+                continue
             for unit in affected:
-                request_ids[unit].append(request_id)
-                if response.state != "COMPLETE":
-                    states[unit] = response.state
-            if response.state != "COMPLETE":
-                checks.append(Check("ERROR", "source.request", "fetch", affected,
-                                    {"request_id": request_id, "error": response.error,
-                                     "provider_code": response.provider_code}))
+                states[unit] = response.state
+            detail = {"request_id": request_id, "error": response.error,
+                      "provider_code": response.provider_code}
+            if request_id in retry_parents:
+                detail["retry_of"] = retry_parents[request_id]
+            checks.append(Check("ERROR", "source.request", "fetch", affected, detail))
+
         # 本地全天停牌没有外部请求，但其固定事实交付计划仍为 COMPLETE。
         deliveries = tuple(UnitDelivery(unit, states[unit], tuple(request_ids[unit])) for unit in scope.units)
         frames = []
@@ -137,6 +147,70 @@ class GalaxyStock1MinAdapter:
                 frames.append(item)
         raw = pl.DataFrame(frames, infer_schema_length=None) if frames else None
         return Delivery(raw, deliveries, attempts, tuple(checks))
+
+    def _request_code(self, code, day):
+        """Canonical 新代码在银河改代码前历史请求中路由为旧代码。"""
+        if code.endswith(".BJ") and day < BSE_MIGRATION:
+            return self._bse_mapping.get(code, code)
+        return code
+
+    def _request_plan(self, requested):
+        """保持 K 线一股最多十日、快照一日最多二百股；owners 始终用新代码。"""
+        by_code, by_day = {}, {}
+        for unit in requested:
+            code, day = unit.rsplit(":", 1)
+            by_code.setdefault(code, []).append(day)
+            by_day.setdefault(day, []).append(code)
+        requests, owners = [], {}
+        for code, days in sorted(by_code.items()):
+            # 跨迁移日的同一 Canonical 代码必须按实际请求代码分段，不能混在一个 K 线请求。
+            segments = {}
+            for day in sorted(days):
+                segments.setdefault(self._request_code(code, day), []).append(day)
+            for request_code, era_days in sorted(segments.items()):
+                for offset in range(0, len(era_days), 10):
+                    part = era_days[offset:offset + 10]
+                    request_id = f"minute-kline-{request_code}-{part[0]}-{part[-1]}"
+                    request = GalaxyRequest(request_id, "kline", (request_code,), int(part[0].replace("-", "")),
+                                            int(part[-1].replace("-", "")), 900, 1700)
+                    requests.append(request)
+                    owners[request_id] = tuple(f"{code}:{day}" for day in part)
+        for day, codes in sorted(by_day.items()):
+            codes = sorted(codes)
+            for offset in range(0, len(codes), 200):
+                part = tuple(codes[offset:offset + 200])
+                request_codes = tuple(self._request_code(code, day) for code in part)
+                request_id = f"minute-snapshot-{day}-{offset // 200 + 1}"
+                request = GalaxyRequest(request_id, "snapshot", request_codes, int(day.replace("-", "")),
+                                        int(day.replace("-", "")), 92457000, 92530000)
+                requests.append(request)
+                owners[request_id] = tuple(f"{code}:{day}" for code in part)
+        return requests, owners
+
+    @staticmethod
+    def _retry_plan(responses, owners):
+        """仅在主波次没有全局故障时，为可补取失败构造一层股票日请求。"""
+        # 不可补取响应表示熔断、会话或 worker 保护已生效，不得用新会话绕过。
+        if any(r.state != "COMPLETE" and not r.unit_retryable for r in responses):
+            return (), {}, {}
+        requests, retry_owners, retry_parents = [], {}, {}
+        for response in responses:
+            if response.state == "COMPLETE":
+                continue
+            parent = response.request
+            for position, unit in enumerate(owners[parent.request_id]):
+                code, day = unit.rsplit(":", 1)
+                day_number = int(day.replace("-", ""))
+                suffix = day if parent.kind == "kline" else code
+                request_id = f"{parent.request_id}-retry-{suffix}"
+                # 补取沿用父请求的实际时代代码，但 Unit 归属始终保持 Canonical 新代码。
+                request_code = parent.codes[0] if parent.kind == "kline" else parent.codes[position]
+                request = GalaxyRequest(request_id, parent.kind, (request_code,), day_number, day_number,
+                                        parent.begin_time, parent.end_time)
+                requests.append(request)
+                retry_owners[request_id] = (unit,)
+                retry_parents[request_id] = parent.request_id
+        return requests, retry_owners, retry_parents
 
     def prepare(self, delivery, scope, con, pins):
         """复核固定上游并集中构造网格、状态和参考价。
@@ -160,7 +234,7 @@ class GalaxyStock1MinAdapter:
         daily_map = {(c, d): (p, v) for c, d, p, v in daily}
         requested_units = scope.units if scope.request_units is None else scope.request_units
         full_suspended = set(scope.units) - set(requested_units)
-        intervals, interval_errors = self._intervals(suspensions, full_suspended, set(scope.units))
+        intervals, interval_errors = suspension_intervals(suspensions, full_suspended, set(scope.units))
         checks.extend(interval_errors)
         kline, auction, raw_checks = self._raw_frames(delivery, scope)
         checks.extend(raw_checks)
@@ -199,34 +273,6 @@ class GalaxyStock1MinAdapter:
         days = [u.rsplit(":", 1)[1] for u in scope.units]
         return [min(days), max(days)] if days else [date.min, date.max]
 
-    def _intervals(self, rows, full_suspended, known_units):
-        """把 S 的单段 HH:MM-HH:MM 文本转为 [start,end) 分钟区间。
-
-        只处理本次发布 Unit；全天停牌由 Scope 另行表达，R 不独立改变区间。
-        非当前 membership、未知格式、跨日或逆序时段不得被猜测为可交易状态。
-        """
-        intervals = []
-        checks = []
-        for code, day, kind, timing in rows:
-            if kind != "S":
-                continue
-            unit = _unit(code, day.isoformat())
-            # 非本次 membership 的停牌正文不能升级为全局错误。
-            if unit not in known_units or timing is None or unit in full_suspended:
-                continue
-            match = TIMING.fullmatch(timing or "")
-            if not match:
-                checks.append(Check("ERROR", "suspend.timing_format", "prepare", (unit,), {"timing": timing}))
-                continue
-            start = time(int(match[1]), int(match[2]))
-            end = time(int(match[3]), int(match[4]))
-            if start >= end:
-                checks.append(Check("ERROR", "suspend.timing_range", "prepare", (unit,), {"timing": timing}))
-                continue
-            intervals.append({"unit_key": unit, "start_time": start, "end_time": end})
-        frame = pl.DataFrame(intervals, schema={"unit_key": pl.String, "start_time": pl.Time, "end_time": pl.Time})
-        return frame, checks
-
     def _raw_frames(self, delivery, scope):
         """将 Raw 拆成严格整数 K 线和少量竞价锚点关系。
 
@@ -257,8 +303,9 @@ class GalaxyStock1MinAdapter:
             else:
                 # 转换失败保留明确根因，继续解析独立的快照输入，不用空 K 线制造跨源冲突。
                 try:
+                    # 银河旧代码只用于请求和 Raw 证据；Unit 归属统一映射回当前新代码。
                     kline = kline.with_columns(
-                        (pl.col("_code") + ":" + pl.col("kline_time").cast(pl.String).str.slice(0, 4) + "-" +
+                        (pl.col("_code").replace(self._bse_current) + ":" + pl.col("kline_time").cast(pl.String).str.slice(0, 4) + "-" +
                          pl.col("kline_time").cast(pl.String).str.slice(4, 2) + "-" +
                          pl.col("kline_time").cast(pl.String).str.slice(6, 2)).alias("unit_key")
                     ).select("unit_key", "kline_time", "open_price", "high_price", "low_price", "close_price",
@@ -284,7 +331,8 @@ class GalaxyStock1MinAdapter:
                 affected = self._owners[row["_request_id"]]
                 try:
                     stamp = _timestamp(row["trade_time"])
-                    unit = _unit(row["ts_code"], stamp.date().isoformat())
+                    canonical_code = self._bse_current.get(row["ts_code"], row["ts_code"])
+                    unit = _unit(canonical_code, stamp.date().isoformat())
                     day_number = int(stamp.strftime("%Y%m%d"))
                     time_number = (stamp.hour * 10000000 + stamp.minute * 100000
                                    + stamp.second * 1000 + stamp.microsecond // 1000)
@@ -387,33 +435,11 @@ class GalaxyStock1MinAdapter:
         return checks
 
     def _candidate(self, con, full_suspended):
-        """以集合 SQL 生成最终完整网格，不逐股逐行拼 Python 对象。
-
-        真实成交与 925 行优先，停牌区间次之，其余槽位为 NO_TRADE。930 只在
-        该行扣减；双零时由网格重新生成 NO_TRADE。参考价仅由 pre_close 和
-        TRADED close 顺序传递，全天停牌直接取 Scope 决定的本地 Unit。
-        """
-        # 本地全天停牌直接由 Scope 决定；真实成交优先，其后才是盘中和全天停牌。
-        return con.execute("""
-            WITH local_units AS (SELECT unnest(?::VARCHAR[]) AS unit_key),
-            u AS (
-                SELECT unit_key,split_part(unit_key,':',1) AS code,
-                       split_part(unit_key,':',2)::DATE AS trade_date
-                FROM _scope_units
-            ), slots AS (
-                SELECT u.unit_key,u.code,u.trade_date,
-                    CASE WHEN u.code LIKE '%.BJ' THEN
-                        CASE WHEN i<=120 THEN TIME '09:30:00'+INTERVAL (i) MINUTE
-                             ELSE TIME '13:00:00'+INTERVAL (i-121) MINUTE END
-                    ELSE
-                        CASE WHEN i<120 THEN TIME '09:30:00'+INTERVAL (i) MINUTE
-                             ELSE TIME '13:00:00'+INTERVAL (i-120) MINUTE END
-                    END::TIME_NS AS bar_time
-                FROM u JOIN LATERAL (SELECT * FROM range(CASE WHEN u.code LIKE '%.BJ' THEN 242 ELSE 240 END)) r(i) ON true
-                UNION ALL
-                SELECT u.unit_key,u.code,u.trade_date,TIME '09:25:00'::TIME_NS
-                FROM u JOIN _minute_auction a USING(unit_key)
-            ), adjusted AS (
+        """先执行银河专属 930 扣减，再交给共用完整网格构造。"""
+        # 银河 930 原始量额包含 925；双零时不保留成交行，由共用网格生成 NO_TRADE。
+        con.execute("""
+            CREATE OR REPLACE TEMP TABLE _minute_traded AS
+            WITH adjusted AS (
                 SELECT k.unit_key,k.kline_time,
                     strptime((k.kline_time/10000)::BIGINT::VARCHAR,'%Y%m%d')::DATE AS trade_date,
                     k.open_price/1000000.0 AS open,k.high_price/1000000.0 AS high,
@@ -423,42 +449,15 @@ class GalaxyStock1MinAdapter:
                     k.kline_time%10000=930 AND a.unit_key IS NOT NULL
                       AND k.volume_trade=a.volume_trade AND k.value_trade=a.value_trade AS drop_930
                 FROM _minute_kline k LEFT JOIN _minute_auction a USING(unit_key)
-            ), traded AS (
-                SELECT unit_key,trade_date,
-                    strptime((kline_time/10000)::BIGINT::VARCHAR||lpad((kline_time%10000)::VARCHAR,4,'0'),'%Y%m%d%H%M')::TIME::TIME_NS AS bar_time,
-                    open,high,low,close,volume,amount
-                FROM adjusted WHERE NOT drop_930 AND volume>0 AND amount>0
-                UNION ALL
-                SELECT unit_key,split_part(unit_key,':',2)::DATE,TIME '09:25:00'::TIME_NS,
-                    open_price/1000000.0,high_price/1000000.0,low_price/1000000.0,close_price/1000000.0,
-                    volume_trade/100,value_trade/100000.0
-                FROM _minute_auction
-            ), statuses AS (
-                SELECT s.unit_key,s.code,s.trade_date,s.bar_time,
-                    t.open,t.high,t.low,t.close,t.volume,t.amount,
-                    (t.unit_key IS NOT NULL) AS traded_row,
-                    CASE WHEN t.unit_key IS NOT NULL THEN 'TRADED'
-                         WHEN i.unit_key IS NOT NULL OR l.unit_key IS NOT NULL THEN 'SUSPENDED'
-                         ELSE 'NO_TRADE' END AS status
-                FROM slots s
-                LEFT JOIN traded t ON t.unit_key=s.unit_key AND t.trade_date=s.trade_date AND t.bar_time=s.bar_time
-                LEFT JOIN _minute_intervals i ON i.unit_key=s.unit_key AND s.bar_time>=i.start_time AND s.bar_time<i.end_time
-                LEFT JOIN local_units l ON l.unit_key=s.unit_key
-            ), priced AS (
-                SELECT s.*,COALESCE(last_value(CASE WHEN traded_row THEN s.close END IGNORE NULLS) OVER (
-                        PARTITION BY s.unit_key ORDER BY bar_time ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-                    ),d.pre_close) AS reference_price
-                FROM statuses s LEFT JOIN canonical.stock_daily d ON d.ts_code=s.code AND d.trade_date=s.trade_date
             )
-            SELECT code AS ts_code,trade_date,bar_time,status,
-                CASE WHEN status='SUSPENDED' OR reference_price IS NULL AND NOT traded_row THEN NULL
-                     WHEN traded_row THEN open ELSE reference_price END AS open,
-                CASE WHEN status='SUSPENDED' OR reference_price IS NULL AND NOT traded_row THEN NULL
-                     WHEN traded_row THEN high ELSE reference_price END AS high,
-                CASE WHEN status='SUSPENDED' OR reference_price IS NULL AND NOT traded_row THEN NULL
-                     WHEN traded_row THEN low ELSE reference_price END AS low,
-                CASE WHEN status='SUSPENDED' OR reference_price IS NULL AND NOT traded_row THEN NULL
-                     WHEN traded_row THEN close ELSE reference_price END AS close,
-                COALESCE(volume,0)::BIGINT AS volume,COALESCE(amount,0)::DOUBLE AS amount,reference_price
-            FROM priced ORDER BY ts_code,trade_date,bar_time
-        """, [sorted(full_suspended)]).pl()
+            SELECT unit_key,trade_date,
+                strptime((kline_time/10000)::BIGINT::VARCHAR||lpad((kline_time%10000)::VARCHAR,4,'0'),'%Y%m%d%H%M')::TIME::TIME_NS AS bar_time,
+                open,high,low,close,volume::BIGINT AS volume,amount
+            FROM adjusted WHERE NOT drop_930 AND volume>0 AND amount>0
+            UNION ALL
+            SELECT unit_key,split_part(unit_key,':',2)::DATE,TIME '09:25:00'::TIME_NS,
+                open_price/1000000.0,high_price/1000000.0,low_price/1000000.0,close_price/1000000.0,
+                (volume_trade/100)::BIGINT,value_trade/100000.0
+            FROM _minute_auction
+        """)
+        return build_candidate(con, full_suspended)

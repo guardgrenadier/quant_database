@@ -9,14 +9,13 @@ from quant_data.core.models import Check, DependencyRef, Scope, ScopeReason
 from quant_data.datasets.daily import calendar_dependencies, calendar_scope
 from quant_data.db import relation
 
-MIGRATION_DATE = date(2025, 10, 9)
 BSE_START = date(2021, 11, 15)
 
 
 class Stock1MinDataset:
     """完整分钟研究网格的业务契约，而非银河稀疏行副本。
 
-    每个 Unit 是一只时代代码证券的一个交易日。Canonical 由真实成交行和明确
+    每个 Unit 是一只统一代码证券的一个交易日。Canonical 由真实成交行和明确
     的派生规则共同形成，状态与参考价必须逐行可重算；其他 Dataset 不共享这
     一补全许可。
     """
@@ -26,7 +25,7 @@ class Stock1MinDataset:
     schema = pl.Schema({
         "ts_code": pl.String, "trade_date": pl.Date, "bar_time": pl.Time, "status": pl.String,
         "open": pl.Float64, "high": pl.Float64, "low": pl.Float64, "close": pl.Float64,
-        "volume": pl.Int64, "amount": pl.Float64, "reference_price": pl.Float64,
+        "volume": pl.Int64, "amount": pl.Float64,
     })
     ddl = Path(__file__).with_suffix(".sql").read_text()
 
@@ -36,11 +35,21 @@ class Stock1MinDataset:
         日历依赖覆盖每个自然日；停复牌和日线依赖只覆盖已发布日历确认的开市日，
         避免把没有 Coverage 的休市日误判为缺依赖。该读取与版本固定处于同一事务。
         """
-        # 业务边界：分钟只接受显式闭区间；parallel 仅作执行审计，不改变业务范围。
-        if not {"start_date", "end_date"} <= set(params) <= {"start_date", "end_date", "parallel"}:
-            raise ValueError("stock_1min requires start_date/end_date and optional parallel")
+        # source 只记录本地输入身份；parallel 仅用于银河执行，ts_codes 只允许银河显式补数。
+        if not {"start_date", "end_date"} <= set(params) <= {"start_date", "end_date", "parallel", "source", "ts_codes"}:
+            raise ValueError("stock_1min requires start_date/end_date and optional parallel/source/ts_codes")
         if "parallel" in params and params["parallel"] not in (2, 4):
             raise ValueError("stock_1min parallel must be 2 or 4")
+        if "ts_codes" in params:
+            codes = params["ts_codes"]
+            if (not isinstance(codes, (list, tuple)) or not codes
+                    or any(not isinstance(c, str) or not c.strip() for c in codes) or len(set(codes)) != len(codes)):
+                raise ValueError("ts_codes must be a nonempty sequence of unique codes")
+        if "source" in params:
+            if "parallel" in params or "ts_codes" in params or params["start_date"] != params["end_date"]:
+                raise ValueError("Local Parquet stock_1min requires one day and does not accept parallel/ts_codes")
+            if params["source"].get("type") != "LOCAL_PARQUET":
+                raise ValueError("Unsupported stock_1min source")
         refs = list(calendar_dependencies({k: params[k] for k in ("start_date", "end_date")}))
         if params["start_date"] < "20130101":
             raise ValueError("stock_1min history starts at 2013-01-01")
@@ -60,7 +69,8 @@ class Stock1MinDataset:
     def resolve_scope(self, params, pins, con):
         """同时确定发布 Scope 和银河请求子集。
 
-        stock_basic 决定在市日期，bse_mapping 只决定 BJ 时代代码。无冲突的
+        stock_basic 决定在市日期和统一证券代码；北交所全历史使用当前新代码。
+        bse_mapping 只供来源发现旧代码时归一化，不再反向生成历史旧代码 Unit。
         全天停牌 Unit 仍进入 units 以生成本地网格，但不进入 request_units；
         全天停牌与日线正成交量冲突则留 UNKNOWN，不能发布成全天停牌。
         """
@@ -71,23 +81,21 @@ class Stock1MinDataset:
             WHERE exchange IN ('SSE','SZSE','BSE') AND list_date<=?::DATE
               AND (delist_date IS NULL OR delist_date>=?::DATE)
         """, [end, start]).fetchall()
-        mappings = dict(con.execute("SELECT n_code,o_code FROM canonical.bse_mapping").fetchall())
-        # 业务转换：同一证券按日期使用时代代码；membership 仍来自 stock_basic 的原始在市日期。
+        # 业务边界：stock_basic 的当前新代码就是 Canonical 全历史代码，不按日期拆分。
         memberships = {}
         for code, exchange, listed, delisted in basics:
-            periods = [(code, listed, delisted or date.max)]
-            if exchange == "BSE" and code in mappings:
-                periods = [(mappings[code], listed, min(delisted or date.max, date(2025, 10, 8))),
-                           (code, max(listed, MIGRATION_DATE), delisted or date.max)]
-            for era_code, era_start, era_end in periods:
-                if era_end < era_start:
-                    continue
-                memberships.setdefault(era_code, (max(era_start, start), min(era_end, end)))
+            first, last = max(listed, start), min(delisted or date.max, end)
+            if last >= first:
+                memberships[code] = (first, last)
         days = [date.fromisoformat(x) for x in calendar.units]
         suspended = {(r[0], r[1]) for r in con.execute("""
             SELECT ts_code,trade_date FROM canonical.suspend_daily
             WHERE trade_date BETWEEN ?::DATE AND ?::DATE
               AND suspend_type='S' AND suspend_timing IS NULL
+        """, [start, end]).fetchall()}
+        resumed = {(r[0], r[1]) for r in con.execute("""
+            SELECT ts_code,trade_date FROM canonical.suspend_daily
+            WHERE trade_date BETWEEN ?::DATE AND ?::DATE AND suspend_type='R'
         """, [start, end]).fetchall()}
         positive = {(r[0], r[1]) for r in con.execute("""
             SELECT ts_code,trade_date FROM canonical.stock_daily
@@ -101,11 +109,14 @@ class Stock1MinDataset:
                 if code.endswith(".BJ") and day < BSE_START:
                     continue
                 unit = f"{code}:{day.isoformat()}"
-                if (code, day) in suspended and (code, day) in positive:
+                # 业务例外：只有 R 同日与正成交日线共同证明可交易时才解除全天停牌；
+                # 无日线的 S+R 维持原状，没有 R 的正成交冲突仍为 UNKNOWN。
+                resumed_positive = (code, day) in resumed and (code, day) in positive
+                if (code, day) in suspended and (code, day) in positive and not resumed_positive:
                     unknown.append(ScopeReason(unit, "suspend_conflict: full-day suspension conflicts with positive stock_daily.vol"))
                     continue
                 units.append(unit)
-                if (code, day) not in suspended:
+                if (code, day) not in suspended or resumed_positive:
                     requests.append(unit)
         # 休市和日历未知只针对对应 membership 日期展开，不影响其他开市 Unit。
         era_members = tuple(memberships.items())
@@ -115,18 +126,31 @@ class Stock1MinDataset:
         calendar_unknown = tuple(ScopeReason(f"{code}:{r.unit_key}", r.reason)
                                  for code, (first, last) in era_members for r in calendar.unknown
                                  if first <= date.fromisoformat(r.unit_key) <= last)
-        return Scope(tuple(sorted(units)), excluded, calendar_unknown + tuple(unknown),
-                     request_units=tuple(sorted(requests)))
+        resolved = Scope(tuple(sorted(units)), excluded, calendar_unknown + tuple(unknown),
+                         request_units=tuple(sorted(requests)))
+        if "ts_codes" not in params:
+            return resolved
+        # 业务补数：先按固定上游解析完整 Scope，再筛选显式代码；未知和未在市代码不得被静默丢弃。
+        selected = set(params["ts_codes"])
+        outside = sorted(selected - set(memberships))
+        if outside:
+            raise ValueError(f"Stock codes outside resolved membership: {outside}")
+        return Scope(
+            tuple(u for u in resolved.units if u.rsplit(":", 1)[0] in selected),
+            tuple(r for r in resolved.out_of_scope if r.unit_key.rsplit(":", 1)[0] in selected),
+            tuple(r for r in resolved.unknown if r.unit_key.rsplit(":", 1)[0] in selected),
+            request_units=tuple(u for u in resolved.request_units if u.rsplit(":", 1)[0] in selected),
+        )
 
     def unit_key_sql(self, alias):
         return f"{alias}.ts_code||':'||strftime({alias}.trade_date,'%Y-%m-%d')"
 
     def validate_candidate(self, con, candidate_relation, scope):
-        """按 Unit 集合验收键、完整槽位、状态字段和参考价序列。
+        """按 Unit 集合验收键、完整槽位、状态字段和参考价派生。
 
         连续槽位必须与 240/242 模板精确一致，925 只能作为可选 TRADED 行附加。
-        参考价由固定日线 pre_close 与 TRADED close 独立重算，不能只凭数值
-        与某个历史或未来价格相同就推断来源正确。
+        Candidate 不保存参考价，但仍从固定日线和 TRADED close 独立重算，
+        以验证 NO_TRADE 的 OHLC 构造，不能用相同数值代替来源证明。
         """
         table = relation(candidate_relation)
         key = self.unit_key_sql("c")
@@ -172,21 +196,19 @@ class Stock1MinDataset:
         invalid = con.execute(f"""
             SELECT DISTINCT ({key}) FROM {table} c WHERE
               (bar_time='09:25:00' AND status<>'TRADED') OR
-              (status='TRADED' AND (open IS NULL OR volume<=0 OR amount<=0 OR reference_price<>close)) OR
+              (status='TRADED' AND (open IS NULL OR volume<=0 OR amount<=0)) OR
               (status='NO_TRADE' AND (volume<>0 OR amount<>0 OR
-                 NOT ((reference_price IS NULL AND open IS NULL AND high IS NULL AND low IS NULL AND close IS NULL)
-                   OR (reference_price IS NOT NULL AND open=reference_price AND high=reference_price
-                       AND low=reference_price AND close=reference_price)))) OR
+                 NOT ((open IS NULL AND high IS NULL AND low IS NULL AND close IS NULL)
+                   OR (open=high AND high=low AND low=close)))) OR
               (status='SUSPENDED' AND (open IS NOT NULL OR high IS NOT NULL OR low IS NOT NULL OR close IS NOT NULL
                                       OR volume<>0 OR amount<>0)) OR
               (open IS NOT NULL AND (NOT isfinite(open) OR NOT isfinite(high) OR NOT isfinite(low) OR NOT isfinite(close)
                                     OR open<=0 OR high<=0 OR low<=0 OR close<=0 OR high<low
-                                    OR open NOT BETWEEN low AND high OR close NOT BETWEEN low AND high)) OR
-              (reference_price IS NOT NULL AND (NOT isfinite(reference_price) OR reference_price<=0))
+                                    OR open NOT BETWEEN low AND high OR close NOT BETWEEN low AND high))
         """).fetchall()
         if invalid:
             checks.append(Check("ERROR", "stock_1min.status_values", "validation", tuple(r[0] for r in invalid)))
-        # 参考价独立重算：只让 TRADED close 参与日内传递，初始值来自固定日线 pre_close。
+        # 参考价只用于验收 NO_TRADE 的 OHLC；初始值来自固定日线，日内只继承 TRADED close。
         wrong_reference = con.execute(f"""
             WITH ordered AS (
                 SELECT c.*,({key}) AS unit_key,
@@ -195,13 +217,17 @@ class Stock1MinDataset:
                     ) AS traded_reference
                 FROM {table} c
             ), expected AS (
-                SELECT o.unit_key,o.bar_time,COALESCE(o.traded_reference,d.pre_close) AS expected_reference
+                SELECT o.*,COALESCE(o.traded_reference,d.pre_close) AS expected_reference
                 FROM ordered o LEFT JOIN canonical.stock_daily d
                   ON d.ts_code=o.ts_code AND d.trade_date=o.trade_date
             )
-            SELECT DISTINCT e.unit_key FROM {table} c
-            JOIN expected e ON e.unit_key=({key}) AND e.bar_time=c.bar_time
-            WHERE c.reference_price IS DISTINCT FROM e.expected_reference
+            SELECT DISTINCT unit_key FROM expected e
+            WHERE status='NO_TRADE' AND (
+                (expected_reference IS NULL AND (open IS NOT NULL OR high IS NOT NULL OR low IS NOT NULL OR close IS NOT NULL))
+                OR (expected_reference IS NOT NULL AND
+                    (open IS DISTINCT FROM expected_reference OR high IS DISTINCT FROM expected_reference
+                     OR low IS DISTINCT FROM expected_reference OR close IS DISTINCT FROM expected_reference))
+            )
         """).fetchall()
         if wrong_reference:
             checks.append(Check("ERROR", "stock_1min.reference_price", "validation", tuple(r[0] for r in wrong_reference)))

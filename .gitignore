@@ -14,6 +14,8 @@ data/probes/
 data/landing/
 *.duckdb
 *.duckdb.wal
+# Ignore DuckDB spill directories beside database files.
+*.duckdb.tmp/
 *.audit/
 dbt/target/
 dbt/logs/

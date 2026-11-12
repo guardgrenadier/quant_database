@@ -22,7 +22,8 @@ from quant_data.db import registered
 from quant_data.sources.galaxy.client import GalaxyResponse
 from quant_data.sources.galaxy.index_weight import FIELD_MAP, GalaxyIndexWeightAdapter
 
-REFERENCE = Path("data/probes/amazingdata-recovery-20261019-114800/index_weight_raw_000300_202609_single.json")
+# 真实响应作为仓库固定夹具保存，清理探查目录不影响离线回放。
+REFERENCE = Path(__file__).with_name("fixtures") / "index_weight" / "index_weight_raw_000300_202609_single.json"
 
 
 def row(con_code="000001.SZ", **changes):
@@ -336,7 +337,6 @@ class IndexWeightIngestionTest(unittest.TestCase):
         self.assertEqual(len(client.requests), 1)
         self.assertEqual(json.loads(output.getvalue())["status"], "SUCCESS")
 
-    @unittest.skipUnless(REFERENCE.exists(), "真实银河权重样本不随 Git 分发")
     def test_saved_real_single_day_replay(self):
         source = json.loads(REFERENCE.read_text())["response"]["records"]
         result = self.ingest(WeightClient(source), self.params | {"index_codes": ["000300.SH"]})

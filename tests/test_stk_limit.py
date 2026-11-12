@@ -23,7 +23,8 @@ from quant_data.sources.tushare.stk_limit import TushareStkLimitAdapter
 from quant_data.sources.tushare.trade_calendar import TushareTradeCalendarAdapter
 from tests.test_suspend_daily import ProviderClient as CalendarClient
 
-SAMPLES = Path('data/probes/stk-limit-onboarding-20261029T213351571183/requests')
+# 真实响应作为仓库固定夹具保存，清理探查目录不影响离线回放。
+SAMPLES = Path(__file__).with_name('fixtures') / 'stk_limit'
 
 
 def row(code='000001.SZ', day='20200312', **changes):
@@ -269,7 +270,6 @@ class StkLimitTest(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 main()
 
-    @unittest.skipUnless(SAMPLES.exists(), '本地真实 stk_limit 信封不随 Git 分发')
     def test_saved_real_pages_and_historical_values(self):
         # 上游日历为明确的测试输入，价格页全部来自真实已保存信封，二者不混称实时获取。
         bodies = {name:json.loads((SAMPLES/f'{name}-attempt-01.json').read_text())['response']

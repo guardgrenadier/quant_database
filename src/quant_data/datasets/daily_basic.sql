@@ -21,7 +21,6 @@ CREATE TABLE IF NOT EXISTS canonical.daily_basic (
     float_share DOUBLE CHECK (isfinite(float_share) AND float_share>=0),
     free_share DOUBLE CHECK (isfinite(free_share) AND free_share>=0),
     total_mv DOUBLE CHECK (isfinite(total_mv) AND total_mv>=0),
-    circ_mv DOUBLE CHECK (isfinite(circ_mv) AND circ_mv>=0),
-    -- 股本和市值的跨字段关系由 Dataset 告警，不设为数据库阻断约束。
-    PRIMARY KEY (ts_code,trade_date)
+    circ_mv DOUBLE CHECK (isfinite(circ_mv) AND circ_mv>=0)
+    -- 股本关系和逻辑键由 Dataset 验收，不物化持续增长的大表 ART 主键。
 );

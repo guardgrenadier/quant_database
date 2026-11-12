@@ -13,6 +13,7 @@ import duckdb
 from quant_data import db
 from quant_data.datasets.index_member_all import IndexMemberAllDataset
 from quant_data.datasets.stock_daily import StockDailyDataset
+from quant_data.datasets.stock_1min import Stock1MinDataset
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -24,7 +25,7 @@ class DbtServingTest(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.path = self.root / 'warehouse.duckdb'
         with duckdb.connect(str(self.path)) as con:
-            for dataset in (StockDailyDataset(), IndexMemberAllDataset()):
+            for dataset in (StockDailyDataset(), IndexMemberAllDataset(), Stock1MinDataset()):
                 db.initialize(con, dataset)
             # 明确测试夹具：覆盖旧区间结束日、新区间开始日、无归属股票和历史断档。
             con.execute("""
@@ -39,6 +40,16 @@ class DbtServingTest(unittest.TestCase):
                 ('L1-new',NULL,'L2-new',NULL,'L3-new',NULL,'000001.SZ',NULL,'2020-03-13',NULL,'Y'),
                 ('L1-gap',NULL,'L2-gap',NULL,'L3-gap',NULL,'000003.SZ',NULL,'2010-01-01','2020-03-12','N'),
                 ('L1-gap',NULL,'L2-gap',NULL,'L3-gap',NULL,'000003.SZ',NULL,'2020-03-16',NULL,'Y')
+            """)
+            # 分钟夹具覆盖日线初始化、TRADED 前向继承及停牌期间的连续参考价。
+            con.execute("""
+                insert into canonical.stock_1min values
+                ('000001.SZ','2020-03-12','09:30','TRADED',11,12,10,11,100,1100),
+                ('000001.SZ','2020-03-12','09:31','NO_TRADE',11,11,11,11,0,0),
+                ('000001.SZ','2020-03-12','09:32','SUSPENDED',NULL,NULL,NULL,NULL,0,0),
+                ('000002.SZ','2020-03-13','09:30','NO_TRADE',10,10,10,10,0,0),
+                ('000002.SZ','2020-03-13','09:31','TRADED',10,11,10,10.5,100,1050),
+                ('000002.SZ','2020-03-13','09:32','NO_TRADE',10.5,10.5,10.5,10.5,0,0)
             """)
             # 成功元数据为测试夹具，不将手工插入称作真实 ingestion 或供应商发布。
             con.execute("""
@@ -65,6 +76,7 @@ class DbtServingTest(unittest.TestCase):
             return [con.execute(sql).fetchall() for sql in (
                 'select * from canonical.stock_daily order by ts_code,trade_date',
                 'select * from canonical.index_member_all order by ts_code,in_date',
+                'select * from canonical.stock_1min order by ts_code,trade_date,bar_time',
                 'select * from meta.coverage order by dataset,unit_key',
                 'select * from meta.publication order by publication_id')]
 
@@ -88,9 +100,25 @@ class DbtServingTest(unittest.TestCase):
             # View 应保留原始日线所有字段，且只追加约定的三列。
             columns = [r[0] for r in con.execute('describe serving.stock_daily_with_sw_industry').fetchall()]
             self.assertEqual(columns, StockDailyDataset.schema.names()+['sw_l1_code','sw_l2_code','sw_l3_code'])
+            # 分钟 View 只增加派生参考价，不重写 Canonical 的十列事实。
+            minute_columns = [r[0] for r in con.execute('describe serving.stock_1min_with_reference').fetchall()]
+            self.assertEqual(minute_columns, Stock1MinDataset.schema.names()+['reference_price'])
+            references = con.execute("""
+                select ts_code,bar_time::varchar,reference_price
+                from serving.stock_1min_with_reference order by ts_code,trade_date,bar_time
+            """).fetchall()
+            self.assertEqual(references, [
+                ('000001.SZ','09:30:00',11.0),('000001.SZ','09:31:00',11.0),
+                ('000001.SZ','09:32:00',11.0),('000002.SZ','09:30:00',10.0),
+                ('000002.SZ','09:31:00',10.5),('000002.SZ','09:32:00',10.5)])
             con.execute("update canonical.index_member_all set l3_code='L3-revised' where l3_code='L3-new'")
             self.assertEqual(con.execute("select sw_l3_code from serving.stock_daily_with_sw_industry "
                                          "where ts_code='000001.SZ' and trade_date='2020-03-13'").fetchone()[0], 'L3-revised')
+            # 普通 View 使用当前日线；上游修订不冒充固定历史版本。
+            con.execute("update canonical.stock_daily set pre_close=9.75 "
+                        "where ts_code='000002.SZ' and trade_date='2020-03-13'")
+            self.assertEqual(con.execute("select reference_price from serving.stock_1min_with_reference "
+                                         "where ts_code='000002.SZ' and bar_time=time '09:30'").fetchone()[0], 9.75)
 
     def test_unpublished_snapshot_or_daily_unit_blocks_before_view(self):
         for dataset, unit in (('index_member_all','SNAPSHOT'), ('stock_daily','2020-03-13')):

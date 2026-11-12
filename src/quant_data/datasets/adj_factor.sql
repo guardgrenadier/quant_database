@@ -5,6 +5,6 @@ CREATE TABLE IF NOT EXISTS canonical.adj_factor (
     ts_code VARCHAR NOT NULL CHECK (length(trim(ts_code))>0),
     trade_date DATE NOT NULL,
     -- 因子必填、有限且为正；不设置初值、上限或跨日期单调性约束。
-    adj_factor DOUBLE NOT NULL CHECK (isfinite(adj_factor) AND adj_factor>0),
-    PRIMARY KEY (ts_code,trade_date)
+    adj_factor DOUBLE NOT NULL CHECK (isfinite(adj_factor) AND adj_factor>0)
+    -- 逻辑键由 Dataset 验收，不为持续增长的大表物化 ART 主键。
 );

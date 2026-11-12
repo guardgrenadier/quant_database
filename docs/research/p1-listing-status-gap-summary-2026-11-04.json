@@ -1,0 +1,178 @@
+{
+  "investigation_date": "2026-11-04",
+  "target_date": "2013-01-04",
+  "official_tushare_requests": 41,
+  "request_errors": 0,
+  "production_database_sha256": "67ce66d70b78dbbc9e5d0e28e93606aee7af23fae767c5df16a433643f59c4d9",
+  "production_unchanged": true,
+  "suspend_full_market_rows": 58,
+  "suspend_full_market_exactly_matches_canonical": true,
+  "suspend_subset_target_rows": 0,
+  "suspend_range_rows": 64,
+  "suspend_range_target_rows": 0,
+  "daily_target_rows_for_all_19": 0,
+  "resumption_dates_match_for_17": true,
+  "codes": [
+    {
+      "ts_code": "000038.SZ",
+      "last_reported_daily_before_target": "20070427",
+      "first_reported_daily_through_20141231": "20130208",
+      "official_resume_date": "20130208",
+      "primary_source": "https://static.cninfo.com.cn/finalpage/2013-02-08/62125771.PDF",
+      "classification": "suspended-listing period before later resumption"
+    },
+    {
+      "ts_code": "000403.SZ",
+      "last_reported_daily_before_target": "20070410",
+      "first_reported_daily_through_20141231": "20130208",
+      "official_resume_date": "20130208",
+      "primary_source": "https://static.cninfo.com.cn/finalpage/2013-02-01/62092773.PDF",
+      "classification": "suspended-listing period before later resumption"
+    },
+    {
+      "ts_code": "000498.SZ",
+      "last_reported_daily_before_target": "20080424",
+      "first_reported_daily_through_20141231": "20130208",
+      "official_resume_date": "20130208",
+      "primary_source": "https://static.cninfo.com.cn/finalpage/2013-02-01/62092873.PDF",
+      "classification": "suspended-listing period before later resumption"
+    },
+    {
+      "ts_code": "000545.SZ",
+      "last_reported_daily_before_target": "20120425",
+      "first_reported_daily_through_20141231": "20130726",
+      "official_resume_date": "20130726",
+      "primary_source": "https://static.cninfo.com.cn/finalpage/2013-07-26/62870248.PDF",
+      "classification": "suspended-listing period before later resumption"
+    },
+    {
+      "ts_code": "000622.SZ",
+      "last_reported_daily_before_target": "20060428",
+      "first_reported_daily_through_20141231": "20130208",
+      "official_resume_date": "20130208",
+      "primary_source": "https://static.cninfo.com.cn/finalpage/2013-02-08/62125794.PDF",
+      "classification": "suspended-listing period before later resumption"
+    },
+    {
+      "ts_code": "000657.SZ",
+      "last_reported_daily_before_target": "20100326",
+      "first_reported_daily_through_20141231": "20130208",
+      "official_resume_date": "20130208",
+      "primary_source": "https://static.cninfo.com.cn/finalpage/2014-04-03/63786011.PDF",
+      "classification": "suspended-listing period before later resumption"
+    },
+    {
+      "ts_code": "000670.SZ",
+      "last_reported_daily_before_target": "20070427",
+      "first_reported_daily_through_20141231": "20130208",
+      "official_resume_date": "20130208",
+      "primary_source": "https://static.cninfo.com.cn/finalpage/2016-07-15/1202475184.PDF",
+      "classification": "suspended-listing period before later resumption"
+    },
+    {
+      "ts_code": "000672.SZ",
+      "last_reported_daily_before_target": "20070423",
+      "first_reported_daily_through_20141231": "20130426",
+      "official_resume_date": "20130426",
+      "primary_source": "https://static.cninfo.com.cn/finalpage/2013-04-19/62385047.PDF",
+      "classification": "suspended-listing period before later resumption"
+    },
+    {
+      "ts_code": "000681.SZ",
+      "last_reported_daily_before_target": "20090306",
+      "first_reported_daily_through_20141231": "20130208",
+      "official_resume_date": "20130208",
+      "primary_source": "https://static.cninfo.com.cn/finalpage/2013-02-01/62092457.PDF",
+      "classification": "suspended-listing period before later resumption"
+    },
+    {
+      "ts_code": "000688.SZ",
+      "last_reported_daily_before_target": "20070426",
+      "first_reported_daily_through_20141231": "20130426",
+      "official_resume_date": "20130426",
+      "primary_source": "https://static.cninfo.com.cn/finalpage/2013-04-19/62384991.PDF",
+      "classification": "suspended-listing period before later resumption"
+    },
+    {
+      "ts_code": "000693.SZ",
+      "last_reported_daily_before_target": "20070427",
+      "first_reported_daily_through_20141231": "20140110",
+      "official_resume_date": "20140110",
+      "primary_source": "https://static.cninfo.com.cn/finalpage/2014-01-10/63471125.PDF",
+      "classification": "suspended-listing period before later resumption"
+    },
+    {
+      "ts_code": "000757.SZ",
+      "last_reported_daily_before_target": "20070423",
+      "first_reported_daily_through_20141231": "20130208",
+      "official_resume_date": "20130208",
+      "primary_source": "https://static.cninfo.com.cn/finalpage/2013-02-01/62092884.PDF",
+      "classification": "suspended-listing period before later resumption"
+    },
+    {
+      "ts_code": "000787.SZ",
+      "last_reported_daily_before_target": "20070427",
+      "first_reported_daily_through_20141231": null,
+      "official_resume_date": null,
+      "primary_source": "https://static.cninfo.com.cn/finalpage/2013-01-11/62007349.PDF",
+      "classification": "no resumption; delisting transition, with continued absence of trading"
+    },
+    {
+      "ts_code": "000805.SZ",
+      "last_reported_daily_before_target": "20060428",
+      "first_reported_daily_through_20141231": null,
+      "official_resume_date": null,
+      "primary_source": "https://static.cninfo.com.cn/finalpage/2013-01-11/62007353.PDF",
+      "classification": "no resumption; delisting transition, with continued absence of trading"
+    },
+    {
+      "ts_code": "000820.SZ",
+      "last_reported_daily_before_target": "20110421",
+      "first_reported_daily_through_20141231": "20130426",
+      "official_resume_date": "20130426",
+      "primary_source": "https://static.cninfo.com.cn/finalpage/2013-04-19/62385007.PDF",
+      "classification": "suspended-listing period before later resumption"
+    },
+    {
+      "ts_code": "000831.SZ",
+      "last_reported_daily_before_target": "20110317",
+      "first_reported_daily_through_20141231": "20130208",
+      "official_resume_date": "20130208",
+      "primary_source": "https://static.cninfo.com.cn/finalpage/2013-04-22/62389589.PDF",
+      "classification": "suspended-listing period before later resumption"
+    },
+    {
+      "ts_code": "600556.SH",
+      "last_reported_daily_before_target": "20090429",
+      "first_reported_daily_through_20141231": "20130208",
+      "official_resume_date": "20130208",
+      "primary_source": "https://static.cninfo.com.cn/finalpage/2013-02-05/62109660.PDF",
+      "classification": "suspended-listing period before later resumption"
+    },
+    {
+      "ts_code": "600698.SH",
+      "last_reported_daily_before_target": "20120426",
+      "first_reported_daily_through_20141231": "20130705",
+      "official_resume_date": "20130705",
+      "primary_source": "https://static.cninfo.com.cn/finalpage/2013-01-29/62078581.PDF",
+      "classification": "suspended-listing period before later resumption"
+    },
+    {
+      "ts_code": "600817.SH",
+      "last_reported_daily_before_target": "20100319",
+      "first_reported_daily_through_20141231": "20130208",
+      "official_resume_date": "20130208",
+      "primary_source": "https://static.cninfo.com.cn/finalpage/2013-02-01/62093187.PDF",
+      "classification": "suspended-listing period before later resumption"
+    }
+  ],
+  "raw_evidence_root": "/home/xindingtian/code/quant_data/data/landing/p1-gap-investigation-20261104",
+  "business_contract_changed": false,
+  "galaxy_called": false,
+  "limits": [
+    "Target-date non-trading cause investigated; not a complete historical status interval dataset.",
+    "No inference of suspension start from the last quote or end from approval dates.",
+    "No guarantee that suspend_d intentionally excludes all suspended-listing periods.",
+    "Galaxy target-date delivery not queried."
+  ]
+}

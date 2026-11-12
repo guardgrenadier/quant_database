@@ -1,0 +1,83 @@
+{
+  "attempt": {
+    "request_id": "index_day",
+    "attempt": 1,
+    "api_name": "index_daily",
+    "params": {
+      "ts_code": "000300.SH",
+      "trade_date": "20261021"
+    },
+    "fields": [
+      "ts_code",
+      "trade_date",
+      "open",
+      "high",
+      "low",
+      "close",
+      "pre_close",
+      "change",
+      "pct_chg",
+      "vol",
+      "amount"
+    ],
+    "requested_at": "2026-10-21T17:23:20.766648+00:00",
+    "elapsed_seconds": 0.138,
+    "http_status": 200,
+    "provider_code": 0,
+    "returned_fields": [
+      "ts_code",
+      "trade_date",
+      "open",
+      "high",
+      "low",
+      "close",
+      "pre_close",
+      "change",
+      "pct_chg",
+      "vol",
+      "amount"
+    ],
+    "row_count": 1,
+    "has_more": false,
+    "error": null,
+    "evidence_path": "data/probes/daily-onboarding-20261022T012318968173/requests/index_day-attempt-01.json"
+  },
+  "response": {
+    "request_id": "b13b824f-0645-40cf-be8f-495fa99d3cbb",
+    "code": 0,
+    "data": {
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "open",
+        "high",
+        "low",
+        "close",
+        "pre_close",
+        "change",
+        "pct_chg",
+        "vol",
+        "amount"
+      ],
+      "items": [
+        [
+          "000300.SH",
+          "20261021",
+          4161.2572,
+          4161.2572,
+          4098.9606,
+          4111.9325,
+          4152.1076,
+          -40.1751,
+          -0.9676,
+          144303527.0,
+          387929791.4441
+        ]
+      ],
+      "has_more": false,
+      "count": 0
+    },
+    "msg": "",
+    "detail": "..."
+  }
+}
