@@ -12,7 +12,7 @@
 
 ## 日频回填状态（2026-11-06）
 
-2025 全年七项日频已完成：243 个开市日、194,157 个成功 Unit、5,436,950 行，年度覆盖、旧数据保护和 Serving 验收通过。行业未覆盖 691 行、8 个证券，按用户决定保留 NULL 并集中汇报。当前仅保留一份已校验滚动备份 `data/backups/warehouse.latest.duckdb`，未生成月度全库副本。审计引用 SQL 已优化，七项请求间隔按用户确认的 10,000 积分降为 0.13 秒；接口和业务语义保持不变。见[2025 年验收与清单](docs/operations/daily_backfill_2025_validation_20261106.md)及[性能优化记录](docs/operations/ingestion_performance_optimization_20261106.md)。2024 年未自动执行。
+2025 全年七项日频已完成：243 个开市日、194,157 个成功 Unit、5,436,950 行，年度覆盖、旧数据保护和 Serving 验收通过。行业未覆盖 691 行、8 个证券，按用户决定保留 NULL 并集中汇报。该阶段仅保留一份已校验滚动备份；自 2026-11-12 起，所有新生产备份及临时文件固定写入 `/mnt/d/quant_data_backups/`，不得写入 WSL 内的 `data/backups/`，未生成月度全库副本。审计引用 SQL 已优化，七项请求间隔按用户确认的 10,000 积分降为 0.13 秒；接口和业务语义保持不变。见[2025 年验收与清单](docs/operations/daily_backfill_2025_validation_20261106.md)及[性能优化记录](docs/operations/ingestion_performance_optimization_20261106.md)。2024 年未自动执行。
 
 用户确认的 2026 年 9 月倒序至 1 月回填已完成。连同此前完成的 10 月，七项 Tushare 日频完整覆盖 2026-01-01～2026-10-30 的 198 个开市日，共 158,202 个成功 Unit；逐 Unit 行数、旧事实／版本保护、Serving 和最终备份均已验收。002310.SZ 在 1～6 月的 116 行行业历史缺口保留 NULL 并集中汇报，不阻断回填。1 月 14 日 ST 网络缺口已单日修复，历史失败审计保留。详见[最终验收与行业清单](docs/operations/daily_backfill_2026_completion_20261105.md)。11 月不在本次范围，分钟和指数权重继续暂缓。
 
@@ -20,7 +20,7 @@
 
 生产权威库使用 `data/warehouse.duckdb`，与 ingestion CLI 的默认路径一致；任务中仍建议显式传入 `--db`，dbt 使用绝对路径的 `QUANT_DATA_DB`。该文件本地保存，不入 Git，克隆仓库不会带出生产数据。
 
-2026-11-09 已完成生产存储重建：六张持续增长 Canonical 表不物化 ART，分钟为十列且 bar_time=TIME，参考价由 View 提供。库从 38.3 GiB 降至 14.1 GiB，全表/逐日及参考价对账通过；重建完成时 SHA-256 为 `c06abe0caca98feff921a9f76fd00d5e816d86f6dfeb28c4a3d4c3474108401d`。批前旧库和批后新库恢复点均保留在 `data/backups/`。
+2026-11-09 已完成生产存储重建：六张持续增长 Canonical 表不物化 ART，分钟为十列且 bar_time=TIME，参考价由 View 提供。库从 38.3 GiB 降至 14.1 GiB，全表/逐日及参考价对账通过；重建完成时 SHA-256 为 `c06abe0caca98feff921a9f76fd00d5e816d86f6dfeb28c4a3d4c3474108401d`。批前旧库和批后新库恢复点当时保留在 `data/backups/`；该路径仅为历史记录，现行新备份一律写入 `/mnt/d/quant_data_backups/`。
 
 本次通过现有 `db.initialize` 和十四个 Dataset 的正式 DDL 新建权威库，已核验 14 张 Canonical 表、7 张 Meta 表、主键及既有约束。建库时全部表为空；现已通过正式 CLI 完成以下基础数据的首次真实获取与发布，没有导入旧库或测试夹具：
 
@@ -353,7 +353,7 @@ uv run --frozen python scripts/probe_tushare.py --case stock_L --case suspend_20
 ## 本地生产数据与旧分钟清理
 
 - `data/warehouse.duckdb`：本地生产权威库，保存已发布事实、Meta 和行业 Serving View，不入 Git。
-- `data/backups/warehouse-20261103-before-backfill.duckdb`：回补前全库备份，约 128 MiB，不入 Git；已完成临时恢复核验，源库未改变，详见[备份与恢复演练](docs/operations/warehouse_backup_restore_20261103.md)。
+- `/mnt/d/quant_data_backups/`：所有新生产全库备份及临时文件的唯一目录，不入 Git；禁止在 WSL 内新建备份。早期 WSL 备份及恢复核验仅为历史记录，详见[备份与恢复演练](docs/operations/warehouse_backup_restore_20261103.md)。
 - `.env`：保留本地数据商凭据，不提交。
 
 2013-01-04 的历史试点 A 阶段已完成：七项日频共 31 次请求，新增 799 个成功 Unit；当前成功 Coverage 共 12,292 个，原有范围数据和版本保持不变。分钟预检为 2,472 个 Unit、2,422 个请求 Unit，但其中十九只缺少当日日线及停复牌证据，按现有规则无法成功发布，需先核查或由用户明确接受受控 PARTIAL Pilot。B 脚本及资源采样已准备但未执行。2026-11-04 已完成只读核查，十九只目标日缺失与历史暂停上市／终止上市过渡的持续非交易状态相吻合；现有状态依据不足，处理语义待确认，未修改生产库或规则。详见[核查报告](docs/research/p1-listing-status-gap-investigation-2026-11-04.md)、[P1 交接说明](docs/operations/galaxy_pilot_20130104.md)和[回补方案](docs/operations/historical_backfill_plan_20261103.md)。

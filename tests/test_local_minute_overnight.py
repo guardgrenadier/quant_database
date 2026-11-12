@@ -84,6 +84,14 @@ class OvernightPolicyTest(unittest.TestCase):
         self.assertEqual(state["consecutive_missing_dependency"], 0)
         self.assertEqual(state["consecutive_missing_source"], 0)
 
+    def test_backup_directory_cannot_point_to_wsl(self):
+        with patch("sys.stderr"), self.assertRaises(SystemExit) as raised:
+            overnight.parse_args([
+                "--start-year", "2023", "--end-year", "2013",
+                "--backup-dir", "data/backups",
+            ])
+        self.assertEqual(raised.exception.code, 2)
+
 
 class OvernightIntegrationTest(unittest.TestCase):
     def setUp(self):
@@ -146,6 +154,7 @@ class OvernightIntegrationTest(unittest.TestCase):
         ]
         with patch.object(overnight, "CLI_PREFIX", [sys.executable, "-m", "quant_data"]), \
              patch.object(overnight, "HOST_MOUNTS", ()), \
+             patch.object(overnight, "REQUIRED_BACKUP_DIR", self.backup_dir), \
              patch.object(overnight, "assert_no_lock", lambda _: None):
             returncodes = (overnight.main(argv), overnight.main(argv))
         if returncodes != (0, 0):

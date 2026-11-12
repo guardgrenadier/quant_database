@@ -27,6 +27,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CLI_PREFIX = ["uv", "run", "--frozen", "python", "-m", "quant_data"]
 TIME_COMMAND = "/usr/bin/time"
 HOST_MOUNTS = (Path("/mnt/c"), Path("/mnt/d"))
+REQUIRED_BACKUP_DIR = Path("/mnt/d/quant_data_backups")
 KNOWN_ERRORS = frozenset({
     "local.daily_conflict", "local.auction_not_reported", "local.empty_ambiguous",
     "local.volume_amount", "suspend.timing_format", "suspend.timing_range",
@@ -566,7 +567,7 @@ def parse_args(argv=None):
     parser.add_argument("--end-year", type=int, required=True)
     parser.add_argument("--db", type=Path, default=PROJECT_ROOT / "data/warehouse.duckdb")
     parser.add_argument("--source-dir", type=Path, default=Path("/mnt/d/BaiduNetdiskDownload/stock_1min"))
-    parser.add_argument("--backup-dir", type=Path, default=Path("/mnt/d/quant_data_backups"))
+    parser.add_argument("--backup-dir", type=Path, default=REQUIRED_BACKUP_DIR)
     parser.add_argument("--landing-dir", type=Path, default=PROJECT_ROOT / "data/landing")
     parser.add_argument("--work-dir", type=Path, default=PROJECT_ROOT / "data/probes/local_parquet_2023_2013_overnight")
     parser.add_argument("--min-free-gib", type=float, default=20)
@@ -580,6 +581,9 @@ def parse_args(argv=None):
     args.landing_dir = args.landing_dir.resolve()
     args.work_dir = args.work_dir.resolve()
     args.logs_dir = args.work_dir / "logs"
+    # 运维边界由代码强制：临时备份也只能位于 D 盘固定目录，不能写回 WSL。
+    if args.backup_dir != REQUIRED_BACKUP_DIR:
+        parser.error(f"--backup-dir must be {REQUIRED_BACKUP_DIR}; backups outside this D drive directory are forbidden")
     if args.start_year < args.end_year or args.end_year < 2013:
         parser.error("Years must descend and end no earlier than 2013")
     if args.min_free_gib < 0 or args.day_timeout_seconds <= 0:
