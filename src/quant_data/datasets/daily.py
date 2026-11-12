@@ -43,15 +43,17 @@ def calendar_scope(pins, con):
                  tuple(ScopeReason(day, "Published SSE calendar fact is missing") for day, opened in rows if opened is None))
 
 
-def validate_quotes(con, candidate, key_sql, *, nullable):
-    """批量验收共同键与价格规则；可空政策由调用 Dataset 显式选择。"""
+def validate_quotes(con, candidate, key_sql, *, nullable, nullable_fields=()):
+    """批量验收共同键与价格规则；可空字段由调用 Dataset 显式选择。"""
     table = relation(candidate)
     checks = []
+    values_rule = (" AND " if nullable else " OR ").join(
+        f"c.{c} IS NULL" for c in NUMERIC if nullable or c not in nullable_fields)
     for rule, where in (
         # 业务键必须存在，不能把 NULL/空白键当成合法零行。
         ("quote.required", "c.ts_code IS NULL OR length(trim(c.ts_code))=0 OR c.trade_date IS NULL"),
-        # 股票九数值必填；指数允许部分 NULL，但不能是一条完全无数值的伪行情。
-        ("quote.values", (" AND " if nullable else " OR ").join(f"c.{c} IS NULL" for c in NUMERIC)),
+        # 股票只允许指定参考/派生字段缺失；指数允许部分 NULL，但不能全无数值。
+        ("quote.values", values_rule),
         ("quote.finite", " OR ".join(f"NOT isfinite(c.{c})" for c in NUMERIC)),
         # 非空价格为正，除权昨收允许零；量额非负，不对涨跌幅/涨跌额设符号限制。
         ("quote.sign", " OR ".join(f"c.{c}<=0" for c in ("open", "high", "low", "close"))

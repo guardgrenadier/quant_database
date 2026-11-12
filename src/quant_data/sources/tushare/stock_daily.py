@@ -6,8 +6,9 @@ import polars as pl
 import pyarrow as pa
 
 from quant_data.core.models import Check, Delivery, UnitDelivery
-from quant_data.datasets.stock_daily import StockDailyDataset
+from quant_data.datasets.stock_daily import NULLABLE_NUMERIC, StockDailyDataset
 from quant_data.sources.tushare.daily import raw_frame
+from quant_data.sources.tushare.disposition import disposition_check
 
 ROW_LIMIT = 6000
 # 当前账号 10000 积分，常规接口 500 次/分钟；0.13 秒约 462 次/分钟，保留频次余量。
@@ -67,9 +68,23 @@ class TushareStockDailyAdapter:
         clean = clean.with_columns((pl.col("trade_date") == pl.col("_requested_date").str.replace_all("-", ""))
                                    .fill_null(False).alias("_matches"))
         invalid = clean.filter(~pl.col("_matches"))
-        checks = (Check("ERROR", "source.range", "prepare", tuple(invalid["_requested_date"].unique().to_list()),
-                        {"rows": invalid.height}),) if invalid.height else ()
+        checks = [Check("ERROR", "source.range", "prepare", tuple(invalid["_requested_date"].unique().to_list()),
+                        {"rows": invalid.height})] if invalid.height else []
+        # 质量处置：仅接受可信记录的三个参考/派生字段源 NULL，不修改任何数值。
+        accepted = clean.filter(pl.col("_matches") & pl.col("ts_code").is_not_null() & (pl.col("ts_code") != "")
+                                & pl.any_horizontal([pl.col(f).is_null() for f in NULLABLE_NUMERIC]))
+        for unit in sorted(accepted["_requested_date"].unique().to_list()):
+            records = []
+            for row in accepted.filter(pl.col("_requested_date") == unit).sort("ts_code").iter_rows(named=True):
+                fields = [f for f in NULLABLE_NUMERIC if row[f] is None]
+                records.append({"key": {"ts_code": row["ts_code"], "trade_date": unit}, "fields": fields,
+                                "before": {f: row[f] for f in fields}, "after": dict.fromkeys(fields),
+                                "request_id": f"stock-daily-{unit}"})
+            checks.append(disposition_check(
+                delivery, rule="stock_daily.reference_values_null", unit=unit,
+                policy="stock_daily.reference_values_null", action="ACCEPT_NULL",
+                source_rule="quote.values", records=records))
         # 业务隔离：错日行保留 Raw 和诊断，不污染另一合格日期；只解析已经匹配的合法日期。
         candidate = clean.filter(pl.col("_matches")).select(self.fields).with_columns(
             pl.col("trade_date").str.strptime(pl.Date, "%Y%m%d", strict=True))
-        return candidate, checks
+        return candidate, tuple(checks)

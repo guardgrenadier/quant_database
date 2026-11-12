@@ -10,6 +10,7 @@ import pyarrow as pa
 from quant_data.core.models import Check, Delivery, UnitDelivery
 from quant_data.datasets.daily_basic import DailyBasicDataset
 from quant_data.sources.tushare.daily import raw_frame
+from quant_data.sources.tushare.disposition import disposition_check
 
 PAGE_SIZE = 3000
 # 当前账号 10000 积分，常规接口 500 次/分钟；0.13 秒约 462 次/分钟，保留频次余量。
@@ -93,9 +94,22 @@ class TushareDailyBasicAdapter:
         clean = clean.with_columns((pl.col("trade_date") == pl.col("_requested_date").str.replace_all("-", ""))
                                    .fill_null(False).alias("_matches"))
         invalid = clean.filter(~pl.col("_matches"))
-        checks = (Check("ERROR", "source.range", "prepare", tuple(invalid["_requested_date"].unique().to_list()),
-                        {"rows": invalid.height}),) if invalid.height else ()
+        checks = [Check("ERROR", "source.range", "prepare", tuple(invalid["_requested_date"].unique().to_list()),
+                        {"rows": invalid.height})] if invalid.height else []
+        # 质量处置：可信记录缺 close 时接受未知，不从日线或其他来源补值。
+        accepted = clean.filter(pl.col("_matches") & pl.col("ts_code").is_not_null() & (pl.col("ts_code") != "")
+                                & pl.col("close").is_null())
+        for unit in sorted(accepted["_requested_date"].unique().to_list()):
+            records = []
+            for row in accepted.filter(pl.col("_requested_date") == unit).sort("ts_code").iter_rows(named=True):
+                records.append({"key": {"ts_code": row["ts_code"], "trade_date": unit}, "fields": ["close"],
+                                "before": {"close": None}, "after": {"close": None},
+                                "request_id": f"daily-basic-{unit}-{row['_offset']}"})
+            checks.append(disposition_check(
+                delivery, rule="daily_basic.close_null", unit=unit,
+                policy="daily_basic.close_null", action="ACCEPT_NULL",
+                source_rule="daily_basic.required", records=records))
         # 业务隔离：坏日期不能污染另一合格日；已匹配合法 Scope 日的记录再严格转 DATE。
         candidate = clean.filter(pl.col("_matches")).select(self.fields).with_columns(
             pl.col("trade_date").str.strptime(pl.Date, "%Y%m%d", strict=True))
-        return candidate, checks
+        return candidate, tuple(checks)

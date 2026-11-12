@@ -9,6 +9,7 @@ import pyarrow as pa
 
 from quant_data.core.models import Check, Delivery, UnitDelivery
 from quant_data.datasets.stk_limit import StkLimitDataset
+from quant_data.sources.tushare.disposition import disposition_check
 
 PAGE_SIZE = 3000
 # 当前账号 10000 积分，常规接口 500 次/分钟；0.13 秒约 462 次/分钟，保留频次余量。
@@ -99,17 +100,43 @@ class TushareStkLimitAdapter:
         return Delivery(pl.concat(frames) if frames else None, tuple(units), tuple(attempts), tuple(checks))
 
     def prepare(self, delivery, scope, con, pins):
-        """一次清理文本并核对可信请求日，Raw 不改写；错日行显式归因后隔离。"""
+        """核对可信请求日；仅将精确三零价格组置 NULL，并保留原始诊断。"""
         if delivery.frame is None:
             return None, ()
-        # 业务转换：空白文本变 NULL，代码不修正、分类不补值，源价格原样保留。
+        # 业务转换：空白文本变 NULL，代码和分类不修正；Raw 始终保持源价格。
         clean = delivery.frame.with_columns(pl.col(c).str.strip_chars().replace("", None) for c in TEXT_FIELDS)
         clean = clean.with_columns((pl.col("trade_date") == pl.col("_requested_date").str.replace_all("-", ""))
                                    .fill_null(False).alias("_matches"))
         invalid = clean.filter(~pl.col("_matches"))
-        checks = (Check("ERROR", "source.range", "prepare", tuple(invalid["_requested_date"].unique().to_list()),
-                        {"rows": invalid.height}),) if invalid.height else ()
-        # 业务隔离：坏日期不能污染另一合格日；已匹配合法 Scope 日的记录再严格转 DATE。
-        candidate = clean.filter(pl.col("_matches")).select(self.fields).with_columns(
+        checks = [Check("ERROR", "source.range", "prepare", tuple(invalid["_requested_date"].unique().to_list()),
+                        {"rows": invalid.height})] if invalid.height else []
+        # 原始上下限 NULL 不是三零处置政策；最终 Schema 可空后仍须在转换前阻断。
+        source_invalid = clean.filter(pl.col("_matches")
+                                      & (pl.col("up_limit").is_null() | pl.col("down_limit").is_null()))
+        if source_invalid.height:
+            units = tuple(sorted(source_invalid["_requested_date"].unique().to_list()))
+            checks.append(Check("ERROR", "stk_limit.required", "prepare", units,
+                                {"rows": source_invalid.height, "fields": ["up_limit", "down_limit"]}))
+        trusted = pl.col("ts_code").is_not_null() & (pl.col("ts_code") != "")
+        zero_group = (trusted & (pl.col("pre_close") == 0)
+                      & (pl.col("up_limit") == 0) & (pl.col("down_limit") == 0))
+        # 质量处置：只对日期和代码可信的完整三零组生效，其他符号问题不变。
+        accepted = clean.filter(pl.col("_matches") & zero_group)
+        for unit in sorted(accepted["_requested_date"].unique().to_list()):
+            records = []
+            for row in accepted.filter(pl.col("_requested_date") == unit).sort("ts_code").iter_rows(named=True):
+                fields = ["pre_close", "up_limit", "down_limit"]
+                records.append({"key": {"ts_code": row["ts_code"], "trade_date": unit}, "fields": fields,
+                                "before": {f: row[f] for f in fields}, "after": dict.fromkeys(fields),
+                                "request_id": f"stk-limit-{unit}-{row['_offset']}"})
+            checks.append(disposition_check(
+                delivery, rule="stk_limit.zero_price_group_nullified", unit=unit,
+                policy="stk_limit.zero_price_group_to_null", action="NULLIFY_INVALID_GROUP",
+                source_rule="stk_limit.sign", records=records))
+        # 业务隔离：错日行不进入 Candidate；只有获批三零组在 Candidate 中转为未知价格。
+        candidate = clean.filter(pl.col("_matches")).with_columns(
+            pl.when(zero_group).then(pl.lit(None)).otherwise(pl.col(f)).alias(f)
+            for f in ("pre_close", "up_limit", "down_limit")
+        ).select(self.fields).with_columns(
             pl.col("trade_date").str.strptime(pl.Date, "%Y%m%d", strict=True))
-        return candidate, checks
+        return candidate, tuple(checks)

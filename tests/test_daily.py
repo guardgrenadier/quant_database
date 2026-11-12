@@ -266,6 +266,42 @@ class DailyTest(unittest.TestCase):
         with self.assertRaises(duckdb.ConstraintException):
             self.con.execute("INSERT INTO canonical.stock_daily VALUES ('bad','2020-03-12',0,1,1,1,1,0,0,1,1)")
 
+    def test_reference_null_disposition_is_audited_and_superseded(self):
+        """三个参考字段接受 NULL，完整行级处置随 Publication 长期保存。"""
+        records = [quote('920001.BJ','20200312',pre_close=None,change=None,pct_chg=None),
+                   quote('000001.SZ','20200313')]
+        result = self.ingest(client=QuoteClient(stock=records),keep=True)
+        self.assertEqual(result.status,'SUCCESS',result)
+        self.assertEqual(self.con.execute("SELECT pre_close,change,pct_chg FROM canonical.stock_daily "
+                                          "WHERE ts_code='920001.BJ'").fetchone(),(None,None,None))
+        warning = self.con.execute("SELECT check_id,detail FROM meta.validation_check WHERE run_id=? "
+                                   "AND rule='stock_daily.reference_values_null'",[result.run_id]).fetchone()
+        publication_ids = {p.unit_key:p.publication_id for p in result.publications}
+        pid = publication_ids['2020-03-12']
+        stored = json.loads(self.con.execute('SELECT dispositions FROM meta.publication WHERE publication_id=?',[pid]).fetchone()[0])
+        self.assertEqual(len(stored),1)
+        disposition = stored[0]
+        self.assertEqual(disposition.pop('source_check_id'),warning[0])
+        self.assertEqual(disposition,json.loads(warning[1])['disposition'])
+        record = disposition['records'][0]
+        self.assertEqual(record['key'],{'ts_code':'920001.BJ','trade_date':'2020-03-12'})
+        self.assertEqual(record['fields'],['pre_close','change','pct_chg'])
+        self.assertEqual(record['before'],{'pre_close':None,'change':None,'pct_chg':None})
+        self.assertEqual(record['after'],record['before'])
+        path = self.con.execute("SELECT evidence_path FROM meta.request_attempt WHERE run_id=? "
+                                "AND request_id='stock-daily-2020-03-12'",[result.run_id]).fetchone()[0]
+        self.assertEqual(record['evidence_sha256'],hashlib.sha256(Path(path).read_bytes()).hexdigest())
+        self.assertEqual(json.loads(self.con.execute('SELECT dispositions FROM meta.publication WHERE publication_id=?',
+                                                     [publication_ids['2020-03-13']]).fetchone()[0]),[])
+        # 后续干净修订不携带处置，旧 Publication 的档案不被改写。
+        clean = self.ingest(client=QuoteClient(stock=[quote('920001.BJ','20200312')]),
+                            params={'start_date':'20200312','end_date':'20200312'})
+        self.assertEqual(clean.artifact_status,'CLEANED')
+        self.assertEqual(json.loads(self.con.execute('SELECT dispositions FROM meta.publication WHERE publication_id=?',
+                                                     [clean.publications[0].publication_id]).fetchone()[0]),[])
+        self.assertEqual(json.loads(self.con.execute('SELECT dispositions FROM meta.publication WHERE publication_id=?',
+                                                     [pid]).fetchone()[0])[0],{**disposition,'source_check_id':warning[0]})
+
     def test_dependencies_outside_universe_future_inputs_and_unknown(self):
         """依赖及代码选择在请求前检查，缺事实保留 UNKNOWN，不使用股票上市日期截历史。"""
         for name,params in (('stock_daily',{'start_date':'２０２００３１２','end_date':'20200313'}),

@@ -8,9 +8,10 @@ CREATE TABLE IF NOT EXISTS canonical.stock_daily (
     high DOUBLE NOT NULL CHECK (isfinite(high) AND high>0),
     low DOUBLE NOT NULL CHECK (isfinite(low) AND low>0),
     close DOUBLE NOT NULL CHECK (isfinite(close) AND close>0),
-    pre_close DOUBLE NOT NULL CHECK (isfinite(pre_close) AND pre_close>=0),
-    change DOUBLE NOT NULL CHECK (isfinite(change)),
-    pct_chg DOUBLE NOT NULL CHECK (isfinite(pct_chg)),
+    -- 三个参考/派生字段允许供应商合法 NULL；缺失由 prepare 留处置档案，不补值。
+    pre_close DOUBLE CHECK (isfinite(pre_close) AND pre_close>=0),
+    change DOUBLE CHECK (isfinite(change)),
+    pct_chg DOUBLE CHECK (isfinite(pct_chg)),
     vol DOUBLE NOT NULL CHECK (isfinite(vol) AND vol>=0),
     amount DOUBLE NOT NULL CHECK (isfinite(amount) AND amount>=0),
     -- 逻辑键由 Dataset 验收，不为持续增长的大表物化 ART 主键。

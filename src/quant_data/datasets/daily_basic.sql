@@ -4,7 +4,8 @@ CREATE SCHEMA IF NOT EXISTS canonical;
 CREATE TABLE IF NOT EXISTS canonical.daily_basic (
     ts_code VARCHAR NOT NULL CHECK (length(trim(ts_code))>0),
     trade_date DATE NOT NULL,
-    close DOUBLE NOT NULL CHECK (isfinite(close) AND close>0),
+    -- close 允许合法 NULL；非 NULL 时值域不变，缺失由 prepare 留处置档案。
+    close DOUBLE CHECK (isfinite(close) AND close>0),
     -- 以下十五个指标允许合法 NULL；零不代表缺失，换手率不设 100 的上限。
     turnover_rate DOUBLE CHECK (isfinite(turnover_rate) AND turnover_rate>=0),
     turnover_rate_f DOUBLE CHECK (isfinite(turnover_rate_f) AND turnover_rate_f>=0),

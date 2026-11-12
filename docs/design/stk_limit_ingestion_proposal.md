@@ -1,5 +1,7 @@
 # stk_limit 接入提案
 
+**2026-11-12 质量处置修订：** 仅对可信记录中 `pre_close=up_limit=down_limit=0` 的精确三零组，在 prepare 将三个 Candidate 字段整组置 NULL并留下 `NULLIFY_INVALID_GROUP` 档案；Raw 不改写。原始 NULL、部分零值及其他非法值仍阻断，NULL 不表示无涨跌停。详见[质量处置 Spec](ingestion_quality_disposition_spec.md)。下文首版验收记录保留其历史口径。
+
 日期：2026-10-29。状态：**用户已确认提案及零下限修订，正式实现与独立库验收完成。**
 
 用户已指定接口 `stk_limit`（每日涨跌停价格）。本文提出该 Dataset 的 Schema、Scope、发布粒度与源交付政策，不修改已冻结架构。
@@ -53,9 +55,9 @@ Canonical 字段顺序采用下表顺序，源数据按返回字段名重排。
 |---|---|---|
 | ts_code | VARCHAR / pl.String | 必填非空白，保留证券完整标识和前导零，不限定六位数字、不筛当前在市证券 |
 | trade_date | DATE / pl.Date | 必填，严格匹配可信请求日；业务日期与抓取时间分离 |
-| pre_close | DOUBLE / pl.Float64 | 可空，非空须有限且非负；0 与 NULL 分别原样保留，不相互转换 |
-| up_limit | DOUBLE / pl.Float64 | 必填，有限且大于 0 |
-| down_limit | DOUBLE / pl.Float64 | 必填，有限且大于等于 0；零下限原样保存并告警；up_limit >= down_limit |
+| pre_close | DOUBLE / pl.Float64 | 非空须有限且非负；普通 0/NULL 原样保留，精确三零组按政策整组置 NULL |
+| up_limit | DOUBLE / pl.Float64 | 原始值必填且非空时有限、大于 0；仅精确三零组可在 Candidate 置 NULL |
+| down_limit | DOUBLE / pl.Float64 | 原始值必填且非空时有限、大于等于 0；普通零下限保留并告警，精确三零组可置 NULL |
 | asset_type | VARCHAR / pl.String | 可空的源分类，开放字符串；不把单次样本 STK 固化为全集枚举 |
 | exchange | VARCHAR / pl.String | 可空的源交易所属性，开放字符串；不凭代码后缀补值或改写 |
 
@@ -75,9 +77,9 @@ Canonical 字段顺序采用下表顺序，源数据按返回字段名重排。
 6. 源日期须匹配可信请求日再转 DATE。错日/坏值的影响归到原请求日，不让错误行进入另一个合格日期。任何隔离均有明确诊断，不静默去重、丢行或补造事实。
 7. Dataset 在标准 Candidate 上集中检查必填、数值、上下限顺序、键唯一和整日非空；通用 Validator 汇总 Scope、交付证据与准备诊断，独立给出发布许可。
 
-ERROR：请求/分页不完整，缺字段，坏源类型或日期，错日，空键，非有限数，负 pre_close，非正上限、负下限，上下限倒置，重复键，开市日整日空集合。可定位时只阻断对应日，无法可信定位则按现有内核全局阻断。
+ERROR：请求/分页不完整，缺字段，坏源类型或日期，错日，空键，原始上下限 NULL，非有限数，负 pre_close，政策外非正上限、负下限，上下限倒置，重复键，开市日整日空集合。只有精确三零组可在 prepare 整组置 NULL；可定位时只阻断对应日，无法可信定位则按现有内核全局阻断。
 
-WARNING：pre_close 为 NULL 或 0、down_limit 为 0，以及 asset_type/exchange 缺失，按日聚合计数并保留原值；这些不影响上下限事实发布。零下限规则名为 `stk_limit.down_limit_zero`，detail 的 `rows_by_unit` 保存逐日计数。不为正常 B 股、基金、停牌证券或合法极端上下限生成“超出股票数”类告警。
+WARNING：精确三零组以 `stk_limit.zero_price_group_nullified` 留下 `NULLIFY_INVALID_GROUP` 和全部 before/after 记录。普通 pre_close NULL 或 0、down_limit 为 0，以及 asset_type/exchange 缺失仍按日聚合计数；不影响其他合格事实发布。NULL 不表示无限制，不为合法极端上下限生成“超出股票数”类告警。
 
 ## 4. 实现范围与验收计划
 

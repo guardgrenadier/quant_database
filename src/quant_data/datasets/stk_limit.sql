@@ -6,9 +6,10 @@ CREATE TABLE IF NOT EXISTS canonical.stk_limit (
     trade_date DATE NOT NULL,
     -- 源昨收可空或为零，分别保留；不借其他 Dataset 回填。
     pre_close DOUBLE CHECK (isfinite(pre_close) AND pre_close>=0),
-    up_limit DOUBLE NOT NULL CHECK (isfinite(up_limit) AND up_limit>0),
-    -- 已确认源下限可为零，原样保存且由 Dataset 告警，不推导无限制。
-    down_limit DOUBLE NOT NULL CHECK (isfinite(down_limit) AND down_limit>=0),
+    -- 仅批准的三零价格组可由 prepare 整组置 NULL；其他非 NULL 值域不变。
+    up_limit DOUBLE CHECK (isfinite(up_limit) AND up_limit>0),
+    -- 源下限可为零并告警；三零组处置后也可为 NULL，不推导无限制标志。
+    down_limit DOUBLE CHECK (isfinite(down_limit) AND down_limit>=0),
     -- 开放源分类，可空，不以当前样本固化全集枚举。
     asset_type VARCHAR,
     exchange VARCHAR,

@@ -57,7 +57,7 @@ Validator 仍独立要求交付 COMPLETE、无阻断错误及业务验收合格�
 
 ## 4. 明细留存与退出
 
-`coverage`、`publication`、`run`、`run_dependency` 长期保留。仅 `run_unit`、`request_attempt`、`validation_check` 按 Run 整体退出，避免拆散 Unit 对请求、检查的引用。
+`coverage`、`publication`、`run`、`run_dependency` 长期保留。仅 `run_unit`、`request_attempt`、`validation_check` 按 Run 整体退出，避免拆散 Unit 对请求、检查的引用。2026-11-12 起 `publication.dispositions` 随成功版本长期保存记录级质量处置，不依赖上述短期明细解释已发布数据。
 
 | Run 结束后的时间 | 明细状态与处理 |
 |---|---|

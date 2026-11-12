@@ -1,6 +1,8 @@
 # 个人量化数据库技术设计与实现边界 V3.2
 
-**更新：2026-11-08｜范围：统一验收内核、十四个正式 Dataset、本地分钟源与两个 dbt Serving View**
+**更新：2026-11-12｜范围：统一验收与质量处置内核、十四个正式 Dataset、本地分钟源与两个 dbt Serving View**
+
+2026-11-12 新增 prepare 内质量处置和 `publication.dispositions` 长期档案；validate 仍是唯一最终发布许可，未增加物理处置阶段或 Meta 表。详见[质量处置与可追溯发布 Spec](ingestion_quality_disposition_spec.md)。
 
 本文说明已落地的模型、接口、执行机制和能力边界，与[核心架构](core_design.md)配套。内容依据当前代码；不重新定义冻结的架构与 invariant，也不把规划中的 Dataset 或 Serving 写成已实现能力。后续实现变化时同步更新对应章节。
 
@@ -243,7 +245,7 @@ prepare 清理文本后只计算一次日期匹配掩码，复用于诊断和安
 
 ### 5.8 stock_daily 与 index_daily
 
-两个 Dataset 的键均为 (ts_code,trade_date)，11列 Schema；股票九数值必填，指数允许部分NULL。量额统一手／千元，申万 pct_change→pct_chg、vol×100、amount×10，pre_close 明确保留NULL，不从其他事实派生。共享普通字段／日历／数值规则和解码函数，没有新增框架或控制模型。
+两个 Dataset 的键均为 (ts_code,trade_date)，11列 Schema；股票 open/high/low/close/vol/amount 必填，pre_close/change/pct_chg 允许合法 NULL并由 prepare 留 `ACCEPT_NULL` 档案，指数允许部分NULL。量额统一手／千元，申万 pct_change→pct_chg、vol×100、amount×10，pre_close 明确保留NULL，不从其他事实派生。共享普通字段／日历／数值规则和解码函数，没有新增框架或控制模型。
 
 stock_daily 逐开市日请求 daily 全市场，低于6,000行且 false 标记才获取完成；整日零行阻断，不借当前股票表或停牌集裁历史。index_daily 固定 index_basic / SNAPSHOT 及全部日历版本，以代码日为 Unit；宽基按代码自然年请求 index_daily，申万每天一次 sw_daily(trade_date)，默认单日25个逻辑请求。允许 universe 内 --ts-code 子集；申万 Raw 超集按固定 scope 筛选并记录 source.scope_excluded，范围外原值仍留证。无效代码参数仍在获取前拒绝，不按 list_date/exp_date 裁历史。完整零行可替换旧代码日并形成成功版本，只表示本次供应商未报告行情。
 
@@ -251,7 +253,7 @@ stock_daily 逐开市日请求 daily 全市场，低于6,000行且 false 标记�
 
 ### 5.9 stk_limit 每日涨跌停价格
 
-全市场七字段、逻辑键 `(ts_code,trade_date)`（不物化 ART）、按交易日完整替换，仅依赖 SSE 日历；不以当前股票名单、日线或停牌表裁剪历史。pre_close 可空且非负，NULL/0 原样保存并按日告警；asset_type/exchange 为可空开放字符串。上下限非空且有限，up_limit>0、down_limit>=0 且 up_limit>=down_limit；零下限原样保留并按日告警。极端源值不改写，不套固定涨跌幅或推导无限制/可交易状态。价格保留各证券源报价口径。
+全市场七字段、逻辑键 `(ts_code,trade_date)`（不物化 ART）、按交易日完整替换，仅依赖 SSE 日历；不以当前股票名单、日线或停牌表裁剪历史。普通 pre_close NULL/0 原样保存并按日告警；asset_type/exchange 为可空开放字符串。原始上下限 NULL 在 prepare 阻断；仅精确 `pre_close=up_limit=down_limit=0` 组在 Candidate 整组置 NULL并留 `NULLIFY_INVALID_GROUP` 档案，其他非 NULL 值域和上下限顺序不变。NULL 不表示无限制，极端源值不改写。
 
 Adapter 每日以 limit=3000、offset=0 开始分页。短页且 has_more=false 才完成；满页 false 也续取尾页，短页 true 按实际行数前移。缺标记、空页 true、超请求上限或重复页为 INCOMPLETE；请求失败为 FAILED。重复页签名按字段名及无序行内容生成；跨页部分重复业务键由 Dataset 验收。原始信封与 Raw 的请求日/offset 标签保留；缺列或类型错误是准备诊断，不改写已完成的获取状态。
 
@@ -259,9 +261,9 @@ Adapter 每日以 limit=3000、offset=0 开始分页。短页且 has_more=false 
 
 ### 5.10 daily_basic 每日指标
 
-默认18字段、逻辑键 `(ts_code,trade_date)`（不物化 ART）、全市场按交易日完整替换，仅依赖 SSE 日历；不通过当前股票名单或其他表补造、筛选历史事实。close 必填有限且为正，其余15个指标允许合法 NULL；估值保留有符号有限值，换手/量比/股息率/股本/市值为非负。股本万股、市值万元、百分数均保留源口径，不重算、不填零或前向继承。free_share>float_share、float_share>total_share、circ_mv>total_mv 按日及关系计数告警，NULL 不参与比较。
+默认18字段、逻辑键 `(ts_code,trade_date)`（不物化 ART）、全市场按交易日完整替换，仅依赖 SSE 日历；不通过当前股票名单或其他表补造、筛选历史事实。close 与其他15个指标允许合法 NULL，close 源 NULL 由 prepare 留 `ACCEPT_NULL` 档案，非 NULL close 有限且为正；估值保留有符号有限值，换手/量比/股息率/股本/市值为非负。股本万股、市值万元、百分数均保留源口径，不重算、不填零或前向继承。free_share>float_share、float_share>total_share、circ_mv>total_mv 按日及关系计数告警，NULL 不参与比较。
 
-逐日 limit=3000 专属分页，与 stk_limit 使用相同终止/进度政策；获取状态和准备诊断分开表达。源数值解码复用现有 daily.raw_frame，Raw 保留请求日与 offset；错日按可信请求日隔离。开市日整日零行阻断，失败保护旧事实与版本，合格日复用原有原子发布。非默认 limit_status 因历史语义冲突暂缓接入，无财务 PIT 保证。共享 Protocol、内核及 Meta 未变。完整契约见 [daily_basic 文档](daily_basic_ingestion_proposal.md)。
+逐日 limit=3000 专属分页，与 stk_limit 使用相同终止/进度政策；获取状态和准备诊断分开表达。源数值解码复用现有 daily.raw_frame，Raw 保留请求日与 offset；错日按可信请求日隔离。开市日整日零行阻断，失败保护旧事实与版本，合格日复用原有原子发布。非默认 limit_status 因历史语义冲突暂缓接入，无财务 PIT 保证。共享 Protocol 不变，Meta 仅扩展 Publication 处置档案。完整契约见 [daily_basic 文档](daily_basic_ingestion_proposal.md)。
 
 ### 5.11 adj_factor 原始复权因子
 
@@ -296,7 +298,7 @@ Adapter 每日以 limit=3000、offset=0 开始分页。短页且 has_more=false 
 | `meta.run_dependency` / run_id + upstream_dataset + upstream_unit | Scope 实际使用的上游成功版本 |
 | `meta.request_attempt` / run_id + request_id + attempt | 每次 HTTP 尝试的控制信息与原始证据路径，重试各占一行 |
 | `meta.validation_check` / run_id + check_id | 每项检查只存一次，units 为 NULL 表示全局影响 |
-| `meta.publication` / publication_id | 一次成功 Unit 替换的 dataset、unit_key、row_count、run_id、发布时间 |
+| `meta.publication` / publication_id | 一次成功 Unit 替换的 dataset、unit_key、row_count、run_id、发布时间；`dispositions` 长期保存该版本全部记录级质量处置，无处置为 `[]` |
 | `meta.coverage` / dataset + unit_key | 当前权威状态与成功版本指针 |
 
 `run_unit.request_ids` 关联逻辑请求，各次尝试由 attempt 区分；`check_ids` 关联共享检查。`run.summary` 仅存 scope_counts、unit_counts、request_attempts 和 check_counts，不复制业务记录或全部检查详情。

@@ -35,9 +35,8 @@ class StkLimitDataset:
         table, key = relation(candidate_relation), self.unit_key_sql("c")
         checks = []
         for rule, where in (
-            # 业务检查：证券/日期和两个上下限必填；源分类和昨收允许 NULL。
-            ("required", "c.ts_code IS NULL OR length(trim(c.ts_code))=0 OR c.trade_date IS NULL "
-             "OR c.up_limit IS NULL OR c.down_limit IS NULL"),
+            # 业务检查：证券/日期必填；上下限原始 NULL 由 Adapter 在处置前拒绝，政策置 NULL 后可发布。
+            ("required", "c.ts_code IS NULL OR length(trim(c.ts_code))=0 OR c.trade_date IS NULL"),
             # 业务检查：非有限数不能成为价格；昨收和下限可为零，上限必须为正。
             ("finite", "NOT isfinite(c.pre_close) OR NOT isfinite(c.up_limit) OR NOT isfinite(c.down_limit)"),
             ("sign", "c.pre_close<0 OR c.up_limit<=0 OR c.down_limit<0"),

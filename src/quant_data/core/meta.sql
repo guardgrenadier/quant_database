@@ -54,7 +54,9 @@ CREATE TABLE IF NOT EXISTS meta.publication (
     dataset VARCHAR NOT NULL, unit_key VARCHAR NOT NULL,
     -- 零行也是合法的发布计数；Dataset 自行决定其业务范围是否允许空交付。
     row_count BIGINT NOT NULL CHECK (row_count>=0), run_id VARCHAR NOT NULL,
-    published_at TIMESTAMPTZ NOT NULL DEFAULT current_timestamp
+    published_at TIMESTAMPTZ NOT NULL DEFAULT current_timestamp,
+    -- 长期保存该成功版本实际生效的处置；无处置为空数组，不依赖短期检查明细。
+    dispositions JSON NOT NULL DEFAULT '[]'
 );
 CREATE TABLE IF NOT EXISTS meta.coverage (
     -- 当前权威覆盖以 dataset + unit_key 定位；运行失败不能覆盖已有 PUBLISHED 指针。

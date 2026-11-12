@@ -1,10 +1,33 @@
 """集合式替换合格范围，成功数据与元数据同事务提交。"""
 
+import json
+
 import polars as pl
 
 from quant_data.core import deps
 from quant_data.core.models import Publication
-from quant_data.db import identifier, registered, relation, transaction
+from quant_data.db import identifier, registered, relation, strings_frame, transaction
+
+
+def _disposition_frame(con, run_id, passed_units):
+    """把本 Run 已记录的处置复制到各成功 Unit，Publisher 不重新解释质量规则。"""
+    by_unit = {unit: [] for unit in passed_units}
+    rows = con.execute(
+        "SELECT check_id,units,detail FROM meta.validation_check WHERE run_id=? ORDER BY check_id", [run_id]
+    ).fetchall()
+    for check_id, units, detail in rows:
+        disposition = json.loads(detail).get("disposition")
+        if disposition is None:
+            continue
+        # 处置必须能定位到 Unit；全局质量处置无法形成准确的版本档案。
+        if units is None or not isinstance(disposition, dict):
+            raise ValueError("A publication disposition must be a Unit-scoped object")
+        for unit in json.loads(units):
+            if unit in by_unit:
+                by_unit[unit].append({**disposition, "source_check_id": check_id})
+    return strings_frame(
+        [(unit, json.dumps(by_unit[unit], ensure_ascii=False, allow_nan=False)) for unit in passed_units],
+        ("unit_key", "dispositions"))
 
 
 def publish(con, dataset, candidate, passed_units, pins, run_id):
@@ -22,13 +45,15 @@ def publish(con, dataset, candidate, passed_units, pins, run_id):
 
     # 2. 准备发布范围：许可集合转为列式关系，后续 SQL 均按此范围批量操作。
     accepted_frame = pl.DataFrame({"unit_key": passed_units}, schema={"unit_key": pl.String})
+    disposition_frame = _disposition_frame(con, run_id, passed_units)
     target_table = relation(dataset.table)
     candidate_relation = relation(candidate)
     columns = ",".join(identifier(c) for c in dataset.schema.names())
     candidate_columns = ",".join("c." + identifier(c) for c in dataset.schema.names())
     candidate_key = dataset.unit_key_sql("c")
     target_key = dataset.unit_key_sql("t")
-    with registered(con, "_accepted_units", accepted_frame) as accepted_relation:
+    with registered(con, "_accepted_units", accepted_frame) as accepted_relation, \
+         registered(con, "_publication_dispositions", disposition_frame) as disposition_relation:
         # 业务检查：许可不得越出 Scope，防止发布调用误删其他范围。
         outside_scope_count = con.execute(f"""
             SELECT count(*)
@@ -62,9 +87,10 @@ def publish(con, dataset, candidate, passed_units, pins, run_id):
             # 业务转换：以许可 Unit 为左表统计，完整零行也生成版本并清除旧范围。
             # 是否允许零行由 Dataset 验收决定；Publisher 不从 Candidate 有无记录反推许可。
             publication_rows = con.execute(f"""
-                INSERT INTO meta.publication (dataset, unit_key, row_count, run_id)
-                SELECT ?, a.unit_key, COALESCE(n.rows, 0), ?
+                INSERT INTO meta.publication (dataset, unit_key, row_count, run_id, dispositions)
+                SELECT ?, a.unit_key, COALESCE(n.rows, 0), ?, d.dispositions::JSON
                 FROM {accepted_relation} AS a
+                JOIN {disposition_relation} AS d USING (unit_key)
                 LEFT JOIN (
                     SELECT ({candidate_key}) AS unit_key, count(*) AS rows
                     FROM {candidate_relation} AS c

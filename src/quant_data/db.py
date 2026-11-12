@@ -12,7 +12,7 @@ META_COLUMNS = {
     "run_dependency": "run_id upstream_dataset upstream_unit publication_id",
     "request_attempt": "run_id request_id attempt api_name params fields requested_at elapsed_seconds http_status provider_code returned_fields row_count has_more error evidence_path",
     "validation_check": "run_id check_id level rule stage units detail",
-    "publication": "publication_id dataset unit_key row_count run_id published_at",
+    "publication": "publication_id dataset unit_key row_count run_id published_at dispositions",
     "coverage": "dataset unit_key status publication_id updated_at note",
 }
 

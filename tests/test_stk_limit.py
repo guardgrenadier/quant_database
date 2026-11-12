@@ -199,6 +199,33 @@ class StkLimitTest(unittest.TestCase):
         self.assertEqual(json.loads(warning[3]), {'rows_by_unit':{'2020-03-12':1}})
         self.assertIn(' special.code ', pl.read_parquet(Path(result.artifact_dir)/'landing.parquet')['ts_code'].to_list())
 
+    def test_zero_price_group_is_nullified_with_raw_and_publication_evidence(self):
+        """仅精确三零组整组置 NULL，Raw 零值和行级处置档案均可核对。"""
+        result = self.ingest([row('000509.SZ',pre_close=0,up_limit=0,down_limit=0),
+                              row('000002.SZ'),row(day='20200313')],keep=True)
+        self.assertEqual(result.status,'SUCCESS',result)
+        self.assertEqual(self.con.execute("SELECT pre_close,up_limit,down_limit FROM canonical.stk_limit "
+                                          "WHERE ts_code='000509.SZ'").fetchone(),(None,None,None))
+        raw = pl.read_parquet(Path(result.artifact_dir)/'landing.parquet')
+        source = raw.filter(pl.col('ts_code')=='000509.SZ').row(0,named=True)
+        self.assertEqual([source[f] for f in ('pre_close','up_limit','down_limit')],[0,0,0])
+        candidate = pl.read_parquet(Path(result.artifact_dir)/'candidate.parquet')
+        repaired = candidate.filter(pl.col('ts_code')=='000509.SZ').row(0,named=True)
+        self.assertEqual([repaired[f] for f in ('pre_close','up_limit','down_limit')],[None,None,None])
+        disposition = json.loads(self.con.execute(
+            "SELECT dispositions FROM meta.publication WHERE run_id=? AND unit_key='2020-03-12'",
+            [result.run_id]).fetchone()[0])[0]
+        self.assertEqual(disposition['action'],'NULLIFY_INVALID_GROUP')
+        self.assertEqual(disposition['source_rule'],'stk_limit.sign')
+        record = disposition['records'][0]
+        self.assertEqual(record['key'],{'ts_code':'000509.SZ','trade_date':'2020-03-12'})
+        self.assertEqual(record['before'],{'pre_close':0,'up_limit':0,'down_limit':0})
+        self.assertEqual(record['after'],{'pre_close':None,'up_limit':None,'down_limit':None})
+        path = self.con.execute("SELECT evidence_path FROM meta.request_attempt WHERE run_id=? "
+                                "AND request_id='stk-limit-2020-03-12-0'",[result.run_id]).fetchone()[0]
+        import hashlib
+        self.assertEqual(record['evidence_sha256'],hashlib.sha256(Path(path).read_bytes()).hexdigest())
+
     def test_business_errors_and_empty_protect_old_publication(self):
         self.ingest()
         before = self.current()
@@ -206,6 +233,7 @@ class StkLimitTest(unittest.TestCase):
         cases = [([], 'nonempty'), ([row(ts_code=' ')], 'required'), ([row(up_limit=None)], 'required'),
                  ([row(pre_close=-1)], 'sign'), ([row(down_limit=-.01)], 'sign'),
                  ([row(up_limit=0, down_limit=0)], 'sign'), ([row(down_limit=None)], 'required'),
+                 ([row('zero',pre_close=0,up_limit=0,down_limit=0),row('bad',pre_close=-1)], 'sign'),
                  ([row(up_limit=8)], 'order'), ([row(pre_close=float('nan'))], 'finite'),
                  ([row(up_limit=float('inf'))], 'finite'),
                  ([row(), row('000002.SZ'), row(up_limit=12)], 'key_unique')]
@@ -251,7 +279,10 @@ class StkLimitTest(unittest.TestCase):
                 raise RuntimeError('offline injected insert failure')
             return self.con.execute(sql, *args)
         proxy.execute.side_effect = execute
-        self.assertEqual(self.ingest(con=proxy).status, 'FAILED')
+        # 回滚输入本身带有三零处置；Canonical、Publication 和处置档案必须一起保持旧版。
+        repaired = [row('zero',pre_close=0,up_limit=0,down_limit=0)]
+        self.assertEqual(self.ingest(records=repaired,params={'start_date':'20200312','end_date':'20200312'},
+                                     con=proxy).status, 'FAILED')
         self.assertEqual(self.current(), before)
         with patch('quant_data.core.artifacts.Artifacts.record_attempt', side_effect=OSError('evidence disk failure')):
             self.assertEqual(self.ingest().status, 'FAILED')

@@ -196,11 +196,30 @@ class DailyBasicTest(unittest.TestCase):
         self.assertTrue(all(json.loads(c[3])=={'rows_by_unit':{'2020-03-12':1}} for c in warnings))
         self.assertIn(' special.code ',pl.read_parquet(Path(result.artifact_dir)/'landing.parquet')['ts_code'].to_list())
 
+    def test_close_null_disposition_survives_success_cleanup(self):
+        """close 缺失被明确接受，成功证据清理后仍保留完整处置档案。"""
+        result = self.ingest([row('000001.SZ',close=None),row(day='20200313')])
+        self.assertEqual(result.status,'SUCCESS',result)
+        self.assertEqual(result.artifact_status,'CLEANED')
+        self.assertIsNone(self.con.execute("SELECT close FROM canonical.daily_basic WHERE ts_code='000001.SZ'").fetchone()[0])
+        disposition = json.loads(self.con.execute(
+            "SELECT p.dispositions FROM meta.publication p WHERE p.run_id=? AND p.unit_key='2020-03-12'",
+            [result.run_id]).fetchone()[0])[0]
+        self.assertEqual((disposition['action'],disposition['source_rule']),('ACCEPT_NULL','daily_basic.required'))
+        self.assertEqual(disposition['records'],[{
+            'key':{'ts_code':'000001.SZ','trade_date':'2020-03-12'},'fields':['close'],
+            'before':{'close':None},'after':{'close':None},'request_id':'daily-basic-2020-03-12-0',
+            'attempt':1,'evidence_sha256':disposition['records'][0]['evidence_sha256']}])
+        self.assertEqual(len(disposition['records'][0]['evidence_sha256']),64)
+        self.assertFalse(Path(result.artifact_dir).exists())
+        self.assertIn('source_check_id',disposition)
+
     def test_business_errors_and_empty_protect_old_versions(self):
         self.ingest()
         before = self.current()
-        cases = [([],'nonempty'),([row(ts_code=' ')],'required'),([row(close=None)],'required'),
-                 ([row(close=0)],'close_positive'),([row(pe=float('nan'))],'finite'),
+        cases = [([],'nonempty'),([row(ts_code=' ')],'required'),
+                 ([row(ts_code=' ',close=None)],'required'),([row(close=0)],'close_positive'),
+                 ([row(pe=float('nan'))],'finite'),
                  ([row(total_mv=float('inf'))],'finite'),
                  ([row(),row('000002.SZ'),row(close=11)],'key_unique')]
         cases += [([row(**{field:-1})],'nonnegative') for field in

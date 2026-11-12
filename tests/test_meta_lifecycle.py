@@ -152,7 +152,12 @@ else:
         running = self.pending()
         recent, archive, expire = (self.completed(days) for days in (59, 60, 365))
         # 添加长期发布和依赖记录，验证明细退出不拆除版本骨架。
-        self.con.execute("INSERT INTO meta.publication(dataset,unit_key,row_count,run_id) VALUES ('fixture','a',0,?)", [archive])
+        disposition = json.dumps([{"policy":"fixture.accept","policy_version":"v1","action":"ACCEPT_NULL",
+                                   "records":[{"key":{"unit_key":"a"},"fields":["value"],"before":{"value":None},
+                                               "after":{"value":None},"request_id":"request","attempt":1,
+                                               "evidence_sha256":"0"*64}]}])
+        self.con.execute("INSERT INTO meta.publication(dataset,unit_key,row_count,run_id,dispositions) "
+                         "VALUES ('fixture','a',0,?,?)", [archive,disposition])
         self.con.execute("INSERT INTO meta.run_dependency VALUES (?,'upstream','a',1)", [archive])
         before = {t: self.con.execute(f"SELECT * FROM meta.{t}").fetchall()
                   for t in ("publication", "run_dependency", "coverage")}

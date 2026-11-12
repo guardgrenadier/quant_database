@@ -6,6 +6,8 @@ from quant_data.core.models import Check
 from quant_data.datasets.daily import SCHEMA, calendar_dependencies, calendar_scope, validate_quotes
 from quant_data.db import relation
 
+NULLABLE_NUMERIC = ("pre_close", "change", "pct_chg")
+
 
 class StockDailyDataset:
     name, table = "stock_daily", "canonical.stock_daily"
@@ -26,7 +28,8 @@ class StockDailyDataset:
         return f"strftime({alias}.trade_date,'%Y-%m-%d')"
 
     def validate_candidate(self, con, candidate_relation, scope):
-        checks = list(validate_quotes(con, candidate_relation, self.unit_key_sql("c"), nullable=False))
+        checks = list(validate_quotes(con, candidate_relation, self.unit_key_sql("c"),
+                                      nullable=False, nullable_fields=NULLABLE_NUMERIC))
         # 业务非空政策：个股停牌可无行，但开市日全市场零行不清除旧日集合。
         empty = con.execute(f"SELECT s.unit_key FROM _scope_units s LEFT JOIN {relation(candidate_relation)} c "
                             f"ON s.unit_key={self.unit_key_sql('c')} GROUP BY s.unit_key HAVING count(c.trade_date)=0").fetchall()

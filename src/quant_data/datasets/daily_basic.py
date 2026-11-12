@@ -17,7 +17,7 @@ NONNEGATIVE = ("turnover_rate", "turnover_rate_f", "volume_ratio", "dv_ratio", "
 class DailyBasicDataset:
     name, table = "daily_basic", "canonical.daily_basic"
     record_key = ("ts_code", "trade_date")
-    # 业务类型：股本万股、市值万元、比率百分数原样保存；只有 close 为必填数值。
+    # 业务类型：股本万股、市值万元、比率百分数原样保存；close 也允许合法 NULL。
     schema = pl.Schema({"ts_code": pl.String, "trade_date": pl.Date, **dict.fromkeys(NUMERIC, pl.Float64)})
     ddl = Path(__file__).with_suffix(".sql").read_text()
 
@@ -38,8 +38,8 @@ class DailyBasicDataset:
         table, key = relation(candidate_relation), self.unit_key_sql("c")
         checks = []
         for rule, where in (
-            # 业务必填：键与 close 不能缺失，其余十五个指标允许合法 NULL。
-            ("required", "c.ts_code IS NULL OR length(trim(c.ts_code))=0 OR c.trade_date IS NULL OR c.close IS NULL"),
+            # 业务必填：键不能缺失；close 和其他十五个指标允许合法 NULL，缺失处置由 prepare 留痕。
+            ("required", "c.ts_code IS NULL OR length(trim(c.ts_code))=0 OR c.trade_date IS NULL"),
             # 非有限值不能作为业务指标；估值保留有符号有限值，不做正数校验。
             ("finite", " OR ".join(f"NOT isfinite(c.{f})" for f in NUMERIC)),
             ("close_positive", "c.close<=0"),

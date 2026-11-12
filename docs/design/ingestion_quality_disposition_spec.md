@@ -1,10 +1,10 @@
 # Ingestion 质量处置与可追溯发布 Spec
 
-日期：2026-11-12。状态：**本次会话已完成设计，尚未实现、验收或用于生产发布。**
+日期：2026-11-12。状态：**设计、正式实现和独立库验收已完成，尚未用于生产发布。**
 
 依据：[核心架构](core_design.md)、[技术设计与实现边界](ingestion_v3.2_implementation.md)、[Meta 审计 Spec](meta_audit_lifecycle_spec.md)、[股票日线契约](stock_daily_ingestion_proposal.md)、[每日指标契约](daily_basic_ingestion_proposal.md)、[涨跌停价格契约](stk_limit_ingestion_proposal.md)及 2026-11-12 日频失败 Unit 交接与源端复查。
 
-本 Spec 定义新增的逻辑能力，不声称当前代码已经具备这些能力。正式实施前仍须完成对应 Dataset 契约、DDL、Meta Schema、测试和独立库验收；不得仅凭本文直接修改生产事实或历史 Run 状态。
+本 Spec 的逻辑能力已在代码和独立库实现验收；生产 Schema、历史失败 Unit 和生产事实仍未变更。实际实现与验收证据见文末。
 
 ## 1. 背景与问题
 
@@ -285,4 +285,29 @@ Publication 处置档案保存全部受影响记录的 before/after、请求身�
 - 从“只有规则级失败原因”扩展为“记录键、字段、原值、结果、政策和来源的版本化追溯”；
 - 以 `publication.dispositions` 一个长期 JSON 字段完成最小 Meta 扩展，不增加物理处置阶段、通用修复框架或新的 Coverage 状态。
 
-截至本 Spec 编写时，上述内容均为已确认设计，不代表代码、生产 Schema、历史失败 Unit 或下游数据已经完成变更。
+## 14. 实现与验收记录
+
+正式实现复用现有 `Check.detail.disposition` 传递 prepare 的发现和处置，Publisher 只将已记录处置复制到成功 Unit 的 `publication.dispositions`，不改变 Dataset／Adapter Protocol、Runner 流程或 Publisher 调用签名。新增 `sources/tushare/disposition.py` 的普通函数仅负责关联最终成功 Attempt 和计算证据 SHA-256，不决定质量政策或发布许可。
+
+三项 Dataset 的 Adapter、业务规则和 DDL 已同步修订；`meta.sql` 与 `db.META_COLUMNS` 增加 Publication 处置字段。既有 Meta 或 Canonical 布局仍不自动迁移，生产库未修改。
+
+机制测试覆盖精确命中、政策外异常、Raw／Candidate／Canonical 对照、行级 before/after、证据哈希、成功清理、无处置重跑、其他 ERROR 阻断、带处置发布回滚及 Publication 长期留存。完整正式回归结果：
+
+```bash
+uv run --frozen python -m unittest discover -s tests -v
+# 228 项通过，1 项既有样本跳过
+
+uv run --frozen python scripts/check_environment.py
+# PASS：Canonical DDL、业务键、Arrow/Parquet、DuckDB、dbt Serving
+```
+
+全量离线验收位于 `data/probes/quality-disposition-validation-20261112/`，驱动为 `verify.py`，机器结果为 `summary.json`，独立库为 `warehouse.duckdb`。验证使用正式 Runner／Adapter／Validator／Publisher；驱动只在 capture 时观察实际 Raw/Candidate并禁用大体积 Meta 快照导出，不宣称完整 walkthrough 产物。
+
+| Dataset | 成功 Unit | 发布行数 | 处置记录 |
+|---|---:|---:|---:|
+| `stock_daily` | 206 | 639,545 | 236 |
+| `daily_basic` | 1 | 4,160 | 90 |
+| `stk_limit` | 4 | 10,499 | 4 |
+| 合计 | 211 | 654,204 | 330 |
+
+全部 211 个目标 Unit 均为 SUCCESS／PUBLISHED，逐 Unit 的源响应、实际 Raw/Candidate、Canonical、Publication、Coverage 和处置记录核对通过。212 份输入源证据在运行前后 SHA-256 完全不变；本次无网络请求，未读取或写入生产 `data/warehouse.duckdb`。生产定向重跑仍需另行授权，并在写库前建立和校验恢复点。

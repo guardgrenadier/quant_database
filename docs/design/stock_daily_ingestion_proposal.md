@@ -1,5 +1,7 @@
 # stock_daily 接入提案
 
+**2026-11-12 质量处置修订：** `pre_close / change / pct_chg` 改为允许合法 NULL，由 prepare 以 `ACCEPT_NULL` 记录全部受影响行；其余六个行情数值仍必填。处置档案随 Publication 长期保存，详见[质量处置 Spec](ingestion_quality_disposition_spec.md)。下文 2026-10-22 的接入和验收数字保留其历史口径。
+
 日期：2026-10-22。状态：**用户已确认提案，正式实现及独立库验收完成。** 下列项目建议已作为本 Dataset 的当前契约。
 
 依据：[核心架构](core_design.md)、[实施契约](ingestion_v3.2_implementation.md)、[接入清单](dataset_onboarding_checklist.md)、[质量对照报告](../research/galaxy-vs-tushare-daily-quality-2026-10-22.md)、[原日线研究](../research/tushare-official-daily-index-2026-10-14.md)及其[摘要](../research/tushare-official-daily-index-probe-summary-2026-10-14.json)。
@@ -19,7 +21,7 @@
 | 业务事实与边界 | 保存 daily 报告的全市场沪深北 A 股未复权日事实；不从当前股票名单筛历史代码，不补停牌日价格或零量行，不派生可交易状态 |
 | Dataset / 表 | stock_daily / canonical.stock_daily |
 | Record Key | (ts_code, trade_date)，重复和冲突均阻断所属日，不去重 |
-| Schema | ts_code 为必填非空白 VARCHAR，trade_date 为必填 DATE；open/high/low/close/pre_close/change/pct_chg/vol/amount 为九列必填 DOUBLE，共 11 列 |
+| Schema | 共 11 列；键及 open/high/low/close/vol/amount 必填，pre_close/change/pct_chg 允许合法 NULL并留 `ACCEPT_NULL` 处置档案 |
 | 单位及时间 | 股票价格为人民币元，pct_chg 为百分数，vol 为手，amount 为千元；trade_date 保留市场业务日期，抓取时间留在审计 |
 | 输入 | 显式 start_date/end_date，ASCII YYYYMMDD 闭区间；拒绝未来日期，允许上海当日但不保证终态；首版不加股票、交易所或状态过滤 |
 | 上游依赖 | 同库目标区间每个自然日的 trade_calendar / SSE:YYYY-MM-DD 成功版本；不依赖 stock_basic、suspend_daily 或 stock_st，不自动获取上游 |
@@ -41,7 +43,7 @@
 
 - 逐日完整交付不证明供应商无个股遗漏；历史当前代码映射、上市状态重建及停牌归因均不是本 Dataset 的验收结论。
 - 6,000 行边界接近当前市场规模；首版遇到 has_more/触顶会明确失败，不能发布部分数据。后续真需要取尽时再实现已验证的专属分页，不提前新增框架。
-- 不把请求空响应、转换失败和合法 NULL 混为一谈；九个数值必填是本项目建议，未来真实新样本冲突时须报告，不能自行改可空规则。
+- 不把请求空响应、转换失败和合法 NULL 混为一谈；仅三个参考/派生字段按 2026-11-12 政策可空，其他数值缺失或新政策外异常仍须阻断，不能自行扩大可空范围。
 
 沿用现有 Dataset / Adapter Protocol、Runner、Validator、Publisher、Meta；新增专属 Dataset/DDL/Adapter、CLI 装配及必要测试，不修改冻结内核。相近实现是 suspend_daily 的按日范围与请求隔离，以及 index_basic 的严格数值边界；不继承它们的零行或股票枚举政策。不引入基类、注册器、规则 DSL 或额外生产依赖。
 
