@@ -510,7 +510,7 @@ def compress_stdout(paths):
 def rotate_backup(args, state, year):
     """年度结束先在 D 盘验证新副本，再删除旧副本；不执行历史 EXCEPT ALL。"""
     assert_no_lock(args.db)
-    assert_resources(args)
+    # 备份只读主库且只写 D 盘；C 盘门槛用于新 Run，不能阻止不产生 C 盘写入的恢复点轮换。
     old = Path(state["backup"]["path"])
     if one_backup(args.backup_dir) != old or not old.is_file():
         raise RuntimeError("Backup directory changed before rotation; refusing to delete an unexpected file")

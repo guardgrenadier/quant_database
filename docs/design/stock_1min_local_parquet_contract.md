@@ -329,4 +329,6 @@ Adapter 只返回 `(Candidate, preparation_checks)`，不直接写 Meta。Runner
 
 20. 2026-11-11 与银河共用停牌解析扩展为多段、非补零和 `H:MM[:SS]` 完整分钟子集。独立库 2025-07-30/12-09 正式本地 Run 的目标 Unit 均发布 241 行，Candidate/Canonical 无差异，manifest 哈希通过；真实秒级样本只保留 10:06–10:14 槽位。全套 219 项测试中 218 通过、1 项既有样本缺失跳过，未写生产库。
 
+21. 2026-11-13 修复 UNKNOWN Unit 的二次全局污染：本地 Adapter 对 Scope 已登记的 UNKNOWN Unit 不再额外生成无法归属的 `local.scope_conflict`；源行分类、停牌冲突语义和 `NETDISK_END_MINUTE_V1` 不变，UNKNOWN Unit 仍无 Candidate/Publication。回归模拟全日停牌、正成交日线及正量分钟冲突，正常 Unit 发布 241 行而冲突 Unit 保持 UNKNOWN；未识别代码和其他源错误仍阻断。全套 231 项测试中 230 通过、1 项既有样本缺失跳过，未写生产库或重跑真实冲突日。
+
 当前完成的是 2026-01-05～04-17 的受控生产回填及既有锚点，不代表全历史覆盖；仍有 7 个失败 Unit，第 9 节剩余风险不因生产回填成功而消失。

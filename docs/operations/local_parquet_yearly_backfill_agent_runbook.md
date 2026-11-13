@@ -76,7 +76,7 @@ Meta 没有历史行镜像或通用 CDC，不能用 Meta 声称旧 Canonical 已
 1. **后续所有新恢复点，包括临时文件和最终文件，都写入 `/mnt/d/quant_data_backups/`。** 不在 C 盘或 WSL 内创建新全文件备份，不与网盘源目录混放。夜间执行器在参数解析时强制校验该精确路径，传入 `data/backups/`、其他 WSL 路径或其他 D 盘目录都会拒绝启动。
 2. 最终只保留一个最新已验证恢复点。旧恢复点保留到新恢复点验证完成后再删除。
 3. 默认安全轮换：停止写库并确认无 RUNNING、无 WAL → 检查 D 盘容量 → 写 D 盘临时文件并 `fsync` → 原子命名 → 核对 SHA-256 并以只读方式核验关键 Meta/Canonical → 删除旧恢复点。
-4. D 盘必须同时容纳安全轮换期间的旧、新备份，并保留至少 20 GiB 余量。C/D 实际宿主剩余空间低于 20 GiB 时停止新 Run；**WSL 内部或未分配膨胀空间不计入宿主可用空间**。
+4. D 盘必须同时容纳安全轮换期间的旧、新备份，并保留至少 20 GiB 余量。C/D 实际宿主剩余空间低于 20 GiB 时停止新 Run；备份轮换只读主库且不写 C 盘，因此只应用 D 盘容量门槛，但不能借备份绕过新 Run 的 C 盘停止条件。**WSL 内部或未分配膨胀空间不计入宿主可用空间**。
 5. 不做每日或月度备份，不保留年度备份链。年度或明确授权窗口开始前复用/建立基线，验收后轮换。
 6. 若 D 盘无法容纳安全轮换，停止并报告。先删除旧备份再写新备份会形成零恢复点窗口，必须另行明确授权。
 7. 备份验证用于证明副本可恢复，不属于常规旧事实 `EXCEPT ALL` 审计。
@@ -123,7 +123,7 @@ uv run --frozen python scripts/run_local_minute_overnight.py \
 
 2. 已知 WARNING：`local.zero_auction`、`local.zero_close_auction`、`local.post_close_excluded`、`local.out_of_scope_zero`。
 3. 新 Unit 级 ERROR 只有在正式 Meta 证明影响范围明确、ERROR 与 FAILED Unit 集合一致、失败 Unit 无新 Publication、无全局/依赖/发布异常且无新 WARNING 时才可继续。**同一新 ERROR 规则在第二个交易日再次出现时停止。**
-4. Unit 级 UNKNOWN 可记录并跳过，前提是其范围明确、没有发布且不影响其他 Unit。
+4. Unit 级 UNKNOWN 可记录并跳过，前提是其范围明确、没有发布且不影响其他 Unit。本地 Adapter 不再把这类 Unit 的源行二次升级为全局 `local.scope_conflict`；既有 `run_unit` UNKNOWN 原因即为正式问题记录。
 5. 单日缺 `stock_daily/suspend_daily` Coverage（包括 FAILED、PENDING 或 UNKNOWN）只记录为 SKIPPED 并继续，**不参与连续日期熔断**；这些日期没有分钟发布，必须进入后续集中修复台账。单日缺源文件也可跳过，但连续两个交易日缺源文件时停止。
 6. 连续两个实际执行日零 PUBLISHED 时停止，防止系统性问题下空跑。
 7. 任何既有分钟日期均不自动重跑，包括 SUCCESS、PARTIAL、FAILED、本地或银河 Run。2013-01-04 的既有银河 PARTIAL 记录后跳过，不阻塞其他 2013 日期。

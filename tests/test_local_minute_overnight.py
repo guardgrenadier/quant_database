@@ -5,6 +5,7 @@ from pathlib import Path
 import shutil
 import sys
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -91,6 +92,25 @@ class OvernightPolicyTest(unittest.TestCase):
                 "--backup-dir", "data/backups",
             ])
         self.assertEqual(raised.exception.code, 2)
+
+    def test_backup_rotation_does_not_use_ingestion_resource_gate(self):
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            database = root / "warehouse.duckdb"
+            backup_dir = root / "backups"
+            backup_dir.mkdir()
+            with duckdb.connect(str(database)) as con:
+                db.initialize(con, Stock1MinDataset())
+            backup = backup_dir / "warehouse-before.duckdb"
+            shutil.copyfile(database, backup)
+            args = SimpleNamespace(db=database, backup_dir=backup_dir, min_free_gib=0)
+            state = {"backup": {"path": str(backup)}}
+            with patch.object(overnight, "assert_no_lock", lambda _: None), \
+                 patch.object(overnight, "assert_resources", side_effect=AssertionError("unexpected C gate")):
+                result = overnight.rotate_backup(args, state, 2020)
+            self.assertTrue(Path(result["path"]).is_file())
+            self.assertFalse(backup.exists())
+            self.assertEqual(result["sha256"], overnight.file_sha256(database))
 
 
 class OvernightIntegrationTest(unittest.TestCase):

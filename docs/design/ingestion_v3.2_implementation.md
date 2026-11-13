@@ -322,7 +322,7 @@ Run、Publication、Coverage 和 Run Dependency 长期保留；Run Unit、Reques
 
 分钟 Adapter 分别确定 K 线、快照的完整交付与解析成功范围，再执行依赖它们的比较。获取失败不再追加快照缺失、日线冲突或竞价守恒等连带错误；另一输入上可独立执行的源检查保留，完整空交付的真实冲突仍阻断。没有新增共享检查模型或 SKIPPED 日志。
 
-本地分钟源固定一日一文件一 Run，读取同一份文件字节计算 SHA-256 并解码 Raw。路径、大小、哈希、行数和 `NETDISK_END_MINUTE_V1` 进入长期保留的 Run params；request_attempt 为空。Adapter 在 prepare 返回 `local.row_accounting`、`local.traded_equivalence` 及其他源专属 Check，由统一 Validator 决定发布许可。通过 Coverage → Publication → Run 即可追溯当前 Canonical 的本地输入，不增加 Meta 表。完整规则及风险见[本地 Parquet 转换契约](stock_1min_local_parquet_contract.md)。
+本地分钟源固定一日一文件一 Run，读取同一份文件字节计算 SHA-256 并解码 Raw。路径、大小、哈希、行数和 `NETDISK_END_MINUTE_V1` 进入长期保留的 Run params；request_attempt 为空。Adapter 在 prepare 返回 `local.row_accounting`、`local.traded_equivalence` 及其他源专属 Check，由统一 Validator 决定发布许可。通过 Coverage → Publication → Run 即可追溯当前 Canonical 的本地输入，不增加 Meta 表。已在 Scope 明确登记为 UNKNOWN 的 Unit 不再因其源行越出 IN_SCOPE 而额外生成全局 `local.scope_conflict`；该 Unit 保持 UNKNOWN 且不发布，其他正常 Unit 不受污染，未识别代码及其他源错误仍按原政策阻断。完整规则及风险见[本地 Parquet 转换契约](stock_1min_local_parquet_contract.md)。
 
 2026-11-05 起北交所 Scope/Canonical 全历史统一使用 bse_mapping.n_code。本地新代码直接保留、旧代码映射为新代码；银河 Adapter 在改代码前用 o_code 组织 K 线/快照及补取请求，响应和 owners 统一回 n_code，跨迁移日分段。stock_daily、停牌和 reference_price 均直接使用新代码，不做反向映射。2026-11-07 起全天停牌增加最小例外：R 单独不解除 S+NULL，只有 R 同日且 stock_daily.vol>0 才进入正常请求集合；无日线的 S+R 维持全天停牌，没有 R 的正成交冲突仍为 UNKNOWN。2026-11-11 起两种分钟来源共用多段 `H:MM[:SS]` 停牌解析，原区间必须正向；开始秒向上、结束秒向下取完整分钟后排序取并集，不足一个完整分钟的区间不产生 SUSPENDED 槽位。
 

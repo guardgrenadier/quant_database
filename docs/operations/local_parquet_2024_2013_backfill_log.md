@@ -484,3 +484,11 @@
 - 验证结果：复制时计算的源 SHA-256 与新恢复点完整 SHA-256 一致；新恢复点只读打开成功，21 张 Canonical/Meta 表行数与主库一致，`meta.run` 1,661 行，`canonical.stock_1min` 719,873,779 行；最新分钟 Run 为 `df53d8e0-0b33-4801-9376-eb3c7a5eb7f7` / PARTIAL，无 RUNNING Run。
 - 旧恢复点：`data/backups/warehouse-20261111T005508+0800-after-suspension-format-repair.duckdb`，原 SHA-256 `2bb42b6108ee0a0a63ffb9ddf5b779a4fd26b9f331bbbded1d984f4b88fbd227`，已在新恢复点验证完成后删除。`data/backups/` 当前为空，D 盘无临时文件残留；当前唯一恢复点为上述 D 盘文件。
 - 耗时与磁盘：复制和验证合计 815.26 秒。D 盘可用空间由约 121.32 GiB 降至 93.33 GiB。删除 WSL 内旧文件后，宿主 C 盘可用空间仍约 31.45 GiB，未立即增加；虚拟磁盘未收缩，本轮未执行 VHDX 压缩或其他宿主磁盘操作。
+
+## 2026-11-13：当前进度 D 盘恢复点更新
+
+- 批前检查发现 D 盘 2023 恢复点已落后：主库及分钟、日频和 Meta 均有后续变化。本次为用户明确授权的当前进度备份，不表示年度验收完成，不启动或恢复 ingestion。
+- 新恢复点：`/mnt/d/quant_data_backups/warehouse-20261112T235949+0800-after-local-minute-current-progress.duckdb`，50,933,850,056 字节，SHA-256 `5bcd61d973df621c76afce586e14950d7ee69c96d9e28c8f8ffb67c88ec2332b`。
+- 验证结果：复制时源 SHA-256 与新恢复点完整 SHA-256 一致；21 张 Canonical/Meta 表行数及最新分钟 Run 与主库一致。分钟 1,260,925,961 行，最新 Run `50bc0d46-fa0c-4c0c-9ef8-1ed94d1e14b8` / PARTIAL，无 RUNNING Run、无 WAL、无临时文件残留。
+- 旧恢复点 `/mnt/d/quant_data_backups/warehouse-20261112T025601+0800-after-local-minute-2023.duckdb`（SHA-256 `ebc042de1fa4273401325d60e0cc10425c23d3ccec35e8fe44ac839de63f8a95`）已在新副本验证后删除；`state.json` 已指向新恢复点。
+- 复制和验证约 1,426.72 秒。完成后 C 盘约 16.79 GiB、D 盘约 75.47 GiB。备份只读主库且只写 D 盘，因此未应用新 Run 的 C 盘门槛；后续新 Run 的 C/D 20 GiB 停止条件不变。

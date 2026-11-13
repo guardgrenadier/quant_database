@@ -329,8 +329,13 @@ class LocalParquetStock1MinAdapter:
 
     @staticmethod
     def _grouped_unit_checks(level, rows, scope):
+        unknown = {reason.unit_key for reason in scope.unknown}
         grouped = {}
         for rule, unit, count in rows:
+            # Scope 已在 run_unit 明确登记 UNKNOWN；其越界源行不再生成无法归属的二次全局 ERROR。
+            # 其他规则和无法识别的 Unit 仍按原政策阻断，不把未知来源静默排除。
+            if rule == "local.scope_conflict" and unit in unknown:
+                continue
             grouped.setdefault(rule, []).append((unit, count))
         return [LocalParquetStock1MinAdapter._unit_check(level, rule, values, scope)
                 for rule, values in sorted(grouped.items())]

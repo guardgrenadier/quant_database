@@ -180,6 +180,27 @@ class LocalStock1MinTest(unittest.TestCase):
         self.assertIn("local.full_suspension_conflict", self.rules(result, "ERROR"))
         self.assertEqual(self.con.execute("SELECT count(*) FROM canonical.stock_1min WHERE ts_code='000002.SZ'").fetchone()[0], 0)
 
+    def test_scope_unknown_source_rows_do_not_block_other_units(self):
+        # 全日停牌与正成交日线冲突使 000002 在 Scope 阶段即为 UNKNOWN，不进入 IN_SCOPE。
+        self.con.execute("INSERT INTO canonical.stock_daily VALUES ('000002.SZ',?,10,11,9,10.5,9.5,1,10,337434,3067945)", [DAY])
+        rows = self.normal_rows()
+        rows.append(source_row("000002.SZ", "09:31", volume=337434, amount=3067945.33))
+        result = self.ingest(rows)
+        # UNKNOWN 的零量和正量源行不能把其余正常 Unit 升级为全日 FAILED。
+        self.assertEqual(result.status, "PARTIAL", result.error)
+        self.assertNotIn("local.scope_conflict", self.rules(result))
+        self.assertEqual(self.con.execute("SELECT count(*) FROM canonical.stock_1min WHERE ts_code='000001.SZ'").fetchone()[0], 241)
+        self.assertEqual(self.con.execute("SELECT count(*) FROM canonical.stock_1min WHERE ts_code='000002.SZ'").fetchone()[0], 0)
+        audit = self.con.execute("""
+            SELECT scope_decision,status,reason FROM meta.run_unit
+            WHERE run_id=? AND unit_key='000002.SZ:2020-03-12'
+        """, [result.run_id]).fetchone()
+        self.assertEqual(audit[:2], ("UNKNOWN", "UNKNOWN"))
+        self.assertIn("suspend_conflict", audit[2])
+        self.assertEqual(self.con.execute("""
+            SELECT count(*) FROM meta.publication WHERE run_id=? AND unit_key='000002.SZ:2020-03-12'
+        """, [result.run_id]).fetchone()[0], 0)
+
     def test_bse_current_code_close_label_and_post_close_exclusion(self):
         day = self.use_bse_universe()
         rows = [
